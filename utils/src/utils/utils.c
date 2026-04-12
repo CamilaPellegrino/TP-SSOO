@@ -1,6 +1,5 @@
 #include "utils.h"
 
-
 void* serializar_paquete(t_paquete* paquete, int bytes)
 {
 	void * magic = malloc(bytes);
@@ -22,7 +21,6 @@ void crear_buffer(t_paquete* paquete)
 	paquete->buffer->size = 0;
 	paquete->buffer->stream = NULL;
 }
-
 
 // conexiones
 
@@ -55,6 +53,13 @@ int crear_conexion(char *ip, char* puerto)
 	freeaddrinfo(server_info);
 
 	return socket_cliente;
+}
+
+void exit_si_error_conexion(int conexion, t_log *logger, char *mensaje){ // si no pudo conectarse sale del programa
+	if(conexion == -1){
+		log_error(logger, mensaje);
+		exit(EXIT_FAILURE);
+	}
 }
 
 void liberar_conexion(int socket_cliente){

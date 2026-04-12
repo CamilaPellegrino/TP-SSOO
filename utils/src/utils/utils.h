@@ -10,7 +10,7 @@
 #include<string.h>
 
 #include<commons/log.h>
-#include<commons/string.h>
+// #include<commons/string.h>
 #include<commons/config.h>
 #include<commons/collections/list.h>
 
@@ -37,6 +37,7 @@ typedef struct
 // conexiones con sockets
 
 int crear_conexion(char* ip, char* puerto);
+void exit_si_error_conexion(int, t_log *, char *);
 void liberar_conexion(int socket_cliente);
 int iniciar_servidor(char*);
 int esperar_cliente(int);
@@ -70,5 +71,8 @@ t_config* iniciar_config(char*);
 
 t_log* iniciar_logger(char*, char*, t_log_level);
 t_log* iniciar_logger_log_level_string(char*, char*, char*);
+
+// otros
+
 
 #endif /* UTILS_H_ */
