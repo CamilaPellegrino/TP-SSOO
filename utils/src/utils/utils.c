@@ -57,7 +57,7 @@ int crear_conexion(char *ip, char* puerto)
 
 void exit_si_error_conexion(int conexion, t_log *logger, char *mensaje){ // si no pudo conectarse sale del programa
 	if(conexion == -1){
-		log_error(logger, mensaje);
+		log_error(logger, "No se pudo conectar a %s", mensaje);
 		exit(EXIT_FAILURE);
 	}
 }

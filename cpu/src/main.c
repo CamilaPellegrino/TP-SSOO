@@ -3,7 +3,7 @@
 
 int main(int argc, char* argv[]){
     if(argc < 2){ // ejemplo para ejecutar: ./bin/cpu "./cpu.config"
-        printf("Se esperaban mas parametros");
+        printf("Se esperaban mas parametros. Ejemplo: ./bin/cpu ./cpu.config");
         exit(EXIT_FAILURE);
     }
 
@@ -19,7 +19,13 @@ int main(int argc, char* argv[]){
 
     // crear logger
     logger = iniciar_logger("./logs/cpu.log", "ProcesoCPU", LOG_LEVEL_INFO);
+
+    // iniciar config
     config = iniciar_config(ruta_config);
+    if(config == NULL){
+        printf("No se pudo cargar el config\n");
+        exit(EXIT_FAILURE);
+    }
 
     ip = config_get_string_value(config, "IP");
     
@@ -30,21 +36,22 @@ int main(int argc, char* argv[]){
 
     // conectar a kernel scheduler
     int conexion_kernel_scheduler = crear_conexion(ip, puerto_kernel_scheduler);
-    
-    if(conexion_kernel_scheduler == -1){
-        log_error(logger, "No se pudo conectar a kernel scheduler");
-        exit(EXIT_FAILURE);
-    }
+    exit_si_error_conexion(conexion_kernel_scheduler, logger, "kernel scheduler");
 
     // conectar a kernel memory
     int conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
-    exit_si_error_conexion(conexion_kernel_memory, logger, "No se pudo conectar a kernel_memory");
+    exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
 
     // conectar a memory stick
     int conexion_memory_stick = crear_conexion(ip, puerto_memory_stick);
-    if(conexion_memory_stick == -1){
-        log_error(logger, "No se pudo conectar a memory stick");
-        exit(EXIT_FAILURE);
-    }
+    exit_si_error_conexion(conexion_memory_stick, logger, "memory stick");
+
+
+    // liberar logger, config y conexiones
+    log_destroy(logger);
+    config_destroy(config);
+    close(conexion_kernel_scheduler);
+    close(conexion_kernel_memory);
+    close(conexion_memory_stick);
     return 0;
 }
