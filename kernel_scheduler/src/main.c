@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
     char *puerto_kernel_scheduler;
 
     // crear logger
-    logger = iniciar_logger("./logs/kernel_scheduler.log", "ProcesoKernelScheduler", LOG_LEVEL_INFO );
+    logger = iniciar_logger("kernel_scheduler.log", "ProcesoKernelScheduler", LOG_LEVEL_INFO );
     
     // crear config
     config = iniciar_config(ruta_config); 

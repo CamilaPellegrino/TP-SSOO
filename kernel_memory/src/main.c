@@ -11,7 +11,7 @@ int main(int argc, char* argv[]) { //KERNEL MEMORY
     t_log* logger;
     t_config* config;
     
-    logger = iniciar_logger("./logs/kernel_memory.log", "ProcesoKernelMemory", LOG_LEVEL_INFO );
+    logger = iniciar_logger("kernel_memory.log", "ProcesoKernelMemory", LOG_LEVEL_INFO );
     config = iniciar_config(ruta_config);
     if(config == NULL){
         printf("No se pudo cargar el config\n");

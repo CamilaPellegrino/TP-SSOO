@@ -12,7 +12,7 @@ int main(int argc, char* argv[]) { //MEMORY STICK
     char *ip;
     char *puerto;
 
-    logger = iniciar_logger("./logs/memory_stick.log", "ProcesoKernelMemory", LOG_LEVEL_INFO);
+    logger = iniciar_logger("memory_stick.log", "ProcesoKernelMemory", LOG_LEVEL_INFO);
     
     // inciar config
     config = iniciar_config(ruta_config);

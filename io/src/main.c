@@ -13,7 +13,7 @@ int main(int argc, char* argv[]) {
     char * puerto_kernel_scheduler;
 
     //Setup inicial
-    logger = iniciar_logger("./logs/io.log", "ProcesoIO", LOG_LEVEL_INFO );
+    logger = iniciar_logger("io.log", "ProcesoIO", LOG_LEVEL_INFO );
     config = iniciar_config(ruta_config);
     
     if(config == NULL){

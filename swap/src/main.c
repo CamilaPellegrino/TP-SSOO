@@ -13,7 +13,7 @@ int main(int argc, char* argv[]) {
     char *puerto_kernel_memory;
 
     //Setup inicial
-    logger = iniciar_logger("./logs/swap.log", "ProcesoSWAP", LOG_LEVEL_INFO );
+    logger = iniciar_logger("swap.log", "ProcesoSWAP", LOG_LEVEL_INFO );
     config = iniciar_config(ruta_config);
     
     if(config == NULL){

@@ -18,7 +18,7 @@ int main(int argc, char* argv[]){
     char *puerto_memory_stick;
 
     // crear logger
-    logger = iniciar_logger("./logs/cpu.log", "ProcesoCPU", LOG_LEVEL_INFO);
+    logger = iniciar_logger("cpu.log", "ProcesoCPU", LOG_LEVEL_INFO);
 
     // iniciar config
     config = iniciar_config(ruta_config);
