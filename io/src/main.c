@@ -2,7 +2,9 @@
 #include <utils/utils.h>
 
 int main(int argc, char* argv[]) {
-    if(argc < 2){ // ejemplo para ejecutar: ./bin/io "./io.config"
+    // ejemplo para ejecutar: ./bin/io "./io.config"
+    if(argc < 2){ 
+        
         printf("Se esperaban mas parametros. Ejemplo: ./bin/io \"./io.config\"");
         exit(EXIT_FAILURE);
     }
@@ -31,6 +33,13 @@ int main(int argc, char* argv[]) {
         log_error(logger, "No se pudo conectar a kernel_scheduler");
         exit(EXIT_FAILURE);
     }
+    // handshake
+    handshake_cliente(conexion_kernel_scheduler, logger);
+
+    // liberar logger, config y conexiones
+    log_destroy(logger);
+    config_destroy(config);
+    close(conexion_kernel_scheduler);
     
     return 0;
 }

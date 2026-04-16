@@ -2,7 +2,8 @@
 #include <utils/utils.h>
 
 int main(int argc, char* argv[]){
-    if(argc < 2){ // ejemplo para ejecutar: ./bin/cpu "./cpu.config"
+    // ejemplo para ejecutar: ./bin/cpu "./cpu.config"
+    if(argc < 2){ 
         printf("Se esperaban mas parametros. Ejemplo: ./bin/cpu ./cpu.config");
         exit(EXIT_FAILURE);
     }
@@ -37,14 +38,17 @@ int main(int argc, char* argv[]){
     // conectar a kernel scheduler
     int conexion_kernel_scheduler = crear_conexion(ip, puerto_kernel_scheduler);
     exit_si_error_conexion(conexion_kernel_scheduler, logger, "kernel scheduler");
-
+    handshake_cliente(conexion_kernel_scheduler,logger);
+    
     // conectar a kernel memory
     int conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
-
+    handshake_cliente(conexion_kernel_memory,logger);
+    
     // conectar a memory stick
     int conexion_memory_stick = crear_conexion(ip, puerto_memory_stick);
     exit_si_error_conexion(conexion_memory_stick, logger, "memory stick");
+    handshake_cliente(conexion_memory_stick,logger);
 
 
     // liberar logger, config y conexiones

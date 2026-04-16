@@ -17,7 +17,8 @@
 typedef enum
 {
 	MENSAJE,
-	PAQUETE
+	PAQUETE,
+	SCHE_CONEXION
 }op_code;
 
 typedef struct
@@ -33,6 +34,10 @@ typedef struct
 } t_paquete;
 
 
+//handshake
+
+void handshake_servidor(int cliente_fd, t_log* logger);
+void handshake_cliente(int conexion,t_log* logger);
 
 // conexiones con sockets
 
@@ -72,7 +77,7 @@ t_config* iniciar_config(char*);
 t_log* iniciar_logger(char*, char*, t_log_level);
 t_log* iniciar_logger_log_level_string(char*, char*, char*);
 
-// otros
 
 
-#endif /* UTILS_H_ */
+
+#endif  /* UTILS_H_ */ 

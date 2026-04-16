@@ -2,7 +2,8 @@
 #include <utils/utils.h>
 
 int main(int argc, char* argv[]) { //MEMORY STICK
-    if(argc < 2){ // ejemplo para ejecutar: ./bin/memory_stick "./memory_stick.config"
+    // ejemplo para ejecutar: ./bin/memory_stick "./memory_stick.config"
+    if(argc < 2){ 
         printf("Se esperaban mas parametros. Ejemplo: ./bin/memory_stick \"./memory_stick.config\"");
         exit(EXIT_FAILURE);
     }
@@ -28,6 +29,8 @@ int main(int argc, char* argv[]) { //MEMORY STICK
     
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
     
+    handshake_cliente(conexion_kernel_memory, logger);
+
     //iniciar como servidor
     puerto = config_get_string_value (config, "PUERTO_MEMORY_STICK"); //31551
     int memory_stick_fd = iniciar_servidor(puerto);
@@ -36,9 +39,12 @@ int main(int argc, char* argv[]) { //MEMORY STICK
         exit(EXIT_FAILURE);
     }
 
+    // esperar clientes
     while(true){
         int cliente_fd = esperar_cliente(memory_stick_fd);
         log_info(logger, "Me llego un cliente, %d\n", cliente_fd);
+
+        handshake_servidor(cliente_fd, logger);
         
     }
     

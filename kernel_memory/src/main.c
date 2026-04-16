@@ -2,7 +2,8 @@
 #include <utils/utils.h>
 
 int main(int argc, char* argv[]) { //KERNEL MEMORY
-    if(argc < 2){ // ejemplo para ejecutar: ./bin/kernel_memory "./kernel_memory.config"
+    // ejemplo para ejecutar: ./bin/kernel_memory "./kernel_memory.config"
+    if(argc < 2){ 
         printf("Se esperaban mas parametros. Ejemplo: ./bin/kernel_memory \"./kernel_memory.config\"");
         exit(EXIT_FAILURE);
     }    
@@ -25,11 +26,19 @@ int main(int argc, char* argv[]) { //KERNEL MEMORY
         log_error(logger, "No se pudo iniciar el servidor");
         exit(EXIT_FAILURE);
     }
-
+    
+    // esperar clientes
     while(true){
         int cliente_fd = esperar_cliente(kernel_memory_fd);
         log_info(logger, "Me llego un cliente, %d\n", cliente_fd);
+        handshake_servidor(cliente_fd, logger);
+        op_code cod_op = recibir_operacion(cliente_fd);
+        
+        switch(cod_op){
+            case SCHE_CONEXION: 
+                char *msg = recibir_mensaje(cliente_fd);
+                log_info(logger, "Me llego el scheduler");
+        }
+        return 0;
     }
-    
-    return 0;
 }

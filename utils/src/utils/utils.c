@@ -22,6 +22,62 @@ void crear_buffer(t_paquete* paquete)
 	paquete->buffer->stream = NULL;
 }
 
+// hadnshake
+
+void handshake_cliente(int conexion,t_log* logger){
+    int32_t handshake = 1;
+    int32_t result;
+
+    send(conexion, &handshake, sizeof(int32_t), 0);
+    recv(conexion, &result, sizeof(int32_t), MSG_WAITALL);
+
+    if (result == 0){
+        log_info(logger,"Handshake Exitoso!");
+    }
+    else {// Handshake ERROR
+        log_error(logger,"Error inesperado en el handshake" );
+        exit(EXIT_FAILURE);
+    
+    }
+} 
+
+void handshake_servidor(int cliente_fd, t_log* logger){
+    int32_t handshake;
+    int32_t resultOk = 0;
+    int32_t resultError = -1;
+	
+    recv(cliente_fd, &handshake, sizeof(int32_t), MSG_WAITALL);
+    if (handshake == 1) {
+        send(cliente_fd, &resultOk, sizeof(int32_t), 0);
+		log_info(logger,"ResultOk - enviando respuesta");
+    }
+    else {
+		log_error(logger,"Error inesperado en el handshake");
+        send(cliente_fd, &resultError, sizeof(int32_t), 0);
+    }
+}
+
+/*while (1) {
+    pthread_t thread;
+    int *fd_conexion_ptr = malloc(sizeof(int));
+    fd_conexion_ptr = accept(fd_escucha, NULL, NULL);
+	
+	switch(caso){
+pthread_create(&thread,
+                    NULL,
+                    (void) esperarcliente,
+                    fd_conexion_ptr);
+    pthread_detach(thread);
+
+		
+	}
+    pthread_create(&thread,
+                    NULL,
+                    (void) esperarcliente,
+                    fd_conexion_ptr);
+    pthread_detach(thread);
+}
+*/
 // conexiones
 
 int crear_conexion(char *ip, char* puerto)
@@ -190,7 +246,6 @@ void enviar_paquete_y_liberarlo(t_paquete* paquete, int socket_cliente){
 }
 
 // recibir
-
 int recibir_operacion(int socket_cliente){
 	int cod_op;
 	if(recv(socket_cliente, &cod_op, sizeof(int), MSG_WAITALL) > 0){
@@ -275,3 +330,4 @@ t_log* iniciar_logger(char* ruta, char* process_name, t_log_level log_level)
 	}
 	return nuevo_logger;
 }
+
