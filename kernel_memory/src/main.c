@@ -37,7 +37,10 @@ int main(int argc, char* argv[]) { //KERNEL MEMORY
         switch(cod_op){
             case SCHE_CONEXION: 
                 char *msg = recibir_mensaje(cliente_fd);
-                log_info(logger, "Me llego el scheduler");
+                log_info(logger, "Me llego el scheduler, mensaje recibido: %s", msg);
+                break;
+            default: 
+                log_warning(logger, "Warning: Operacion desconocida, cod_op = %d", cod_op);
         }
         return 0;
     }

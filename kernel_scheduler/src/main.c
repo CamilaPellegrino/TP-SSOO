@@ -46,8 +46,8 @@ int main(int argc, char* argv[]) {
         log_error(logger, "No se pudo iniciar el servidor");
         exit(EXIT_FAILURE);
     }
-    printf("enviando msg a mem\n");
-    enviar_mensaje("Hola mundo desde sche", kernel_scheduler_fd, SCHE_CONEXION);
+
+    enviar_mensaje("Hola, soy sche", conexion_kernel_memory, SCHE_CONEXION);
 
     // esperar clientes
     while(true){
