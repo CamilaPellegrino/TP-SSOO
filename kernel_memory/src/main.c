@@ -1,15 +1,21 @@
 #include <utils/hello.h>
 #include <utils/utils.h>
 
+void* atender_cliente(void *arg);
+void atender_scheduler(int sch_fd);
+void atender_stick(int sch_fd);
+
+t_log *logger;
+
 int main(int argc, char* argv[]) { //KERNEL MEMORY
-    // ejemplo para ejecutar: ./bin/kernel_memory "./kernel_memory.config"
+    // ejemplo para ejecutar: ./bin/kernel_memory ./kernel_memory.config
     if(argc < 2){ 
-        printf("Se esperaban mas parametros. Ejemplo: ./bin/kernel_memory \"./kernel_memory.config\"");
+        printf("Se esperaban mas parametros. Ejemplo: ./bin/kernel_memory ./kernel_memory.config");
         exit(EXIT_FAILURE);
-    }    
+    }
     char *ruta_config = argv[1];
     char* puerto;
-    t_log* logger;
+    // t_log* logger;
     t_config* config;
     
     logger = iniciar_logger("kernel_memory.log", "ProcesoKernelMemory", LOG_LEVEL_INFO );
@@ -29,19 +35,56 @@ int main(int argc, char* argv[]) { //KERNEL MEMORY
     
     // esperar clientes
     while(true){
-        int cliente_fd = esperar_cliente(kernel_memory_fd);
-        log_info(logger, "Me llego un cliente, %d\n", cliente_fd);
-        handshake_servidor(cliente_fd, logger);
-        op_code cod_op = recibir_operacion(cliente_fd);
+        printf("esperar cliente\n");
+        int *cliente_fd = esperar_cliente(kernel_memory_fd);
+        printf("cliente_fd = %d\n",*cliente_fd);
         
-        switch(cod_op){
-            case SCHE_CONEXION: 
-                char *msg = recibir_mensaje(cliente_fd);
-                log_info(logger, "Me llego el scheduler, mensaje recibido: %s", msg);
-                break;
-            default: 
-                log_warning(logger, "Warning: Operacion desconocida, cod_op = %d", cod_op);
-        }
-        return 0;
+        log_info(logger, "Me llego un cliente, %d", *cliente_fd);
+        handshake_servidor(*cliente_fd, logger);
+
+        //Creacion del hilo para atender la conexion entrante
+        pthread_t thread;
+        pthread_create(&thread, NULL, atender_cliente, cliente_fd);
+        pthread_detach(thread);
+    
     }
+}
+
+void* atender_cliente(void *arg){
+    int *cliente_fd_ptr = (int *) arg;
+    int cliente_fd = *cliente_fd_ptr;
+    op_code cod_op = recibir_operacion(cliente_fd);
+    switch(cod_op){
+        case SCH_KM__CONEXION: {
+            char *msg = recibir_mensaje(cliente_fd);
+
+            log_info(logger, "Me llego el scheduler, mensaje recibido: %s", msg);
+
+            atender_scheduler(cliente_fd);
+            break;
+        }case STICK_KM__CONEXION: {
+            log_info(logger, "stick");
+            char *msg = recibir_mensaje(cliente_fd);
+            log_info(logger, "Me llego stick, msg: %s", msg);
+            atender_stick(cliente_fd);
+
+            break;
+        // }case SWAP:{
+        }default: 
+            log_warning(logger, "Warning: Operacion desconocida, cod_op = %d", cod_op);
+    }
+}
+
+void atender_scheduler(int sch_fd){
+    while(1){
+        sleep(5);
+        log_info(logger, "Atendiendo al scheduler");
+    };
+}
+
+void atender_stick(int sch_fd){
+    while(1){
+        sleep(5);
+        log_info(logger, "****Atendiendo al STIICK");
+    };
 }

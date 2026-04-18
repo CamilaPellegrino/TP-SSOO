@@ -14,11 +14,14 @@
 #include<commons/config.h>
 #include<commons/collections/list.h>
 
+#include <pthread.h>
 typedef enum
 {
 	MENSAJE,
 	PAQUETE,
-	SCHE_CONEXION
+	HANDSHAKE,
+	SCH_KM__CONEXION,
+	STICK_KM__CONEXION
 }op_code;
 
 typedef struct
@@ -45,7 +48,7 @@ int crear_conexion(char* ip, char* puerto);
 void exit_si_error_conexion(int, t_log *, char *);
 void liberar_conexion(int socket_cliente);
 int iniciar_servidor(char*);
-int esperar_cliente(int);
+int* esperar_cliente(int);
 
 // paquetes
 

@@ -27,14 +27,13 @@ void crear_buffer(t_paquete* paquete)
 void handshake_cliente(int conexion,t_log* logger){
     int32_t handshake = 1;
     int32_t result;
-
     send(conexion, &handshake, sizeof(int32_t), 0);
     recv(conexion, &result, sizeof(int32_t), MSG_WAITALL);
 
     if (result == 0){
         log_info(logger,"Handshake Exitoso!");
-    }
-    else {// Handshake ERROR
+		return;
+    }else {// Handshake ERROR
         log_error(logger,"Error inesperado en el handshake" );
         exit(EXIT_FAILURE);
     
@@ -146,7 +145,9 @@ int iniciar_servidor(char* puerto){
         perror("socket");
         freeaddrinfo(servinfo);
         return -1;
-    }		
+    }
+	
+	setsockopt(socket_servidor, SOL_SOCKET, SO_REUSEPORT, &(int){1}, sizeof(int));		
 	// Asociamos el socket a un puerto
 	if (bind(socket_servidor, servinfo->ai_addr, servinfo->ai_addrlen) == -1) {
         perror("bind");
@@ -162,16 +163,25 @@ int iniciar_servidor(char* puerto){
     }
 
 	freeaddrinfo(servinfo);
-
 	return socket_servidor;
 }
 
-int esperar_cliente(int socket_servidor)
+int* esperar_cliente(int socket_servidor)
 {
 	// Aceptamos un nuevo cliente
-	int socket_cliente = accept(socket_servidor, NULL, NULL);
+	int *socket_cliente = malloc(sizeof(int));
+	*socket_cliente = accept(socket_servidor, NULL, NULL);
+	// int *socket_cliente = NULL;
+	// int aux = accept(socket_servidor, NULL, NULL);
+	// socket_cliente = &aux;
+	printf("socket_cliente = %d\n", *socket_cliente);
 	return socket_cliente;
 }
+
+//El malloc() lo realizamos debido a que, como pthread_create() solamente acepta como parámetro un puntero hacia una posición de memoria, 
+//si le pasáramos un puntero a un int que se encuentra en el stack usando &, en el momento en el que el hilo quiera acceder al valor éste 
+//se habrá pisado luego del siguiente accept().
+//Entonces llegará un punto en el que todos los hilos que creemos van a estar usando siempre el mismo file descriptor (y eso probablemente genere condiciones de carrera).
 
 // paquete
 

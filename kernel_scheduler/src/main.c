@@ -47,14 +47,19 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    enviar_mensaje("Hola, soy sche", conexion_kernel_memory, SCHE_CONEXION);
+    // enviar mensaje a kernel memory
+    enviar_mensaje("Hola, soy sche", conexion_kernel_memory, SCH_KM__CONEXION);
 
     // esperar clientes
     while(true){
-        int cliente_fd = esperar_cliente(kernel_scheduler_fd);
-        log_info(logger, "Me llego un cliente, %d", cliente_fd);
+        int *cliente_fd = esperar_cliente(kernel_scheduler_fd);
+        log_info(logger, "Me llego un cliente, %d", *cliente_fd);
 
-        handshake_servidor(cliente_fd, logger);
+        handshake_servidor(*cliente_fd, logger);
+        // creacion del hilo
+        // pthread_t thread;
+        // pthread_create(&thread, NULL, atender_cliente, cliente_fd);
+        // pthread_detach(thread);
     }
 
 
