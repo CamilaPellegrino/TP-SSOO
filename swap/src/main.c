@@ -31,6 +31,12 @@ int main(int argc, char* argv[]) {
 
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
    
+
+    // enviar
+    enviar_operacion(conexion_kernel_memory, SWAP_KM__CONEXION);
+
+    
+
     // liberar logger, config y conexiones
     log_destroy(logger);
     config_destroy(config);

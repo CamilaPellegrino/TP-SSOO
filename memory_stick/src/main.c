@@ -1,6 +1,11 @@
 #include <utils/hello.h>
 #include <utils/utils.h>
 
+void* atender_cliente(void *arg);
+void atender_cpu(int cpu_fd);
+
+t_log * logger;
+
 int main(int argc, char* argv[]) { //MEMORY STICK
     // ejemplo para ejecutar: ./bin/memory_stick "./memory_stick.config" 32
     if(argc < 3){
@@ -11,7 +16,6 @@ int main(int argc, char* argv[]) { //MEMORY STICK
     char *ruta_config = argv[1];
     int tamanio = atoi(argv[2]);
 
-    t_log * logger;
     t_config* config;
     char *ip;
     char *puerto;
@@ -53,10 +57,42 @@ int main(int argc, char* argv[]) { //MEMORY STICK
     while(true){
         int *cliente_fd = esperar_cliente(memory_stick_fd);
         log_info(logger, "Me llego un cliente, %d\n", *cliente_fd);
-
         handshake_servidor(*cliente_fd, logger);
-        
+        //creamos el hilo para atender multiples CPUs
+        pthread_t thread;
+        pthread_create(&thread, NULL, atender_cliente, cliente_fd);
+        pthread_detach(thread);
     }
     
     return 0;
+}
+
+void* atender_cliente(void *arg){
+    int *cliente_fd_ptr = (int *) arg;
+    int cliente_fd = *cliente_fd_ptr;
+    op_code cod_op = recibir_operacion(cliente_fd);
+    switch(cod_op){
+        case CPU_SCH__CONEXION: {
+            char *msg = recibir_mensaje(cliente_fd);
+            log_info(logger, "Me llego el CPU, mensaje recibido: %s", msg);
+            atender_cpu(cliente_fd);
+            break;
+        }default:
+            log_warning(logger, "Warning: Operacion desconocida, cod_op = %d", cod_op);
+    }
+}
+
+void atender_cpu(int cpu_fd){
+    log_info(logger, "****Atendiendo al cpu");
+    while(1){
+        op_code cod_op = recibir_operacion(cpu_fd);
+        switch (cod_op)
+        {
+        case -1:
+            log_warning(logger, "error, se desconecto cpu");
+            return;
+        default:
+            break;
+        }
+    }
 }

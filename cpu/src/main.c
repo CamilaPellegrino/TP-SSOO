@@ -2,15 +2,18 @@
 #include <utils/utils.h>
 
 int main(int argc, char* argv[]){
-    // ejemplo para ejecutar: ./bin/cpu "./cpu.config"
-    if(argc < 2){ 
-        printf("Se esperaban mas parametros. Ejemplo: ./bin/cpu ./cpu.config");
+    // ejemplo para ejecutar: ./bin/cpu "./cpu.config" 0
+    if(argc < 3){ 
+        printf("Se esperaban mas parametros. Ejemplo: ./bin/cpu ./cpu.config 0");
         exit(EXIT_FAILURE);
     }
 
     char *ruta_config = argv[1];
+    char *id_cpu = argv[2];
+
 
     saludar("cpu");
+    
     t_log* logger;
     t_config* config;
     char *ip;
@@ -49,8 +52,21 @@ int main(int argc, char* argv[]){
     int conexion_memory_stick = crear_conexion(ip, puerto_memory_stick);
     exit_si_error_conexion(conexion_memory_stick, logger, "memory stick");
     handshake_cliente(conexion_memory_stick,logger);
-
-
+    
+    // queda escuchando mensajes que envie el scheduler
+    while (1)
+    {
+        op_code cod_op = recibir_operacion(conexion_kernel_scheduler);
+        switch(cod_op){
+            case SCH_CPU__PID:{
+                log_info(logger, "me llego un PID");
+            }
+            default:
+                log_warning(logger, "Warning: Operacion desconocida, cod_op = %d", cod_op);
+                
+        }
+    }
+    
     // liberar logger, config y conexiones
     log_destroy(logger);
     config_destroy(config);

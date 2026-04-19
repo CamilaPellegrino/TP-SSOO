@@ -4,6 +4,7 @@
 void* atender_cliente(void *arg);
 void atender_scheduler(int sch_fd);
 void atender_stick(int sch_fd);
+void atender_swap(int swap_fd);
 
 t_log *logger;
 
@@ -15,7 +16,7 @@ int main(int argc, char* argv[]) { //KERNEL MEMORY
     }
     char *ruta_config = argv[1];
     char* puerto;
-    // t_log* logger;
+
     t_config* config;
     
     logger = iniciar_logger("kernel_memory.log", "ProcesoKernelMemory", LOG_LEVEL_INFO );
@@ -69,22 +70,44 @@ void* atender_cliente(void *arg){
             atender_stick(cliente_fd);
 
             break;
-        // }case SWAP:{
+        }case SWAP_KM__CONEXION:{
+            log_info(logger, "SWAP");
+            atender_swap(cliente_fd);
+            break;
         }default: 
             log_warning(logger, "Warning: Operacion desconocida, cod_op = %d", cod_op);
     }
+    return;
 }
 
+void atender_swap(int swap_fd){
+    while(1){
+        log_info(logger, "****Atendiendo al SWAP");
+        op_code cod_op = recibir_operacion(swap_fd);
+        if(cod_op == -1){
+            log_warning(logger, "error, se desconecto SWAP, terminando todos los modulos: BSOD");
+        }
+        
+    }
+}
 void atender_scheduler(int sch_fd){
+    log_info(logger, "****Atendiendo al SCHEDULER");
     while(1){
-        sleep(5);
-        log_info(logger, "Atendiendo al scheduler");
-    };
+        op_code cod_op = recibir_operacion(sch_fd);
+        if(cod_op == -1){
+            log_warning(logger, "error, se desconecto scheduler");
+        }
+    }
+    return;
 }
 
-void atender_stick(int sch_fd){
+void atender_stick(int stick_fd){
+    log_info(logger, "****Atendiendo al STIICK");
+
     while(1){
-        sleep(5);
-        log_info(logger, "****Atendiendo al STIICK");
+        op_code cod_op = recibir_operacion(stick_fd);
+        if(cod_op == -1){
+            log_warning(logger, "error, se desconecto scheduler");
+        }
     };
 }
