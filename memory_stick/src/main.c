@@ -36,14 +36,12 @@ int main(int argc, char* argv[]) { //MEMORY STICK
     
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
     handshake_cliente(conexion_kernel_memory, logger);
-    enviar_mensaje("hola soy stick", conexion_kernel_memory, STICK_KM__CONEXION);
 
     // mandar info propia al kernel memory
     printf("Enviando a km\n");
-    //t_paquete *paquete = crear_paquete(STICK_KM__CONEXION);
-    // agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
-    // enviar_paquete(paquete, conexion_kernel_memory);
-    //enviar_mensaje("hola soy stick", conexion_kernel_memory, STICK_KM__CONEXION);
+    t_paquete *paquete = crear_paquete(STICK_KM__CONEXION);
+    agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
+    enviar_paquete(paquete, conexion_kernel_memory);
 
     //iniciar como servidor
     puerto = config_get_string_value (config, "PUERTO_MEMORY_STICK"); //31551
@@ -80,6 +78,8 @@ void* atender_cliente(void *arg){
         }default:
             log_warning(logger, "Warning: Operacion desconocida, cod_op = %d", cod_op);
     }
+
+    return NULL;
 }
 
 void atender_cpu(int cpu_fd){
@@ -90,7 +90,7 @@ void atender_cpu(int cpu_fd){
         {
         case -1:
             log_warning(logger, "error, se desconecto cpu");
-            return;
+            break;
         default:
             break;
         }

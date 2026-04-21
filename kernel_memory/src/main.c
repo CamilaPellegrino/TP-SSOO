@@ -62,13 +62,25 @@ void* atender_cliente(void *arg){
             log_info(logger, "Me llego el scheduler, mensaje recibido: %s", msg);
 
             atender_scheduler(cliente_fd);
+            free(msg);
             break;
         }case STICK_KM__CONEXION: {
-            log_info(logger, "stick");
-            char *msg = recibir_mensaje(cliente_fd);
-            log_info(logger, "Me llego stick, msg: %s", msg);
+            // recibo el paquete que me mando stick en una t_list
+            t_list *lista_paquete = recibir_paquete(cliente_fd);
+            // leo cada elemento de la t_list en el orden en que stick los agrego al paquete
+            int *tamanio = list_get(lista_paquete, 0);
+            log_info(logger, "Me llego un stick de tamanio: %d", *tamanio);
+            
+            // pongo al stick en la lista de sticks
+            // TODO
+
+            //aviso a todas las cpus de la lista que llego un stick, para que se conecten
+            // TODO
+
+            // atender stick
             atender_stick(cliente_fd);
 
+            list_destroy(lista_paquete);
             break;
         }case SWAP_KM__CONEXION:{
             log_info(logger, "SWAP");
@@ -77,7 +89,7 @@ void* atender_cliente(void *arg){
         }default: 
             log_warning(logger, "Warning: Operacion desconocida, cod_op = %d", cod_op);
     }
-    return;
+    return NULL;
 }
 
 void atender_swap(int swap_fd){
@@ -86,6 +98,7 @@ void atender_swap(int swap_fd){
         op_code cod_op = recibir_operacion(swap_fd);
         if(cod_op == -1){
             log_warning(logger, "error, se desconecto SWAP, terminando todos los modulos: BSOD");
+            // TODO
         }
         
     }
@@ -96,6 +109,7 @@ void atender_scheduler(int sch_fd){
         op_code cod_op = recibir_operacion(sch_fd);
         if(cod_op == -1){
             log_warning(logger, "error, se desconecto scheduler");
+            break;
         }
     }
     return;
@@ -107,7 +121,8 @@ void atender_stick(int stick_fd){
     while(1){
         op_code cod_op = recibir_operacion(stick_fd);
         if(cod_op == -1){
-            log_warning(logger, "error, se desconecto scheduler");
+            log_warning(logger, "error, se desconecto stick");
+            break;
         }
     };
 }
