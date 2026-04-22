@@ -25,6 +25,7 @@ typedef enum
 	SWAP_KM__CONEXION,
 	CPU_SCH__CONEXION,
 	IO_SCH__CONEXION,
+	CPU_KM__CONEXION,
 	SCH_CPU__PID
 }op_code;
 

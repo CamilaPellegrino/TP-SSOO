@@ -9,7 +9,7 @@ int main(int argc, char* argv[]){
     }
 
     char *ruta_config = argv[1];
-    char *id_cpu = argv[2];
+    int id_cpu = atoi(argv[2]);
 
 
     saludar("cpu");
@@ -48,6 +48,12 @@ int main(int argc, char* argv[]){
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
     handshake_cliente(conexion_kernel_memory,logger);
     
+    //mando informacion propia al km
+    t_paquete *paquete = crear_paquete(CPU_KM__CONEXION);
+    agregar_a_paquete(paquete, &id_cpu, sizeof(id_cpu));
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
+
+
     // conectar a memory stick
     int conexion_memory_stick = crear_conexion(ip, puerto_memory_stick);
     exit_si_error_conexion(conexion_memory_stick, logger, "memory stick");
@@ -57,13 +63,18 @@ int main(int argc, char* argv[]){
     while (1)
     {
         op_code cod_op = recibir_operacion(conexion_kernel_scheduler);
+        if(cod_op == -1){
+            log_info(logger, "se desconecto scheduler"); 
+            break; 
+        }
         switch(cod_op){
             case SCH_CPU__PID:{
                 log_info(logger, "me llego un PID");
+                break;
             }
             default:
                 log_warning(logger, "Warning: Operacion desconocida, cod_op = %d", cod_op);
-                
+                break;
         }
     }
     

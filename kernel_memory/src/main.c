@@ -5,7 +5,7 @@ void* atender_cliente(void *arg);
 void atender_scheduler(int sch_fd);
 void atender_stick(int sch_fd);
 void atender_swap(int swap_fd);
-
+void atender_cpu(int cpu_fd);
 t_log *logger;
 
 int main(int argc, char* argv[]) { //KERNEL MEMORY
@@ -36,9 +36,8 @@ int main(int argc, char* argv[]) { //KERNEL MEMORY
     
     // esperar clientes
     while(true){
-        printf("esperar cliente\n");
+        log_info(logger, "esperar cliente");
         int *cliente_fd = esperar_cliente(kernel_memory_fd);
-        printf("cliente_fd = %d\n",*cliente_fd);
         
         log_info(logger, "Me llego un cliente, %d", *cliente_fd);
         handshake_servidor(*cliente_fd, logger);
@@ -54,6 +53,7 @@ int main(int argc, char* argv[]) { //KERNEL MEMORY
 void* atender_cliente(void *arg){
     int *cliente_fd_ptr = (int *) arg;
     int cliente_fd = *cliente_fd_ptr;
+    free(cliente_fd_ptr);
     op_code cod_op = recibir_operacion(cliente_fd);
     switch(cod_op){
         case SCH_KM__CONEXION: {
@@ -71,25 +71,49 @@ void* atender_cliente(void *arg){
             int *tamanio = list_get(lista_paquete, 0);
             log_info(logger, "Me llego un stick de tamanio: %d", *tamanio);
             
-            // pongo al stick en la lista de sticks
-            // TODO
+            // poner al stick en la lista de sticks
+            // ...
 
-            //aviso a todas las cpus de la lista que llego un stick, para que se conecten
-            // TODO
+            //avisar a las cpus conectadas que llego un stick para que se conecten
+            // ...
 
             // atender stick
             atender_stick(cliente_fd);
 
-            list_destroy(lista_paquete);
+            list_destroy_and_destroy_elements(lista_paquete, free);
             break;
         }case SWAP_KM__CONEXION:{
             log_info(logger, "SWAP");
             atender_swap(cliente_fd);
             break;
+        }case CPU_KM__CONEXION:{
+            t_list *lista_paquete = recibir_paquete(cliente_fd);
+            int *cpu_id = list_get(lista_paquete, 0);
+            log_info(logger, "Me llego cpu de id: %d", *cpu_id);
+
+            // agregar CPU a la lista de cpus
+            //mandarle todos los sticks que se conectarno hasta ahora
+
+            atender_cpu(cliente_fd);
+            list_destroy_and_destroy_elements(lista_paquete, free);
+            break;
         }default: 
-            log_warning(logger, "Warning: Operacion desconocida, cod_op = %d", cod_op);
+            log_warning(logger, "Warning: Operacion desconocida en atender_cliente, cod_op = %d", cod_op);
     }
     return NULL;
+}
+
+void atender_cpu(int cpu_fd){
+    while(1){
+        log_info(logger, "****Atendiendo CPU");
+        op_code cod_op = recibir_operacion(cpu_fd);
+        if(cod_op == -1){
+            log_warning(logger, "se desconecto CPU");
+            break;
+        }
+    }
+    close(cpu_fd);
+    log_info(logger, "cerrando hilo de CPU");
 }
 
 void atender_swap(int swap_fd){
@@ -98,10 +122,11 @@ void atender_swap(int swap_fd){
         op_code cod_op = recibir_operacion(swap_fd);
         if(cod_op == -1){
             log_warning(logger, "error, se desconecto SWAP, terminando todos los modulos: BSOD");
-            // TODO
+            break;
         }
         
     }
+    log_info(logger, "cerrando hilo de swap");
 }
 void atender_scheduler(int sch_fd){
     log_info(logger, "****Atendiendo al SCHEDULER");
@@ -112,6 +137,7 @@ void atender_scheduler(int sch_fd){
             break;
         }
     }
+    log_info(logger, "cerrando hilo de sch");
     return;
 }
 
@@ -125,4 +151,5 @@ void atender_stick(int stick_fd){
             break;
         }
     };
+    log_info(logger, "cerrando hilo de stick");
 }

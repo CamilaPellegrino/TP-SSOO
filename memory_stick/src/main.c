@@ -73,6 +73,7 @@ void* atender_cliente(void *arg){
         case CPU_SCH__CONEXION: {
             char *msg = recibir_mensaje(cliente_fd);
             log_info(logger, "Me llego el CPU, mensaje recibido: %s", msg);
+            free(msg);
             atender_cpu(cliente_fd);
             break;
         }default:
@@ -86,12 +87,8 @@ void atender_cpu(int cpu_fd){
     log_info(logger, "****Atendiendo al cpu");
     while(1){
         op_code cod_op = recibir_operacion(cpu_fd);
-        switch (cod_op)
-        {
-        case -1:
-            log_warning(logger, "error, se desconecto cpu");
-            break;
-        default:
+        if(cod_op == -1){
+            log_warning(logger, "se desconecto cpu");
             break;
         }
     }
