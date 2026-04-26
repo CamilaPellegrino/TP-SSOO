@@ -5,9 +5,24 @@ void* atender_cliente(void *arg);
 void atender_scheduler(int sch_fd);
 void atender_stick(int sch_fd);
 void atender_swap(int swap_fd);
-void atender_cpu(int cpu_fd);
-t_log *logger;
+void atender_cpu(t_cpu* cpu);
+// void enviar_nuevo_stick_a_cpus(t_stick *nuevo_stick);
+// void enviar_nuevo_stick_a_cpu(t_stick* nuevo_stick, int cpu_fd);
+void enviar_nuevo_stick_a_scheduler(t_stick* nuevo_stick, int sch_fd);
+// variables globales
 
+t_log *logger;
+t_list *lista_sticks;
+t_list *lista_cpus;
+
+// file descriptor del scheduler ?
+
+int sch_fd; 
+
+/*void inicializar_nueva_cpu(t_list *lista_sticks, int cpu_id){ 
+    // crear una nueva estructura para la cpu  // agregarla a la lista de cpus
+} hola,  no los escucho xd, se me escucha? nope! q mal
+*/
 int main(int argc, char* argv[]) { //KERNEL MEMORY
     // ejemplo para ejecutar: ./bin/kernel_memory ./kernel_memory.config
     if(argc < 2){ 
@@ -18,6 +33,8 @@ int main(int argc, char* argv[]) { //KERNEL MEMORY
     char* puerto;
 
     t_config* config;
+    lista_sticks = list_create();
+    lista_cpus = list_create();
     
     logger = iniciar_logger("kernel_memory.log", "ProcesoKernelMemory", LOG_LEVEL_INFO );
     config = iniciar_config(ruta_config);
@@ -33,6 +50,7 @@ int main(int argc, char* argv[]) { //KERNEL MEMORY
         log_error(logger, "No se pudo iniciar el servidor");
         exit(EXIT_FAILURE);
     }
+
     
     // esperar clientes
     while(true){
@@ -46,8 +64,8 @@ int main(int argc, char* argv[]) { //KERNEL MEMORY
         pthread_t thread;
         pthread_create(&thread, NULL, atender_cliente, cliente_fd);
         pthread_detach(thread);
-    
     }
+    list_destroy_and_destroy_elements(lista_sticks, free);
 }
 
 void* atender_cliente(void *arg){
@@ -58,7 +76,7 @@ void* atender_cliente(void *arg){
     switch(cod_op){
         case SCH_KM__CONEXION: {
             char *msg = recibir_mensaje(cliente_fd);
-
+            sch_fd = cliente_fd;
             log_info(logger, "Me llego el scheduler, mensaje recibido: %s", msg);
 
             atender_scheduler(cliente_fd);
@@ -69,18 +87,22 @@ void* atender_cliente(void *arg){
             t_list *lista_paquete = recibir_paquete(cliente_fd);
             // leo cada elemento de la t_list en el orden en que stick los agrego al paquete
             int *tamanio = list_get(lista_paquete, 0);
-            log_info(logger, "Me llego un stick de tamanio: %d", *tamanio);
+            char *puerto = list_get(lista_paquete, 1);
+            char *ip = list_get(lista_paquete, 2);
+            log_info(logger, "Me llego un stick: %d, %s, %s", *tamanio, puerto, ip);
             
             // poner al stick en la lista de sticks
-            // ...
-
+            t_stick* nuevo_stick = iniciar_stick(ip, puerto, *tamanio, cliente_fd);
+            
+            list_add(lista_sticks, nuevo_stick);
+            log_info(logger, "tamanio lista: %d", list_size(lista_sticks));
+            
             //avisar a las cpus conectadas que llego un stick para que se conecten
             // ...
-
+            enviar_nuevo_stick_a_scheduler(nuevo_stick, sch_fd);
             // atender stick
             atender_stick(cliente_fd);
-
-            list_destroy_and_destroy_elements(lista_paquete, free);
+            
             break;
         }case SWAP_KM__CONEXION:{
             log_info(logger, "SWAP");
@@ -92,9 +114,12 @@ void* atender_cliente(void *arg){
             log_info(logger, "Me llego cpu de id: %d", *cpu_id);
 
             // agregar CPU a la lista de cpus
-            //mandarle todos los sticks que se conectarno hasta ahora
+            t_cpu* cpu = iniciar_cpu(*cpu_id, cliente_fd);
+            list_add(lista_cpus, cpu);
 
-            atender_cpu(cliente_fd);
+            //mandarle todos los sticks que se conectaron hasta ahora
+            
+            atender_cpu(cpu);
             list_destroy_and_destroy_elements(lista_paquete, free);
             break;
         }default: 
@@ -103,10 +128,13 @@ void* atender_cliente(void *arg){
     return NULL;
 }
 
-void atender_cpu(int cpu_fd){
+void atender_cpu(t_cpu* cpu){
+    int cpu_fd = cpu->fd;
+    int cpu_id = cpu->id;
     while(1){
-        log_info(logger, "****Atendiendo CPU");
+        log_info(logger, "## CPU <%d> Conectada", cpu_id);
         op_code cod_op = recibir_operacion(cpu_fd);
+        
         if(cod_op == -1){
             log_warning(logger, "se desconecto CPU");
             break;
@@ -153,3 +181,33 @@ void atender_stick(int stick_fd){
     };
     log_info(logger, "cerrando hilo de stick");
 }
+
+void enviar_nuevo_stick_a_scheduler(t_stick* nuevo_stick, int sch_fd){
+    t_paquete* paquete = crear_paquete(KM_SCH__NUEVO_STICK);
+    agregar_string_a_paquete(paquete, nuevo_stick->ip);
+    agregar_string_a_paquete(paquete, nuevo_stick->puerto);
+    agregar_a_paquete(paquete, &(nuevo_stick->tamanio), sizeof(int));
+    enviar_paquete(paquete, sch_fd);
+    log_info(logger, "Enviando stick con IP %s a la SCH por el FD %d",nuevo_stick->ip, sch_fd);
+}
+
+
+/*
+void enviar_nuevo_stick_a_cpus(t_stick* nuevo_stick){
+    log_info(logger, "size: %d", list_size(lista_cpus));
+
+    for(int i = 0; i < list_size(lista_cpus); i++){
+        log_info(logger, "en for");
+        t_cpu* cpu = list_get(lista_cpus, i);
+        enviar_nuevo_stick_a_cpu(nuevo_stick, cpu->fd);
+    }
+}
+
+void enviar_nuevo_stick_a_cpu(t_stick* nuevo_stick, int cpu_fd){
+    t_paquete* paquete = crear_paquete(KM_CPU__NUEVO_STICK);
+    agregar_string_a_paquete(paquete, nuevo_stick->ip);
+    agregar_string_a_paquete(paquete, nuevo_stick->puerto);
+    enviar_paquete(paquete, cpu_fd);
+    log_info(logger, "Enviando stick con IP %s a la CPU por el FD %d",nuevo_stick->ip, cpu_fd);
+}
+*/

@@ -56,28 +56,6 @@ void handshake_servidor(int cliente_fd, t_log* logger){
     }
 }
 
-/*while (1) {
-    pthread_t thread;
-    int *fd_conexion_ptr = malloc(sizeof(int));
-    fd_conexion_ptr = accept(fd_escucha, NULL, NULL);
-	
-	switch(caso){
-pthread_create(&thread,
-                    NULL,
-                    (void) esperarcliente,
-                    fd_conexion_ptr);
-    pthread_detach(thread);
-
-		
-	}
-    pthread_create(&thread,
-                    NULL,
-                    (void) esperarcliente,
-                    fd_conexion_ptr);
-    pthread_detach(thread);
-}
-*/
-// conexiones
 
 int crear_conexion(char *ip, char* puerto)
 {
@@ -168,22 +146,11 @@ int iniciar_servidor(char* puerto){
 
 int* esperar_cliente(int socket_servidor)
 {
-	// Aceptamos un nuevo cliente
 	int *socket_cliente = malloc(sizeof(int));
 	*socket_cliente = accept(socket_servidor, NULL, NULL);
-	// int *socket_cliente = NULL;
-	// int aux = accept(socket_servidor, NULL, NULL);
-	// socket_cliente = &aux;
 	printf("socket_cliente = %d\n", *socket_cliente);
 	return socket_cliente;
 }
-
-//El malloc() lo realizamos debido a que, como pthread_create() solamente acepta como parámetro un puntero hacia una posición de memoria, 
-//si le pasáramos un puntero a un int que se encuentra en el stack usando &, en el momento en el que el hilo quiera acceder al valor éste 
-//se habrá pisado luego del siguiente accept().
-//Entonces llegará un punto en el que todos los hilos que creemos van a estar usando siempre el mismo file descriptor (y eso probablemente genere condiciones de carrera).
-
-// paquete
 
 t_paquete* crear_paquete(op_code op_code)
 {
@@ -341,3 +308,43 @@ t_log* iniciar_logger(char* ruta, char* process_name, t_log_level log_level)
 	return nuevo_logger;
 }
 
+// stick
+
+t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd){
+	t_stick* nuevo_stick = malloc(sizeof(t_stick));
+	if (nuevo_stick != NULL) {
+		nuevo_stick->ip = ip;
+		nuevo_stick->puerto = puerto;
+		nuevo_stick->fd = cliente_fd;
+		nuevo_stick->tamanio = tamanio; // Desreferenciamos el puntero tamanio
+	}
+	return nuevo_stick;
+}
+
+// Definimos un tipo de puntero a función que acepte dos argumentos
+typedef void (*t_closure_con_arg)(void*, void*);
+
+void list_iterate_con_argumento(t_list* lista, t_closure_con_arg closure, void* argumento_extra) {
+    if (lista == NULL || closure == NULL) return;
+
+    // Iteramos sobre todos los elementos de la lista
+    for (int i = 0; i < list_size(lista); i++) {
+        void* elemento = list_get(lista, i); // Obtenemos la CPU
+        closure(elemento, argumento_extra);  // Llamamos a la función
+    }
+}
+
+void destruir_stick(t_stick* stick){
+	free(stick);
+}
+
+// cpu
+
+t_cpu* iniciar_cpu(int id, int fd){
+	t_cpu* nuevo_cpu = malloc(sizeof(t_stick));
+	if (nuevo_cpu != NULL) {
+		nuevo_cpu->id = id;
+		nuevo_cpu->fd = fd;
+	}
+	return nuevo_cpu;
+}

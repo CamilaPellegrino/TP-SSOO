@@ -10,13 +10,13 @@
 #include<string.h>
 
 #include<commons/log.h>
-// #include<commons/string.h>
+#include<commons/string.h>
 #include<commons/config.h>
 #include<commons/collections/list.h>
 
 #include <pthread.h>
 typedef enum
-{
+{   // formato: ORIGEN_DESTINO__OPERACION
 	MENSAJE,
 	PAQUETE,
 	HANDSHAKE,
@@ -26,9 +26,13 @@ typedef enum
 	CPU_SCH__CONEXION,
 	IO_SCH__CONEXION,
 	CPU_KM__CONEXION,
-	SCH_CPU__PID
+	SCH_CPU__PID,
+	KM_SCH__NUEVO_STICK,
+	SCH_CPU__NUEVO_STICK
 }op_code;
 
+
+//structs
 typedef struct
 {
 	int size;
@@ -41,6 +45,21 @@ typedef struct
 	t_buffer* buffer;
 } t_paquete;
 
+typedef struct 
+{
+    int tamanio;
+    int fd;
+    char* puerto;
+    char *ip;
+}t_stick;
+
+typedef struct
+{
+	int fd;
+	int id;
+} t_cpu;
+
+//declaracion de funciones
 
 //handshake
 
@@ -85,7 +104,13 @@ t_config* iniciar_config(char*);
 t_log* iniciar_logger(char*, char*, t_log_level);
 t_log* iniciar_logger_log_level_string(char*, char*, char*);
 
+// stick
 
+t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd);
+void destruir_stick(t_stick* stick);
 
+// cpu
+
+t_cpu* iniciar_cpu(int id, int fd);
 
 #endif  /* UTILS_H_ */ 

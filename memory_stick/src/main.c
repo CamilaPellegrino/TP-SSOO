@@ -6,7 +6,7 @@ void atender_cpu(int cpu_fd);
 
 t_log * logger;
 
-int main(int argc, char* argv[]) { //MEMORY STICK
+int main(int argc, char* argv[]) {
     // ejemplo para ejecutar: ./bin/memory_stick "./memory_stick.config" 32
     if(argc < 3){
         printf("Se esperaban mas parametros. Ejemplo: ./bin/memory_stick ./memory_stick.config 32");
@@ -37,11 +37,6 @@ int main(int argc, char* argv[]) { //MEMORY STICK
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
     handshake_cliente(conexion_kernel_memory, logger);
 
-    // mandar info propia al kernel memory
-    printf("Enviando a km\n");
-    t_paquete *paquete = crear_paquete(STICK_KM__CONEXION);
-    agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
-    enviar_paquete(paquete, conexion_kernel_memory);
 
     //iniciar como servidor
     puerto = config_get_string_value (config, "PUERTO_MEMORY_STICK"); //31551
@@ -50,6 +45,14 @@ int main(int argc, char* argv[]) { //MEMORY STICK
         log_error(logger, "No se pudo iniciar el servidor");
         exit(EXIT_FAILURE);
     }
+    
+    // mandar info propia al kernel memory
+    printf("Enviando a km\n");
+    t_paquete *paquete = crear_paquete(STICK_KM__CONEXION);
+    agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
+    agregar_string_a_paquete(paquete, puerto);
+    agregar_string_a_paquete(paquete, ip);
+    enviar_paquete(paquete, conexion_kernel_memory);
 
     // esperar clientes
     while(true){
