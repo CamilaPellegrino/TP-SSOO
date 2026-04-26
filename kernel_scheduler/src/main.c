@@ -111,7 +111,7 @@ void* atender_cliente(void *arg){
 
 
 void atender_cpu(int cpu_fd){
-    log_info(logger, "****Atendiendo al cpu");
+    log_info(logger, "## CPU <ID CPU> Conectada");
     while(1){
         op_code cod_op = recibir_operacion(cpu_fd);
         if(cod_op == -1){
@@ -126,7 +126,7 @@ void atender_io(int io_fd){
     while(1){
         op_code cod_op = recibir_operacion(io_fd);
         if(cod_op == -1){
-            log_warning(logger, "error, se desconecto SWAP, terminando todos los modulos: BSOD");
+            log_warning(logger, "error, se desconecto io");
         }
     }
 }

@@ -58,7 +58,7 @@ int main(int argc, char* argv[]){
     // conectar a kernel memory
     int* conexion_kernel_memory = malloc(sizeof(int));
     *conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
-    log_info(logger, "con:%d", *conexion_kernel_memory);
+    log_info(logger, "con fd: %d", *conexion_kernel_memory);
     exit_si_error_conexion(*conexion_kernel_memory, logger, "kernel_memory");
     handshake_cliente(*conexion_kernel_memory,logger);
         
@@ -67,6 +67,10 @@ int main(int argc, char* argv[]){
     agregar_a_paquete(paquete, &id_cpu, sizeof(id_cpu));
     enviar_paquete_y_liberarlo(paquete, *conexion_kernel_memory);
 
+    // conectar a memory stick
+    int conexion_memory_stick = crear_conexion(ip, puerto_memory_stick);
+    exit_si_error_conexion(conexion_memory_stick, logger, "memory stiick");
+    handshake_cliente(conexion_memory_stick,logger);
 
     // queda escuchando mensajes que envie el scheduler
     while (1)

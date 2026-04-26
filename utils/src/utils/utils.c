@@ -31,7 +31,7 @@ void handshake_cliente(int conexion,t_log* logger){
     recv(conexion, &result, sizeof(int32_t), MSG_WAITALL);
 
     if (result == 0){
-        log_info(logger,"Handshake Exitoso!");
+        log_info(logger,"Handshake Exitoso de cliente!");
 		return;
     }else {// Handshake ERROR
         log_error(logger,"Error inesperado en el handshake" );
@@ -48,7 +48,7 @@ void handshake_servidor(int cliente_fd, t_log* logger){
     recv(cliente_fd, &handshake, sizeof(int32_t), MSG_WAITALL);
     if (handshake == 1) {
         send(cliente_fd, &resultOk, sizeof(int32_t), 0);
-		log_info(logger,"ResultOk - enviando respuesta");
+		log_info(logger,"Handshake Exitoso de Servidor!");
     }
     else {
 		log_error(logger,"Error inesperado en el handshake");

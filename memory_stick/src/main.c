@@ -35,6 +35,7 @@ int main(int argc, char* argv[]) {
     int conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
     
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
+    log_info(logger, "## Conectado a Kernel Memory");
     handshake_cliente(conexion_kernel_memory, logger);
 
 
@@ -52,12 +53,12 @@ int main(int argc, char* argv[]) {
     agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
     agregar_string_a_paquete(paquete, puerto);
     agregar_string_a_paquete(paquete, ip);
-    enviar_paquete(paquete, conexion_kernel_memory);
-
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
+    printf("Termine de enviar\n");
     // esperar clientes
     while(true){
         int *cliente_fd = esperar_cliente(memory_stick_fd);
-        log_info(logger, "Me llego un cliente, %d\n", *cliente_fd);
+        log_info(logger, "Me llego un cliente, %d", *cliente_fd);
         handshake_servidor(*cliente_fd, logger);
         //creamos el hilo para atender multiples CPUs
         pthread_t thread;
@@ -72,8 +73,9 @@ void* atender_cliente(void *arg){
     int *cliente_fd_ptr = (int *) arg;
     int cliente_fd = *cliente_fd_ptr;
     op_code cod_op = recibir_operacion(cliente_fd);
+    printf("Apunto de atender\n");
     switch(cod_op){
-        case CPU_SCH__CONEXION: {
+        case CPU_STICK__CONEXION: {
             char *msg = recibir_mensaje(cliente_fd);
             log_info(logger, "Me llego el CPU, mensaje recibido: %s", msg);
             free(msg);
@@ -87,7 +89,7 @@ void* atender_cliente(void *arg){
 }
 
 void atender_cpu(int cpu_fd){
-    log_info(logger, "****Atendiendo al cpu");
+    log_info(logger, "## CPU <ID CPU> Conectada");
     while(1){
         op_code cod_op = recibir_operacion(cpu_fd);
         if(cod_op == -1){

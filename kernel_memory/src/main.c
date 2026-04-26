@@ -3,7 +3,7 @@
 
 void* atender_cliente(void *arg);
 void atender_scheduler(int sch_fd);
-void atender_stick(int sch_fd);
+void atender_stick(int sch_fd, int *tamanio);
 void atender_swap(int swap_fd);
 void atender_cpu(t_cpu* cpu);
 // void enviar_nuevo_stick_a_cpus(t_stick *nuevo_stick);
@@ -101,7 +101,7 @@ void* atender_cliente(void *arg){
             // ...
             enviar_nuevo_stick_a_scheduler(nuevo_stick, sch_fd);
             // atender stick
-            atender_stick(cliente_fd);
+            atender_stick(cliente_fd, tamanio);
             
             break;
         }case SWAP_KM__CONEXION:{
@@ -149,7 +149,7 @@ void atender_swap(int swap_fd){
         log_info(logger, "****Atendiendo al SWAP");
         op_code cod_op = recibir_operacion(swap_fd);
         if(cod_op == -1){
-            log_warning(logger, "error, se desconecto SWAP, terminando todos los modulos: BSOD");
+            log_warning(logger, "error, se desconecto SWAP");
             break;
         }
         
@@ -157,7 +157,7 @@ void atender_swap(int swap_fd){
     log_info(logger, "cerrando hilo de swap");
 }
 void atender_scheduler(int sch_fd){
-    log_info(logger, "****Atendiendo al SCHEDULER");
+    log_info(logger, "## Kernel Scheduler Conectado - FD del socket: %d", sch_fd);
     while(1){
         op_code cod_op = recibir_operacion(sch_fd);
         if(cod_op == -1){
@@ -169,8 +169,8 @@ void atender_scheduler(int sch_fd){
     return;
 }
 
-void atender_stick(int stick_fd){
-    log_info(logger, "****Atendiendo al STIICK");
+void atender_stick(int stick_fd, int *tamanio){
+    log_info(logger, "## Memory Stick de %d bytes Conectada", *tamanio);
 
     while(1){
         op_code cod_op = recibir_operacion(stick_fd);
@@ -188,7 +188,7 @@ void enviar_nuevo_stick_a_scheduler(t_stick* nuevo_stick, int sch_fd){
     agregar_string_a_paquete(paquete, nuevo_stick->puerto);
     agregar_a_paquete(paquete, &(nuevo_stick->tamanio), sizeof(int));
     enviar_paquete(paquete, sch_fd);
-    log_info(logger, "Enviando stick con IP %s a la SCH por el FD %d",nuevo_stick->ip, sch_fd);
+    log_info(logger, "Enviando stick con IP %s al SCHED por el FD %d",nuevo_stick->ip, sch_fd);
 }
 
 
