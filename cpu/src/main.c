@@ -1,6 +1,7 @@
 #include <utils/hello.h>
 #include <utils/utils.h>
 
+// variables globale
 t_log* logger;
 
 t_list* lista_sticks; // lista global para guardar los memory sticks a los que me conecte
@@ -27,7 +28,6 @@ int main(int argc, char* argv[]){
     char *ip;
     char *puerto_kernel_scheduler;
     char *puerto_kernel_memory;
-    char *puerto_memory_stick;
 
     // crear logger
     logger = iniciar_logger("cpu.log", "ProcesoCPU", LOG_LEVEL_INFO);
@@ -42,9 +42,8 @@ int main(int argc, char* argv[]){
     ip = config_get_string_value(config, "IP");
     
     puerto_kernel_memory = config_get_string_value(config, "PUERTO_KERNEL_MEMORY");
-    puerto_memory_stick = config_get_string_value(config, "PUERTO_MEMORY_STICK");
     puerto_kernel_scheduler = config_get_string_value(config, "PUERTO_KERNEL_SCHEDULER");
-    log_info(logger, "ip: %s, puerto_kernel_memory: %s, puerto_memory_stick: %s", ip, puerto_kernel_memory, puerto_memory_stick);
+    log_info(logger, "ip: %s, puerto_kernel_memory: %s", ip, puerto_kernel_memory);
 
 
     // conectar a kernel scheduler
@@ -56,21 +55,19 @@ int main(int argc, char* argv[]){
     enviar_mensaje("Soy CPU :)", conexion_kernel_scheduler, CPU_SCH__CONEXION);
 
     // conectar a kernel memory
-    int* conexion_kernel_memory = malloc(sizeof(int));
-    *conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
-    log_info(logger, "con fd: %d", *conexion_kernel_memory);
-    exit_si_error_conexion(*conexion_kernel_memory, logger, "kernel_memory");
-    handshake_cliente(*conexion_kernel_memory,logger);
+    int conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
+    log_info(logger, "con fd: %d", conexion_kernel_memory);
+    exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
+    handshake_cliente(conexion_kernel_memory,logger);
         
     //mando informacion propia al km
     t_paquete *paquete = crear_paquete(CPU_KM__CONEXION);
     agregar_a_paquete(paquete, &id_cpu, sizeof(id_cpu));
-    enviar_paquete_y_liberarlo(paquete, *conexion_kernel_memory);
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
 
-    // conectar a memory stick
-    int conexion_memory_stick = crear_conexion(ip, puerto_memory_stick);
-    exit_si_error_conexion(conexion_memory_stick, logger, "memory stiick");
-    handshake_cliente(conexion_memory_stick,logger);
+    // inicializar listas
+    lista_sticks = list_create();
+
 
     // queda escuchando mensajes que envie el scheduler
     while (1)
@@ -84,15 +81,20 @@ int main(int argc, char* argv[]){
         switch(cod_op){
             case SCH_CPU__PID:{
                 log_info(logger, "me llego un PID");
+                
                 break;
             }
             case SCH_CPU__NUEVO_STICK: {
                 log_info(logger, "recibiendo cosas de stick");
-                t_list *lista_con_stick = recibir_paquete(*conexion_kernel_memory);
-                char* ip_stick = list_get(lista_con_stick, 0);
-                char* puerto_stick = list_get(lista_con_stick, 1);
-                int* tamanio = list_get(lista_con_stick, 2); 
-
+                t_list * lista_del_paquete = recibir_paquete(conexion_kernel_scheduler);
+                
+                char* ip_stick = list_get(lista_del_paquete, 0);
+                char* puerto_stick = list_get(lista_del_paquete, 1);
+                int* tamanio = list_get(lista_del_paquete, 2); 
+                
+                log_info(logger, "%s, %s", ip_stick, puerto_stick);
+                
+                // conectar a memory stick
                 int conexion_memory_stick = crear_conexion(ip_stick, puerto_stick);
                 exit_si_error_conexion(conexion_memory_stick, logger, "memory stick");
                 handshake_cliente(conexion_memory_stick,logger);
@@ -101,13 +103,11 @@ int main(int argc, char* argv[]){
                 //STAND BY
                 // guardar datos del stick en lista_sticks
                 t_stick* stick = iniciar_stick(ip_stick, puerto_stick, tamanio, conexion_memory_stick);
-                // ...
+                list_add(lista_sticks, stick);
                 
-                // liberar lista_con_stick
-                
-                
-                
-                list_destroy(lista_con_stick);
+                // liberar lista_del_paquete
+                list_destroy(lista_del_paquete);
+
                 /*
                 1. A través de variables globales: Cualquier hilo puede acceder a ellas.
 
@@ -127,7 +127,7 @@ int main(int argc, char* argv[]){
     log_destroy(logger);
     config_destroy(config);
     close(conexion_kernel_scheduler);
-    close(*conexion_kernel_memory);
+    close(conexion_kernel_memory);
     // close(conexion_memory_stick);
     return 0;
 }

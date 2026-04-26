@@ -15,8 +15,6 @@ t_log *logger;
 t_list *lista_sticks;
 t_list *lista_cpus;
 
-// file descriptor del scheduler ?
-
 int sch_fd; 
 
 /*void inicializar_nueva_cpu(t_list *lista_sticks, int cpu_id){ 
@@ -51,10 +49,9 @@ int main(int argc, char* argv[]) { //KERNEL MEMORY
         exit(EXIT_FAILURE);
     }
 
-    
+    log_info(logger, "esperar cliente");
     // esperar clientes
     while(true){
-        log_info(logger, "esperar cliente");
         int *cliente_fd = esperar_cliente(kernel_memory_fd);
         
         log_info(logger, "Me llego un cliente, %d", *cliente_fd);
@@ -85,6 +82,7 @@ void* atender_cliente(void *arg){
         }case STICK_KM__CONEXION: {
             // recibo el paquete que me mando stick en una t_list
             t_list *lista_paquete = recibir_paquete(cliente_fd);
+
             // leo cada elemento de la t_list en el orden en que stick los agrego al paquete
             int *tamanio = list_get(lista_paquete, 0);
             char *puerto = list_get(lista_paquete, 1);
@@ -95,7 +93,6 @@ void* atender_cliente(void *arg){
             t_stick* nuevo_stick = iniciar_stick(ip, puerto, *tamanio, cliente_fd);
             
             list_add(lista_sticks, nuevo_stick);
-            log_info(logger, "tamanio lista: %d", list_size(lista_sticks));
             
             //avisar a las cpus conectadas que llego un stick para que se conecten
             // ...
@@ -117,7 +114,7 @@ void* atender_cliente(void *arg){
             t_cpu* cpu = iniciar_cpu(*cpu_id, cliente_fd);
             list_add(lista_cpus, cpu);
 
-            //mandarle todos los sticks que se conectaron hasta ahora
+            // mandarle todos los sticks que se conectaron hasta ahora
             
             atender_cpu(cpu);
             list_destroy_and_destroy_elements(lista_paquete, free);
@@ -162,7 +159,9 @@ void atender_scheduler(int sch_fd){
         op_code cod_op = recibir_operacion(sch_fd);
         if(cod_op == -1){
             log_warning(logger, "error, se desconecto scheduler");
-            break;
+            // desconectar todo
+            
+            exit(EXIT_FAILURE);
         }
     }
     log_info(logger, "cerrando hilo de sch");
@@ -176,6 +175,9 @@ void atender_stick(int stick_fd, int *tamanio){
         op_code cod_op = recibir_operacion(stick_fd);
         if(cod_op == -1){
             log_warning(logger, "error, se desconecto stick");
+            // corrupcion de memoria
+            enviar_operacion(sch_fd, KM_SCH__BSOD);
+            exit(EXIT_FAILURE);
             break;
         }
     };

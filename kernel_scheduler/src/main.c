@@ -154,6 +154,10 @@ void* km_notif(int *conexion_kernel_memory){
                 enviar_paquete_a_todas_las_cpus(paquete);
 
                 break;
+            }case KM_SCH__BSOD: {
+                log_error(logger, "BSOD, cerrando todo");
+                exit(EXIT_FAILURE);
+            
             }default: 
                 log_warning(logger, "Warning: Operacion desconocida, cod_op = %d",cod_op);
         }

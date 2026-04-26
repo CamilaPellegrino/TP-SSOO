@@ -29,7 +29,8 @@ typedef enum
 	CPU_STICK__CONEXION,
 	SCH_CPU__PID,
 	KM_SCH__NUEVO_STICK,
-	SCH_CPU__NUEVO_STICK
+	SCH_CPU__NUEVO_STICK,
+	KM_SCH__BSOD
 }op_code;
 
 
@@ -51,7 +52,7 @@ typedef struct
     int tamanio;
     int fd;
     char* puerto;
-    char *ip;
+    char* ip;
 }t_stick;
 
 typedef struct

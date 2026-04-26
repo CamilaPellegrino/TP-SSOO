@@ -3,8 +3,12 @@
 
 void* atender_cliente(void *arg);
 void atender_cpu(int cpu_fd);
+void *atender_kernel_memory();
 
 t_log * logger;
+
+// fd del km
+int conexion_kernel_memory;
 
 int main(int argc, char* argv[]) {
     // ejemplo para ejecutar: ./bin/memory_stick "./memory_stick.config" 32
@@ -20,7 +24,7 @@ int main(int argc, char* argv[]) {
     char *ip;
     char *puerto;
 
-    logger = iniciar_logger("memory_stick.log", "ProcesoKernelMemory", LOG_LEVEL_INFO);
+    logger = iniciar_logger("memory_stick.log", "ProcesoMemorySticks", LOG_LEVEL_INFO);
     
     // inciar config
     config = iniciar_config(ruta_config);
@@ -32,12 +36,15 @@ int main(int argc, char* argv[]) {
     // conectarse a kernel memory
     ip = config_get_string_value(config, "IP");
     char *puerto_kernel_memory = config_get_string_value(config, "PUERTO_KERNEL_MEMORY");
-    int conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
+    conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
     
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
     log_info(logger, "## Conectado a Kernel Memory");
     handshake_cliente(conexion_kernel_memory, logger);
 
+    pthread_t hilo;
+    pthread_create(&hilo, NULL, atender_kernel_memory, NULL);
+    pthread_detach(hilo);
 
     //iniciar como servidor
     puerto = config_get_string_value (config, "PUERTO_MEMORY_STICK"); //31551
@@ -48,13 +55,11 @@ int main(int argc, char* argv[]) {
     }
     
     // mandar info propia al kernel memory
-    printf("Enviando a km\n");
     t_paquete *paquete = crear_paquete(STICK_KM__CONEXION);
     agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
     agregar_string_a_paquete(paquete, puerto);
     agregar_string_a_paquete(paquete, ip);
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
-    printf("Termine de enviar\n");
     // esperar clientes
     while(true){
         int *cliente_fd = esperar_cliente(memory_stick_fd);
@@ -73,7 +78,6 @@ void* atender_cliente(void *arg){
     int *cliente_fd_ptr = (int *) arg;
     int cliente_fd = *cliente_fd_ptr;
     op_code cod_op = recibir_operacion(cliente_fd);
-    printf("Apunto de atender\n");
     switch(cod_op){
         case CPU_STICK__CONEXION: {
             char *msg = recibir_mensaje(cliente_fd);
@@ -81,12 +85,25 @@ void* atender_cliente(void *arg){
             free(msg);
             atender_cpu(cliente_fd);
             break;
-        }default:
+        }
+        default:
             log_warning(logger, "Warning: Operacion desconocida, cod_op = %d", cod_op);
     }
 
     return NULL;
 }
+
+void* atender_kernel_memory(){
+    log_info(logger, "## Conectado a Kernel Memory");
+    while(1){
+        op_code cod_op = recibir_operacion(conexion_kernel_memory);
+        if(cod_op == -1){
+            log_warning(logger, "se desconecto km");
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
 
 void atender_cpu(int cpu_fd){
     log_info(logger, "## CPU <ID CPU> Conectada");
@@ -98,3 +115,5 @@ void atender_cpu(int cpu_fd){
         }
     }
 }
+
+
