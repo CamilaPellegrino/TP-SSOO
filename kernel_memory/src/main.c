@@ -189,7 +189,7 @@ void enviar_nuevo_stick_a_scheduler(t_stick* nuevo_stick, int sch_fd){
     agregar_string_a_paquete(paquete, nuevo_stick->ip);
     agregar_string_a_paquete(paquete, nuevo_stick->puerto);
     agregar_a_paquete(paquete, &(nuevo_stick->tamanio), sizeof(int));
-    enviar_paquete(paquete, sch_fd);
+    enviar_paquete_y_liberarlo(paquete, sch_fd);
     log_info(logger, "Enviando stick con IP %s al SCHED por el FD %d",nuevo_stick->ip, sch_fd);
 }
 

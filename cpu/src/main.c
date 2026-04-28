@@ -102,11 +102,12 @@ int main(int argc, char* argv[]){
                 log_info(logger, "cosas de stick: ip: %s, puerto: %s", ip_stick, puerto_stick);
                 //STAND BY
                 // guardar datos del stick en lista_sticks
-                t_stick* stick = iniciar_stick(ip_stick, puerto_stick, tamanio, conexion_memory_stick);
+                t_stick* stick = iniciar_stick(ip_stick, puerto_stick, *tamanio, conexion_memory_stick);
                 list_add(lista_sticks, stick);
                 
                 // liberar lista_del_paquete
                 list_destroy(lista_del_paquete);
+                free(tamanio); //me guardo el valor en stick y despues no necesito el puntero
 
                 /*
                 1. A través de variables globales: Cualquier hilo puede acceder a ellas.
