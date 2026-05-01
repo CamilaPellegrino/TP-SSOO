@@ -2,13 +2,14 @@
 #include <utils/utils.h>
 
 int main(int argc, char* argv[]) {
-    // ejemplo para ejecutar: ./bin/io "./io.config"
-    if(argc < 2){ 
+    // ejemplo para ejecutar: ./bin/io "./io.config 0"
+    if(argc < 3){ 
         
-        printf("Se esperaban mas parametros. Ejemplo: ./bin/io \"./io.config\"");
+        printf("Se esperaban mas parametros. Ejemplo: ./bin/io ./io.config 0");
         exit(EXIT_FAILURE);
     }
     char *ruta_config = argv[1];
+    int tipo_io = atoi(argv[2]);
     t_log * logger;
     t_config* config;
     char* ip; 
@@ -35,6 +36,22 @@ int main(int argc, char* argv[]) {
     }
     // handshake
     handshake_cliente(conexion_kernel_scheduler, logger);
+
+    // mando info propia a sch (el tipo de io)
+    t_paquete *paquete = crear_paquete(IO_SCH__CONEXION);
+    agregar_a_paquete(paquete, &tipo_io, sizeof(tipo_io));
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+
+    while(1){
+        op_code cod_op = recibir_operacion(conexion_kernel_scheduler);
+        if(cod_op == -1){
+            log_info(logger, "se desconecto scheduler"); 
+            break; 
+        }
+
+    }
+
+
 
     // liberar logger, config y conexiones
     log_destroy(logger);

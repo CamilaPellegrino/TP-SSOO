@@ -17,8 +17,7 @@
 #include <pthread.h>
 typedef enum
 {   // ORIGEN_DESTINO__OPERACION
-	MENSAJE,
-	PAQUETE,
+	// Conexiones
 	HANDSHAKE,
 	SCH_KM__CONEXION,
 	STICK_KM__CONEXION,
@@ -27,12 +26,23 @@ typedef enum
 	IO_SCH__CONEXION,
 	CPU_KM__CONEXION,
 	CPU_STICK__CONEXION,
-	SCH_CPU__PID,
+	// mensajes con destino a SCH
 	KM_SCH__NUEVO_STICK,
+	KM_SCH__BSOD,
+	// mensajes con destino a CPU
 	SCH_CPU__NUEVO_STICK,
-	KM_SCH__BSOD
+	SCH_CPU__PID
+	// mensajes con destino a KM
+	// ...
+
 }op_code;
 
+typedef enum
+{
+	SLEEP,
+	STDIN,
+	STDOUT
+} t_tipo_io;
 
 //structs
 typedef struct
@@ -66,7 +76,7 @@ typedef struct
 //handshake
 
 void handshake_servidor(int cliente_fd, t_log* logger);
-void handshake_cliente(int conexion,t_log* logger);
+void handshake_cliente(int conexion, t_log* logger);
 
 // conexiones con sockets
 

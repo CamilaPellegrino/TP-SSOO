@@ -313,10 +313,10 @@ t_log* iniciar_logger(char* ruta, char* process_name, t_log_level log_level)
 t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd){
 	t_stick* nuevo_stick = malloc(sizeof(t_stick));
 	if (nuevo_stick != NULL) {
-		nuevo_stick->ip = ip;
-		nuevo_stick->puerto = puerto;
+		nuevo_stick->ip = strdup(ip);
+		nuevo_stick->puerto = strdup(puerto);
 		nuevo_stick->fd = cliente_fd;
-		nuevo_stick->tamanio = tamanio; // Desreferenciamos el puntero tamanio
+		nuevo_stick->tamanio = tamanio;
 	}
 	return nuevo_stick;
 }

@@ -106,8 +106,7 @@ int main(int argc, char* argv[]){
                 list_add(lista_sticks, stick);
                 
                 // liberar lista_del_paquete
-                list_destroy(lista_del_paquete);
-                free(tamanio); //me guardo el valor en stick y despues no necesito el puntero
+                list_destroy_and_destroy_elements(lista_del_paquete, free);
 
                 /*
                 1. A través de variables globales: Cualquier hilo puede acceder a ellas.
@@ -115,7 +114,6 @@ int main(int argc, char* argv[]){
                 2. Pasando punteros al crearlos: Cuando usas pthread_create, el último parámetro es un void* que te permite 
                 pasarle cualquier estructura de datos (como el t_stick de tu ejemplo anterior) al nuevo hilo.
                 */
-                log_info(logger, "me llego un nuevo memory stick, ip: %s, puerto: %s", ip_stick, puerto_stick);
                 break;
             }
             default:
@@ -129,7 +127,6 @@ int main(int argc, char* argv[]){
     config_destroy(config);
     close(conexion_kernel_scheduler);
     close(conexion_kernel_memory);
-    // close(conexion_memory_stick);
     return 0;
 }
 

@@ -6,9 +6,13 @@ void atender_cpu(int cpu_fd);
 void atender_io(int io_fd);
 void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
 void* km_notif(int *conexion_kernel_memory);
+
 t_log *logger;
 t_list* lista_cpus;
 
+t_list* lista_ready;     // lista procesos en ready para FIFO o RR ej: [P1, P2...]
+t_list* listas_ready;    // lista de listas de procesos en ready para cuando es CMN ej: [[P1], [P2, P3,...]]
+t_list* lista_blocked;   // procesos en blocked
 
 int main(int argc, char* argv[]) {
     // ejemplo para ejecutar: ./bin/kernel_scheduler ./kernel_scheduler.config
@@ -19,7 +23,6 @@ int main(int argc, char* argv[]) {
     char *ruta_config = argv[1];
     
     saludar("kernel_scheduler");
-
     
     t_config *config;
     
@@ -63,9 +66,12 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // incializar listas 
+    // incializar listas globales 
 
     lista_cpus = list_create();
+    lista_ready = list_create();
+    listas_ready = list_create();
+    lista_blocked = list_create();
 
     // esperar clientes
     while(true){
@@ -97,12 +103,12 @@ void* atender_cliente(void *arg){
             atender_cpu(cliente_fd);
             break;
             
-        }case IO_SCH__CONEXION: {
-            log_info(logger, "stick");
-            char *msg = recibir_mensaje(cliente_fd);
-            log_info(logger, "Me llego stick, msg: %s", msg);
+        }case IO_SCH__CONEXION: { 
+            log_info(logger, "io");
+            t_list *lista_paquete = recibir_paquete(cliente_fd);   // recibo un paquete con el tipo de io
+            t_tipo_io *tipo_io = list_get(lista_paquete, 0);
+            log_info(logger, "Me llego io de tipo: %d", *tipo_io);
             atender_io(cliente_fd);
-
             break;
         }default: 
             log_warning(logger, "Warning: Operacion desconocida, cod_op = %d", cod_op);
