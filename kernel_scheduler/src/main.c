@@ -2,17 +2,19 @@
 #include <utils/utils.h>
 
 void* atender_cliente(void *arg);
-void atender_cpu(int cpu_fd);
-void atender_io(int io_fd);
+void atender_cpu(t_cpu* cpu);
+void atender_io(t_io* io);
 void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
 void* km_notif(int *conexion_kernel_memory);
 
 t_log *logger;
 t_list* lista_cpus;
+t_list* lista_io;
 
-t_list* lista_ready;     // lista procesos en ready para FIFO o RR ej: [P1, P2...]
-t_list* listas_ready;    // lista de listas de procesos en ready para cuando es CMN ej: [[P1], [P2, P3,...]]
+t_list* lista_ready;     // lista procesos en ready
 t_list* lista_blocked;   // procesos en blocked
+t_list* lista_susp_blocked;
+t_list* lista_susp_ready;
 
 int main(int argc, char* argv[]) {
     // ejemplo para ejecutar: ./bin/kernel_scheduler ./kernel_scheduler.config
@@ -67,10 +69,9 @@ int main(int argc, char* argv[]) {
     }
 
     // incializar listas globales 
-
+    lista_io = list_create();
     lista_cpus = list_create();
     lista_ready = list_create();
-    listas_ready = list_create();
     lista_blocked = list_create();
 
     // esperar clientes
@@ -95,20 +96,22 @@ void* atender_cliente(void *arg){
     op_code cod_op = recibir_operacion(cliente_fd);
     switch(cod_op){
         case CPU_SCH__CONEXION: {
-            char *msg = recibir_mensaje(cliente_fd);
-
-            log_info(logger, "Me llego el CPU, mensaje recibido: %s", msg);
-            t_cpu* cpu = iniciar_cpu(0, cliente_fd); // le hardcodeo el 0 por ahora, despues cpu se lo manda
+            t_list* lista_paquete = recibir_paquete(cliente_fd);
+            int* id_cpu = list_get(lista_paquete, 0);
+            t_cpu* cpu = iniciar_cpu(*id_cpu, cliente_fd); 
             list_add(lista_cpus, cpu); // la agrego a la lista
-            atender_cpu(cliente_fd);
+            atender_cpu(cpu);
             break;
             
         }case IO_SCH__CONEXION: { 
-            log_info(logger, "io");
             t_list *lista_paquete = recibir_paquete(cliente_fd);   // recibo un paquete con el tipo de io
             t_tipo_io *tipo_io = list_get(lista_paquete, 0);
             log_info(logger, "Me llego io de tipo: %d", *tipo_io);
-            atender_io(cliente_fd);
+            t_io* io = iniciar_io(*tipo_io, cliente_fd);
+
+            list_add(lista_io, io);
+
+            atender_io(io);
             break;
         }default: 
             log_warning(logger, "Warning: Operacion desconocida, cod_op = %d", cod_op);
@@ -116,23 +119,29 @@ void* atender_cliente(void *arg){
 }
 
 
-void atender_cpu(int cpu_fd){
-    log_info(logger, "## CPU <ID CPU> Conectada");
+void atender_cpu(t_cpu* cpu){
+    int cpu_fd = cpu->fd;
+    int cpu_id = cpu->id;
+    log_info(logger, "## CPU <%d> Conectada", cpu_id);
     while(1){
         op_code cod_op = recibir_operacion(cpu_fd);
         if(cod_op == -1){
-            log_warning(logger, "error, se desconecto cpu");
+            log_warning(logger, "Se desconecto cpu de id:%d", cpu_id);
             break;
         }
     }
 }
 
-void atender_io(int io_fd){
-    log_info(logger, "****Atendiendo al io");
+void atender_io(t_io* io){
+    int io_fd = io->fd;
+    t_tipo_io tipo = io->tipo;
+
+    log_info(logger, "** Atendiendo al io de tipo %d", tipo);
+
     while(1){
         op_code cod_op = recibir_operacion(io_fd);
         if(cod_op == -1){
-            log_warning(logger, "error, se desconecto io");
+            log_warning(logger, "Desconexion de io de tipo %d", tipo);
         }
     }
 }
@@ -147,12 +156,13 @@ void* km_notif(int *conexion_kernel_memory){
 
         switch(cod_op){
             case KM_SCH__NUEVO_STICK: {
+                log_info(logger, "Conexion de modulo stick");
                 t_list* lista_paquete = recibir_paquete(*conexion_kernel_memory);
-                log_info(logger, "KM me dijo que se conecto una nueva stick");
                 char* ip_stick = list_get(lista_paquete, 0);
                 char* puerto_stick = list_get(lista_paquete, 1);
                 int *tamanio_stick = list_get(lista_paquete, 2);
                 list_destroy(lista_paquete);
+                
                 t_paquete* paquete = crear_paquete(SCH_CPU__NUEVO_STICK);
                 agregar_string_a_paquete(paquete, ip_stick);
                 agregar_string_a_paquete(paquete, puerto_stick);

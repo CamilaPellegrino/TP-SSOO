@@ -90,7 +90,7 @@ int crear_conexion(char *ip, char* puerto)
 
 void exit_si_error_conexion(int conexion, t_log *logger, char *mensaje){ // si no pudo conectarse sale del programa
 	if(conexion == -1){
-		log_error(logger, "No se pudo conectar a %s", mensaje);
+		log_error(logger, "Error: No se pudo conectar a %s", mensaje);
 		exit(EXIT_FAILURE);
 	}
 }
@@ -347,4 +347,13 @@ t_cpu* iniciar_cpu(int id, int fd){
 		nuevo_cpu->fd = fd;
 	}
 	return nuevo_cpu;
+}
+
+t_io* iniciar_io(t_tipo_io tipo, int io_fd){
+	t_io* nueva_io = malloc(sizeof(t_io));
+	if(nueva_io != NULL){
+		nueva_io->tipo = tipo;
+		nueva_io->fd = io_fd;
+	}
+	return nueva_io;
 }
