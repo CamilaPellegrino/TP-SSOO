@@ -92,8 +92,10 @@ int main(int argc, char* argv[]){
         }
         switch(cod_op){
             case SCH_CPU__PID:{
-                log_info(logger, "me llego un PID");
-                
+                t_list* lista_paquete = recibir_paquete(conexion_kernel_scheduler);
+                int* nuevo_pid = list_get(lista_paquete, 0);
+                pid = *nuevo_pid;
+                log_info(logger, "me llego un PID, nuevo PID: %d", pid);
                 break;
             }
             case SCH_CPU__NUEVO_STICK: {

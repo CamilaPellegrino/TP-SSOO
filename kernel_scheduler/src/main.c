@@ -1,20 +1,4 @@
-#include <utils/hello.h>
-#include <utils/utils.h>
-
-void* atender_cliente(void *arg);
-void atender_cpu(t_cpu* cpu);
-void atender_io(t_io* io);
-void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
-void* km_notif(int *conexion_kernel_memory);
-
-t_log *logger;
-t_list* lista_cpus;
-t_list* lista_io;
-
-t_list* lista_ready;     // lista procesos en ready
-t_list* lista_blocked;   // procesos en blocked
-t_list* lista_susp_blocked;
-t_list* lista_susp_ready;
+#include "main.h"
 
 int main(int argc, char* argv[]) {
     // ejemplo para ejecutar: ./bin/kernel_scheduler ./kernel_scheduler.config
@@ -44,6 +28,8 @@ int main(int argc, char* argv[]) {
     // conectar a kernel memory
     ip = config_get_string_value (config, "IP");
     puerto_kernel_memory = config_get_string_value (config, "PUERTO_KERNEL_MEMORY");
+    char* algoritmo = config_get_string_value(config, "PLANIFICATION_ALGORITHM");
+
 
     int conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
@@ -166,7 +152,7 @@ void* km_notif(int *conexion_kernel_memory){
                 t_paquete* paquete = crear_paquete(SCH_CPU__NUEVO_STICK);
                 agregar_string_a_paquete(paquete, ip_stick);
                 agregar_string_a_paquete(paquete, puerto_stick);
-                agregar_a_paquete(paquete, tamanio_stick, sizeof(int));
+                agregar_a_paquete(paquete, &tamanio_stick, sizeof(int));
                 enviar_paquete_a_todas_las_cpus(paquete);
 
                 break;
@@ -191,4 +177,108 @@ void enviar_paquete_a_todas_las_cpus(t_paquete* paquete){
         enviar_paquete(paquete, cpu_fd);
         log_info(logger, "Enviando info a cpu de stick");
     }
+}
+
+// cuando intentar planificar?
+
+// nuevo proceso en la lista de ready: (susp/ready->ready) un proceso xq hay otra mem stick
+// nueva cpu en lista de cpus: conexion de cpu
+
+// planificacion
+bool intentar_planificar(){
+    int pid = proximo_proceso();
+    if(pid < 0){
+        return false;
+    }
+    t_cpu* prox_cpu = proxima_cpu();
+    if(prox_cpu == NULL){
+        return false;
+    }
+    // le asigno a prox_cpu el proceso prox_proceso
+    int cpu_fd = prox_cpu->fd;
+    t_paquete* paquete_asignar_proceso = crear_paquete(SCH_CPU__PID);
+    agregar_a_paquete(paquete_asignar_proceso, pid, sizeof(pid));
+    enviar_paquete_y_liberarlo(paquete_asignar_proceso, cpu_fd);
+
+    return true;
+}
+
+t_cpu* proxima_cpu(){
+    if(list_is_empty(lista_cpus)){
+        return NULL;
+    }
+    return list_get(lista_cpus, 0);
+}
+int proximo_proceso(){
+    switch(algoritmo){
+        case CMN: {
+            return planificar_CMN();
+        }
+        case FIFO:
+        case RR: {
+            return planificar_RR_y_FIFO();
+        }default: 
+            log_warning(logger, "Algoritmo desconocido, no se puede planificar");
+            // terminar programa ?
+            return -1;
+    }
+}
+
+// devuelve el pcb dep proximo proceso a ejecutar si el algoritmo es CMN
+int planificar_CMN(){
+    for(int i=0; i<list_size(lista_ready); i++){
+        t_list *actual = list_get(lista_ready, i);
+        if(!list_is_empty(actual)){
+            return planificar_RR_y_FIFO(); // Devuelve el 1er elemento de la cola de mayor nivel que no este vacia
+        }
+    }
+    return -1;
+}
+
+// para FIFO y RR
+int planificar_RR_y_FIFO(){
+    if(list_is_empty(lista_ready)){
+        return -1;
+    }
+    return list_get(lista_ready, 0);
+}
+
+// mover proceso entre estados
+
+void blocked_a_susp_blocked(int pid){
+    pasarA(lista_blocked, lista_susp_blocked, pid);
+}
+
+void pasoDeSuspBlocked_a_Susp_ready(int pid){
+    pasarA(lista_susp_blocked, lista_susp_ready, pid);
+}
+
+void susp_ready_a_ready(int pid){
+    pasarA(lista_susp_ready, lista_ready, pid);
+}
+
+void ready_a_exec(int pid){
+    pasarA(lista_ready, lista_exec, pid);
+}
+void exec_a_blocked(int pid){
+    pasarA(lista_exec, lista_blocked, pid);
+}
+void exec_a_ready(int pid){
+    pasarA(lista_exec, lista_ready, pid);
+}
+
+void new_a_ready(proceso_id){
+    pasarA(lista_new, lista_ready, proceso_id);
+}
+
+void pasarA(t_list* lsrc,t_list*ldest, int pid){
+    list_remove(lsrc, pid);
+    list_add(ldest, pid);
+}
+
+void * planificador_largoPlazo(){
+    
+    intentar_planificar();
+
+    return;
 }
