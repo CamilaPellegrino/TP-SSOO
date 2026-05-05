@@ -21,15 +21,13 @@ int main(int argc, char* argv[]) {
     
     // crear config
     config = iniciar_config(ruta_config); 
-    if(config == NULL){
-        printf("No se pudo cargar el config\n");
-        exit(EXIT_FAILURE);
-    }
-    // conectar a kernel memory
+
     ip = config_get_string_value (config, "IP");
     puerto_kernel_memory = config_get_string_value (config, "PUERTO_KERNEL_MEMORY");
-    char* algoritmo = config_get_string_value(config, "PLANIFICATION_ALGORITHM");
+    
+    obtener_algoritmo_planificacion(config_get_string_value(config, "PLANIFICATION_ALGORITHM"));
 
+    // conectar a kernel memory
 
     int conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
@@ -102,10 +100,11 @@ void* atender_cliente(void *arg){
         }default: 
             log_warning(logger, "Warning: Operacion desconocida, cod_op = %d", cod_op);
     }
+    return NULL;
 }
 
 
-void atender_cpu(t_cpu* cpu){
+void* atender_cpu(t_cpu* cpu){
     int cpu_fd = cpu->fd;
     int cpu_id = cpu->id;
     log_info(logger, "## CPU <%d> Conectada", cpu_id);
@@ -116,9 +115,10 @@ void atender_cpu(t_cpu* cpu){
             break;
         }
     }
+    return NULL;
 }
 
-void atender_io(t_io* io){
+void* atender_io(t_io* io){
     int io_fd = io->fd;
     t_tipo_io tipo = io->tipo;
 
@@ -130,9 +130,11 @@ void atender_io(t_io* io){
             log_warning(logger, "Desconexion de io de tipo %d", tipo);
         }
     }
+    return NULL;
 }
 
-void* km_notif(int *conexion_kernel_memory){
+void* km_notif(void *conexion_kernel_memory_v){
+    int *conexion_kernel_memory = (int*) conexion_kernel_memory_v; 
     while(1){
         op_code cod_op = recibir_operacion(*conexion_kernel_memory);
         if(cod_op == -1){
@@ -152,7 +154,7 @@ void* km_notif(int *conexion_kernel_memory){
                 t_paquete* paquete = crear_paquete(SCH_CPU__NUEVO_STICK);
                 agregar_string_a_paquete(paquete, ip_stick);
                 agregar_string_a_paquete(paquete, puerto_stick);
-                agregar_a_paquete(paquete, &tamanio_stick, sizeof(int));
+                agregar_a_paquete(paquete, tamanio_stick, sizeof(int));
                 enviar_paquete_a_todas_las_cpus(paquete);
 
                 break;
@@ -186,18 +188,26 @@ void enviar_paquete_a_todas_las_cpus(t_paquete* paquete){
 
 // planificacion
 bool intentar_planificar(){
-    int pid = proximo_proceso();
-    if(pid < 0){
+    t_pcb_sch* proceso = proximo_proceso();
+    
+    if(proceso == NULL){
         return false;
     }
+    int pid = proceso->pid;
     t_cpu* prox_cpu = proxima_cpu();
     if(prox_cpu == NULL){
         return false;
     }
+    
+    ready_a_exec(proceso);
+
+    // marcar que la cpu esta ocupada ?
+    // ...
+
     // le asigno a prox_cpu el proceso prox_proceso
     int cpu_fd = prox_cpu->fd;
     t_paquete* paquete_asignar_proceso = crear_paquete(SCH_CPU__PID);
-    agregar_a_paquete(paquete_asignar_proceso, pid, sizeof(pid));
+    agregar_a_paquete(paquete_asignar_proceso, &pid, sizeof(pid));
     enviar_paquete_y_liberarlo(paquete_asignar_proceso, cpu_fd);
 
     return true;
@@ -209,7 +219,7 @@ t_cpu* proxima_cpu(){
     }
     return list_get(lista_cpus, 0);
 }
-int proximo_proceso(){
+t_pcb_sch* proximo_proceso(){
     switch(algoritmo){
         case CMN: {
             return planificar_CMN();
@@ -220,65 +230,105 @@ int proximo_proceso(){
         }default: 
             log_warning(logger, "Algoritmo desconocido, no se puede planificar");
             // terminar programa ?
-            return -1;
+            return NULL;
     }
 }
 
 // devuelve el pcb dep proximo proceso a ejecutar si el algoritmo es CMN
-int planificar_CMN(){
+t_pcb_sch* planificar_CMN(){
     for(int i=0; i<list_size(lista_ready); i++){
         t_list *actual = list_get(lista_ready, i);
         if(!list_is_empty(actual)){
-            return planificar_RR_y_FIFO(); // Devuelve el 1er elemento de la cola de mayor nivel que no este vacia
+            return list_get(actual, 0); // Devuelve el 1er elemento de la cola de mayor nivel que no este vacia
         }
     }
-    return -1;
+    return NULL;
 }
 
 // para FIFO y RR
-int planificar_RR_y_FIFO(){
+t_pcb_sch* planificar_RR_y_FIFO(){
     if(list_is_empty(lista_ready)){
-        return -1;
+        return NULL;
     }
     return list_get(lista_ready, 0);
 }
 
 // mover proceso entre estados
 
-void blocked_a_susp_blocked(int pid){
-    pasarA(lista_blocked, lista_susp_blocked, pid);
+void blocked_a_susp_blocked(t_pcb_sch* proceso){
+    pasarA(lista_blocked, lista_susp_blocked, proceso);
 }
 
-void pasoDeSuspBlocked_a_Susp_ready(int pid){
-    pasarA(lista_susp_blocked, lista_susp_ready, pid);
+void susp_blocked_a_susp_ready(t_pcb_sch* proceso){
+    pasarA(lista_susp_blocked, lista_susp_ready, proceso);
 }
 
-void susp_ready_a_ready(int pid){
-    pasarA(lista_susp_ready, lista_ready, pid);
+void susp_ready_a_ready(t_pcb_sch* proceso){
+    if(algoritmo == CMN){
+        list_remove_element(lista_susp_ready, proceso);
+        // agregar_a_ready_CMN(proceso);
+    }else{
+        pasarA(lista_susp_ready, lista_ready, proceso);
+    }
 }
 
-void ready_a_exec(int pid){
-    pasarA(lista_ready, lista_exec, pid);
+void ready_a_exec(t_pcb_sch* proceso){
+    pasarA(lista_ready, lista_exec, proceso);
 }
-void exec_a_blocked(int pid){
-    pasarA(lista_exec, lista_blocked, pid);
+void exec_a_blocked(t_pcb_sch* proceso){
+    pasarA(lista_exec, lista_blocked, proceso);
 }
-void exec_a_ready(int pid){
-    pasarA(lista_exec, lista_ready, pid);
+void exec_a_ready(t_pcb_sch* proceso){
+    if(algoritmo == CMN){
+        list_remove_element(lista_exec, proceso);
+        // agregar_a_ready_CMN(proceso);
+    }else{
+        pasarA(lista_exec, lista_ready, proceso);
+    }
 }
 
-void new_a_ready(proceso_id){
-    pasarA(lista_new, lista_ready, proceso_id);
+void new_a_ready(t_pcb_sch* proceso){
+    if(algoritmo == CMN){
+        //agregar_a_ready_CMN(proceso);
+    }else{
+        pasarA(lista_exec, lista_ready, proceso);
+    }
 }
 
-void pasarA(t_list* lsrc,t_list*ldest, int pid){
-    list_remove(lsrc, pid);
-    list_add(ldest, pid);
+void pasarA(t_list* lsrc,t_list*ldest, t_pcb_sch* proceso){
+    list_remove_element(lsrc, proceso);
+    list_add(ldest, proceso);
+}
+
+t_list* sublista_ready_de_prioridad(int prioridad){
+    // si es CMN lista_ready tiene sublistas, deuelve la sublista de la prioridad pedida
+    return list_get(lista_ready, prioridad);
 }
 
 void * planificador_largoPlazo(){
     
-    intentar_planificar();
+    //intentar_planificar();
 
-    return;
+    return NULL;
+}
+
+void obtener_algoritmo_planificacion(char *algoritmo_str){
+    algoritmo = algoritmo_str_a_enum(algoritmo_str);
+    if(algoritmo == -1){
+        printf("%s no es un algoritmo invalido, proba con FIFO, RR o CMN", algoritmo_str);
+        exit(EXIT_FAILURE);
+    }
+}
+
+t_planificacion algoritmo_str_a_enum(char *algoritmo_str){
+    if(strcmp(algoritmo_str, "FIFO") == 0){
+        return FIFO;
+    }
+    if(strcmp(algoritmo_str, "RR") == 0){
+        return RR;
+    }
+    if(strcmp(algoritmo_str, "CMN") == 0){
+        return CMN;
+    }
+    return -1;
 }
