@@ -1,5 +1,6 @@
 #include <utils/hello.h>
 #include <utils/utils.h>
+#include "base_km.h"
 
 void* atender_cliente(void *arg);
 void atender_scheduler(int sch_fd);

@@ -1,4 +1,22 @@
 #include "main.h"
+#include <utils/hello.h>
+#include <utils/utils.h>
+#include "base_sch.h"
+
+void* atender_cliente(void *arg);
+void* atender_cpu(t_cpu* cpu);
+void* atender_io(t_io* io);
+void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
+void* km_notif(void *conexion_kernel_memory);
+
+t_log *logger;
+t_list* lista_cpus;
+t_list* lista_io;
+
+t_list* lista_ready;     // lista procesos en ready
+t_list* lista_blocked;   // procesos en blocked
+t_list* lista_susp_blocked;
+t_list* lista_susp_ready;
 
 int main(int argc, char* argv[]) {
     // ejemplo para ejecutar: ./bin/kernel_scheduler ./kernel_scheduler.config

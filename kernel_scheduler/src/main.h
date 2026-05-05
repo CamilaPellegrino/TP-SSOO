@@ -3,6 +3,7 @@
 #include <utils/hello.h>
 #include <utils/utils.h>
 #include <stdbool.h>
+#include "base_sch.h"
 
 // tipos de datos
 

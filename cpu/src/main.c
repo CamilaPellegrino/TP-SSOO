@@ -1,5 +1,6 @@
 #include <utils/hello.h>
 #include <utils/utils.h>
+#include "base_cpu.h"
 
 // variables globales
 t_log* logger;
