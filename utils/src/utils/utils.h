@@ -48,32 +48,12 @@ typedef struct
 	op_code codigo_operacion;
 	t_buffer* buffer;
 } t_paquete;
-
-typedef struct 
-{
-    int tamanio;
-    int fd;
-    char* puerto;
-    char* ip;
-}t_stick;
-
-typedef struct
-{
-	int fd;
-	int id;
-} t_cpu;
-
 typedef enum
 {
 	SLEEP,
 	STDIN,
 	STDOUT
 } t_tipo_io;
-typedef struct
-{
-	int fd;
-	t_tipo_io tipo;
-} t_io;
 
 typedef enum
 {
@@ -85,28 +65,6 @@ typedef enum
 	SUSP_LISTO,
 	SUSP_BLOQUEADO
 } t_tipo_estado;
-
-typedef struct
-{
-	// identificadores del proceso
-	int pid;
-	int ppid;
-	int priodidad;
-	t_tipo_estado estado;
-	// registros de estado
-	uint32_t pc;
-	uint8_t ax;
-	uint8_t bx;
-	uint8_t cx;
-	uint8_t dx;
-	uint32_t eax;
-	uint32_t ebx;
-	uint32_t ecx;
-	uint32_t edx;
-	uint32_t si;
-	uint32_t di;
-	
-} t_pcb;
 
 //declaracion de funciones
 
@@ -152,15 +110,5 @@ t_config* iniciar_config(char*);
 
 t_log* iniciar_logger(char*, char*, t_log_level);
 t_log* iniciar_logger_log_level_string(char*, char*, char*);
-
-// stick
-
-t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd);
-void destruir_stick(t_stick* stick);
-
-// cpu
-
-t_cpu* iniciar_cpu(int id, int fd);
-t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
 
 #endif  /* UTILS_H_ */ 
