@@ -1,44 +1,26 @@
 #include "main.h"
-#include <utils/hello.h>
-#include <utils/utils.h>
-#include "base_sch.h"
-
-
-t_log *logger;
-t_list* lista_cpus;
-t_list* lista_io;
-
-t_list* lista_new;
-t_list* lista_ready;     // lista procesos en ready
-t_list* lista_blocked;   // procesos en blocked
-t_list* lista_susp_blocked;
-t_list* lista_susp_ready;
 
 int main(int argc, char* argv[]) {
-    // ejemplo para ejecutar: ./bin/kernel_scheduler ./kernel_scheduler.config
     if(argc < 2){ 
         printf("Se esperaban mas parametros. Ejemplo: ./bin/kernel_scheduler ./kernel_scheduler.config");
         exit(EXIT_FAILURE);
     }
-    char *ruta_config = argv[1];
-    
+
     saludar("kernel_scheduler");
     
-    t_config *config;
-    
-    char *ip;
-    char *puerto_kernel_memory;
-    char *puerto_kernel_scheduler;
-
     // crear logger
     logger = iniciar_logger("kernel_scheduler.log", "ProcesoKernelScheduler", LOG_LEVEL_INFO );
-    
-    // crear config
-    config = iniciar_config(ruta_config); 
 
-    ip = config_get_string_value (config, "IP");
-    puerto_kernel_memory = config_get_string_value (config, "PUERTO_KERNEL_MEMORY");
-    
+    char *ruta_config = argv[1];
+
+    t_config *config = iniciar_config(ruta_config); 
+
+    char* ip = config_get_string_value (config, "IP");
+    char* puerto_kernel_memory = config_get_string_value (config, "PUERTO_KERNEL_MEMORY");
+    char* puerto_kernel_scheduler = config_get_string_value (config, "PUERTO_KERNEL_SCHEDULER");
+
+    // inicializar variables globales
+    inicializar_variables_globales();
     obtener_algoritmo_planificacion(config_get_string_value(config, "PLANIFICATION_ALGORITHM"));
 
     // conectar a kernel memory
@@ -55,10 +37,9 @@ int main(int argc, char* argv[]) {
     
     //ACA DEBERIAMOS CREAR EL HILO PARA ATENDER A KERNEL MEMORY, PERO COMO NO SE ESPECIFICA NINGUNA OPERACION QUE DEBA REALIZAR, LO DEJAMOS ASI POR AHORA
     pthread_t thread_km;
-    pthread_create(&thread_km, NULL, km_notif , &conexion_kernel_memory);
+    pthread_create(&thread_km, NULL, atender_km , &conexion_kernel_memory);
     
     // iniciar servidor
-    puerto_kernel_scheduler = config_get_string_value (config, "PUERTO_KERNEL_SCHEDULER");
     int kernel_scheduler_fd = iniciar_servidor(puerto_kernel_scheduler);
 
     if(kernel_scheduler_fd == -1){
@@ -66,11 +47,6 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // incializar listas globales 
-    lista_io = list_create();
-    lista_cpus = list_create();
-    lista_ready = list_create();
-    lista_blocked = list_create();
 
     // esperar clientes
     while(true){
@@ -147,7 +123,7 @@ void* atender_io(t_io* io){
     return NULL;
 }
 
-void* km_notif(void *conexion_kernel_memory_v){
+void* atender_km(void *conexion_kernel_memory_v){
     int *conexion_kernel_memory = (int*) conexion_kernel_memory_v; 
     while(1){
         op_code cod_op = recibir_operacion(*conexion_kernel_memory);
@@ -200,16 +176,6 @@ void enviar_paquete_a_todas_las_cpus(t_paquete* paquete){
 // nuevo proceso en la lista de ready: (susp/ready->ready) un proceso xq hay otra mem stick
 // nueva cpu en lista de cpus: conexion de cpu
 
-// planificacion
-
-
-void planificacion(){
-    while (1){
-        if (lista_new != NULL){
-            planificador_largo_plazo();
-        }
-    }    
-}
 /*
 pthread_t hilo_corto_plazo, hilo_mediano_plazo, hilo_largo_plazo;
 sem_init(&semA, 0, 1); 
@@ -225,158 +191,10 @@ pthread_create(&hilo_corto_plazo, NULL, planificador_corto_plazo, NULL);
 
 join o detach?
 */
-bool planificador_corto_plazo(){
-    t_pcb* proceso = proximo_proceso();
-    
-    if(proceso == NULL){
-        return false;
-    }
-    int pid = proceso->pid;
-    t_cpu* prox_cpu = proxima_cpu();
-    if(prox_cpu == NULL){
-        return false;
-    }
-    
-    ready_a_exec(proceso);
-
-    // marcar que la cpu esta ocupada ?
-    // ...
-
-    // le asigno a prox_cpu el proceso prox_proceso
-    int cpu_fd = prox_cpu->fd;
-    t_paquete* paquete_asignar_proceso = crear_paquete(SCH_CPU__PID);
-    agregar_a_paquete(paquete_asignar_proceso, &pid, sizeof(pid));
-    enviar_paquete_y_liberarlo(paquete_asignar_proceso, cpu_fd);
-
-    return true;
-}
-
-void * planificador_largo_plazo(){
-    while(1){
-        t_pcb* proceso_new = list_get(lista_new, 0);
-        new_a_ready(proceso_new);
-        return NULL;
-    }
-}
-
-t_cpu* proxima_cpu(){
-    for(int i=0; i<list_size(lista_cpus); i++){
-        t_cpu* cpu = list_get(lista_cpus, i);
-        if(cpu->proceso != NULL)
-            return cpu;
-    }
-    return NULL;
-}
-
-t_pcb* proximo_proceso(){
-    switch(algoritmo){
-        case CMN: {
-            return planificar_CMN();
-        }
-        case FIFO:
-        case RR: {
-            return planificar_RR_y_FIFO();
-        }default: 
-            log_warning(logger, "Algoritmo desconocido, no se puede planificar");
-            // terminar programa ?
-            return NULL;
-    }
-}
-
-// devuelve el pcb dep proximo proceso a ejecutar si el algoritmo es CMN
-t_pcb* planificar_CMN(){
-    for(int i=0; i<list_size(lista_ready); i++){
-        t_list *actual = list_get(lista_ready, i);
-        if(!list_is_empty(actual)){
-            return list_get(actual, 0); // Devuelve el 1er elemento de la cola de mayor nivel que no este vacia
-        }
-    }
-    return NULL;
-}
-
-// para FIFO y RR
-t_pcb* planificar_RR_y_FIFO(){
-    if(list_is_empty(lista_ready)){
-        return NULL;
-    }
-    return list_get(lista_ready, 0);
-}
-
-// mover proceso entre estados
-
-void blocked_a_susp_blocked(t_pcb* proceso){
-    pasarA(lista_blocked, lista_susp_blocked, proceso, SUSP_BLOQUEADO);
-}
-
-void susp_blocked_a_susp_ready(t_pcb* proceso){
-    pasarA(lista_susp_blocked, lista_susp_ready, proceso, SUSP_LISTO);
-}
-// CMN: ready**=[[proceso1, proceso2], [proceso3, proceso4]]
-// FIFO o RR: ready=[proceso1, proceso2, proceso3]
-void susp_ready_a_ready(t_pcb* proceso){
-    if(algoritmo == CMN){
-        list_remove_element(lista_susp_ready, proceso);
-        // agregar_a_ready_CMN(proceso);
-    }else{
-        pasarA(lista_susp_ready, lista_ready, proceso, LISTO);
-    }
-}
-
-void ready_a_exec(t_pcb* proceso){
-    pasarA(lista_ready, lista_exec, proceso, EJECUTANDO);
-}
-
-void exec_a_blocked(t_pcb* proceso){
-    pasarA(lista_exec, lista_blocked, proceso, BLOQUEADO);
-}
-
-void exec_a_ready(t_pcb* proceso){
-    if(algoritmo == CMN){
-        list_remove_element(lista_exec, proceso);
-        // agregar_a_ready_CMN(proceso);
-    }else{
-        pasarA(lista_exec, lista_ready, proceso, LISTO);
-    }
-}
-
-void new_a_ready(t_pcb* proceso){
-    if(algoritmo == CMN){
-        list_remove_element(lista_new, proceso);
-        //agregar_a_ready_CMN(proceso);
-    }else{
-        pasarA(lista_exec, lista_ready, proceso, LISTO);
-    }
-}
-
-void pasarA(t_list* lsrc,t_list*ldest, t_pcb* proceso, t_tipo_estado estado){
-    list_remove_element(lsrc, proceso);
-    list_add(ldest, proceso);
-    proceso->estado = estado;
-}
-
-t_list* sublista_ready_de_prioridad(int prioridad){
-    // si es CMN lista_ready tiene sublistas, deuelve la sublista de la prioridad pedida
-    return list_get(lista_ready, prioridad);
-}
-
-
 void obtener_algoritmo_planificacion(char *algoritmo_str){
     algoritmo = algoritmo_str_a_enum(algoritmo_str);
     if(algoritmo == -1){
         printf("%s no es un algoritmo invalido, proba con FIFO, RR o CMN", algoritmo_str);
         exit(EXIT_FAILURE);
     }
-}
-
-t_planificacion algoritmo_str_a_enum(char *algoritmo_str){
-    if(strcmp(algoritmo_str, "FIFO") == 0){
-        return FIFO;
-    }
-    if(strcmp(algoritmo_str, "RR") == 0){
-        return RR;
-    }
-    if(strcmp(algoritmo_str, "CMN") == 0){
-        return CMN;
-    }
-    return -1;
 }

@@ -3,7 +3,11 @@
 
 #include <utils/utils.h>
 
-
+typedef struct{
+    int pid;
+    int prioridad;
+	t_tipo_estado estado;
+} t_pcb;
 typedef struct
 {
 	int fd;
@@ -23,15 +27,38 @@ typedef enum{
     RR
 } t_planificacion;
 
-typedef struct{
-    int pid;
-    int prioridad;
-	t_tipo_estado estado;
-} t_pcb;
 
+// variables globales 
 
+extern t_list* lista_cpus;
+extern t_list* lista_io;
+extern t_list* lista_new;
+extern t_list* lista_ready;     // lista procesos en ready
+extern t_list* lista_exec;      // lista de procesos en exec
+extern t_list* lista_blocked;   // procesos en blocked
+extern t_list* lista_susp_blocked;
+extern t_list* lista_susp_ready;
+extern t_log* logger;
+extern t_planificacion algoritmo;
+
+// funciones para inicializar cosas
+void inicializar_variables_globales();
+void obtener_algoritmo_planificacion(char *algoritmo_str);
 t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
+t_pcb* iniciar_pcb(int pid, int prioridad, t_tipo_estado estado);
 
+// mover entre listas de procesos
+void blocked_a_susp_blocked(t_pcb* pid);
+void susp_blocked_a_susp_ready(t_pcb* pid);
+void susp_ready_a_ready(t_pcb* pid);
+void ready_a_exec(t_pcb* pid);
+void exec_a_blocked(t_pcb* pid);
+void exec_a_ready(t_pcb* pid);
+void new_a_ready(t_pcb* pid);
+t_list* sublista_ready_de_prioridad(int prioridad);
+
+// funciones genericas
+void pasarA(t_list* ,t_list*, t_pcb*, t_tipo_estado); // mover un pid de una lista a otra
 
 #endif
