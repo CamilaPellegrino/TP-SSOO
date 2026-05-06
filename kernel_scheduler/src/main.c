@@ -3,16 +3,12 @@
 #include <utils/utils.h>
 #include "base_sch.h"
 
-void* atender_cliente(void *arg);
-void* atender_cpu(t_cpu* cpu);
-void* atender_io(t_io* io);
-void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
-void* km_notif(void *conexion_kernel_memory);
 
 t_log *logger;
 t_list* lista_cpus;
 t_list* lista_io;
 
+t_list* lista_new;
 t_list* lista_ready;     // lista procesos en ready
 t_list* lista_blocked;   // procesos en blocked
 t_list* lista_susp_blocked;
@@ -199,14 +195,38 @@ void enviar_paquete_a_todas_las_cpus(t_paquete* paquete){
     }
 }
 
-// cuando intentar planificar?
+// cuando intentar planificar al corto?
 
 // nuevo proceso en la lista de ready: (susp/ready->ready) un proceso xq hay otra mem stick
 // nueva cpu en lista de cpus: conexion de cpu
 
 // planificacion
-bool intentar_planificar(){
-    t_pcb_sch* proceso = proximo_proceso();
+
+
+void planificacion(){
+    while (1){
+        if (lista_new != NULL){
+            planificador_largo_plazo();
+        }
+    }    
+}
+/*
+pthread_t hilo_corto_plazo, hilo_mediano_plazo, hilo_largo_plazo;
+sem_init(&semA, 0, 1); 
+sem_wait(&semA);
+sem_post(&semR);
+sem_t semPC;
+sem_t 
+
+pthread_create(&hilo_largo_plazo, NULL, planificador_largo_plazo, NULL);
+pthread_create(&hilo_mediano_plazo, NULL, planificador_mediano_plazo, NULL);
+pthread_create(&hilo_corto_plazo, NULL, planificador_corto_plazo, NULL);
+
+
+join o detach?
+*/
+bool planificador_corto_plazo(){
+    t_pcb* proceso = proximo_proceso();
     
     if(proceso == NULL){
         return false;
@@ -231,13 +251,24 @@ bool intentar_planificar(){
     return true;
 }
 
-t_cpu* proxima_cpu(){
-    if(list_is_empty(lista_cpus)){
+void * planificador_largo_plazo(){
+    while(1){
+        t_pcb* proceso_new = list_get(lista_new, 0);
+        new_a_ready(proceso_new);
         return NULL;
     }
-    return list_get(lista_cpus, 0);
 }
-t_pcb_sch* proximo_proceso(){
+
+t_cpu* proxima_cpu(){
+    for(int i=0; i<list_size(lista_cpus); i++){
+        t_cpu* cpu = list_get(lista_cpus, i);
+        if(cpu->proceso != NULL)
+            return cpu;
+    }
+    return NULL;
+}
+
+t_pcb* proximo_proceso(){
     switch(algoritmo){
         case CMN: {
             return planificar_CMN();
@@ -253,7 +284,7 @@ t_pcb_sch* proximo_proceso(){
 }
 
 // devuelve el pcb dep proximo proceso a ejecutar si el algoritmo es CMN
-t_pcb_sch* planificar_CMN(){
+t_pcb* planificar_CMN(){
     for(int i=0; i<list_size(lista_ready); i++){
         t_list *actual = list_get(lista_ready, i);
         if(!list_is_empty(actual)){
@@ -264,7 +295,7 @@ t_pcb_sch* planificar_CMN(){
 }
 
 // para FIFO y RR
-t_pcb_sch* planificar_RR_y_FIFO(){
+t_pcb* planificar_RR_y_FIFO(){
     if(list_is_empty(lista_ready)){
         return NULL;
     }
@@ -273,49 +304,54 @@ t_pcb_sch* planificar_RR_y_FIFO(){
 
 // mover proceso entre estados
 
-void blocked_a_susp_blocked(t_pcb_sch* proceso){
-    pasarA(lista_blocked, lista_susp_blocked, proceso);
+void blocked_a_susp_blocked(t_pcb* proceso){
+    pasarA(lista_blocked, lista_susp_blocked, proceso, SUSP_BLOQUEADO);
 }
 
-void susp_blocked_a_susp_ready(t_pcb_sch* proceso){
-    pasarA(lista_susp_blocked, lista_susp_ready, proceso);
+void susp_blocked_a_susp_ready(t_pcb* proceso){
+    pasarA(lista_susp_blocked, lista_susp_ready, proceso, SUSP_LISTO);
 }
-
-void susp_ready_a_ready(t_pcb_sch* proceso){
+// CMN: ready**=[[proceso1, proceso2], [proceso3, proceso4]]
+// FIFO o RR: ready=[proceso1, proceso2, proceso3]
+void susp_ready_a_ready(t_pcb* proceso){
     if(algoritmo == CMN){
         list_remove_element(lista_susp_ready, proceso);
         // agregar_a_ready_CMN(proceso);
     }else{
-        pasarA(lista_susp_ready, lista_ready, proceso);
+        pasarA(lista_susp_ready, lista_ready, proceso, LISTO);
     }
 }
 
-void ready_a_exec(t_pcb_sch* proceso){
-    pasarA(lista_ready, lista_exec, proceso);
+void ready_a_exec(t_pcb* proceso){
+    pasarA(lista_ready, lista_exec, proceso, EJECUTANDO);
 }
-void exec_a_blocked(t_pcb_sch* proceso){
-    pasarA(lista_exec, lista_blocked, proceso);
+
+void exec_a_blocked(t_pcb* proceso){
+    pasarA(lista_exec, lista_blocked, proceso, BLOQUEADO);
 }
-void exec_a_ready(t_pcb_sch* proceso){
+
+void exec_a_ready(t_pcb* proceso){
     if(algoritmo == CMN){
         list_remove_element(lista_exec, proceso);
         // agregar_a_ready_CMN(proceso);
     }else{
-        pasarA(lista_exec, lista_ready, proceso);
+        pasarA(lista_exec, lista_ready, proceso, LISTO);
     }
 }
 
-void new_a_ready(t_pcb_sch* proceso){
+void new_a_ready(t_pcb* proceso){
     if(algoritmo == CMN){
+        list_remove_element(lista_new, proceso);
         //agregar_a_ready_CMN(proceso);
     }else{
-        pasarA(lista_exec, lista_ready, proceso);
+        pasarA(lista_exec, lista_ready, proceso, LISTO);
     }
 }
 
-void pasarA(t_list* lsrc,t_list*ldest, t_pcb_sch* proceso){
+void pasarA(t_list* lsrc,t_list*ldest, t_pcb* proceso, t_tipo_estado estado){
     list_remove_element(lsrc, proceso);
     list_add(ldest, proceso);
+    proceso->estado = estado;
 }
 
 t_list* sublista_ready_de_prioridad(int prioridad){
@@ -323,12 +359,6 @@ t_list* sublista_ready_de_prioridad(int prioridad){
     return list_get(lista_ready, prioridad);
 }
 
-void * planificador_largoPlazo(){
-    
-    //intentar_planificar();
-
-    return NULL;
-}
 
 void obtener_algoritmo_planificacion(char *algoritmo_str){
     algoritmo = algoritmo_str_a_enum(algoritmo_str);
