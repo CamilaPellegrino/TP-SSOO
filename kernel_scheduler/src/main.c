@@ -23,19 +23,18 @@ int main(int argc, char* argv[]) {
     inicializar_variables_globales();
     obtener_algoritmo_planificacion(config_get_string_value(config, "PLANIFICATION_ALGORITHM"));
 
-    // conectar a kernel memory
+    // testear(); // descomentar esto si solo queres testear y defini el test en test.c
 
+    // conectar a kernel memory
     int conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
     log_info(logger, "## Conectado a Kernel Memory");
-
     
     // handshake a kernel memory
     handshake_cliente(conexion_kernel_memory, logger);
     // enviar mensaje a kernel memory
     enviar_mensaje("Hola, soy sche", conexion_kernel_memory, SCH_KM__CONEXION);
     
-    //ACA DEBERIAMOS CREAR EL HILO PARA ATENDER A KERNEL MEMORY, PERO COMO NO SE ESPECIFICA NINGUNA OPERACION QUE DEBA REALIZAR, LO DEJAMOS ASI POR AHORA
     pthread_t thread_km;
     pthread_create(&thread_km, NULL, atender_km , &conexion_kernel_memory);
     
@@ -46,7 +45,6 @@ int main(int argc, char* argv[]) {
         log_error(logger, "No se pudo iniciar el servidor");
         exit(EXIT_FAILURE);
     }
-
 
     // esperar clientes
     while(true){

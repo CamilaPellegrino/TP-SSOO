@@ -38,7 +38,7 @@ void * planificador_largo_plazo(){
 t_cpu* proxima_cpu(){
     for(int i=0; i<list_size(lista_cpus); i++){
         t_cpu* cpu = list_get(lista_cpus, i);
-        if(cpu->proceso != NULL)
+        if(cpu->proceso == NULL)
             return cpu;
     }
     return NULL;

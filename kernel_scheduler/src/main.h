@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include "base_sch.h"
 #include "planificador.h"
+#include "test.h"
 #include <pthread.h>
 #include <semaphore.h>
 

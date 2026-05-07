@@ -29,6 +29,7 @@ t_cpu* iniciar_cpu(int id, int fd){
 	if (nuevo_cpu != NULL) {
 		nuevo_cpu->id = id;
 		nuevo_cpu->fd = fd;
+        nuevo_cpu->proceso = NULL;
 	}
 	return nuevo_cpu;
 }
