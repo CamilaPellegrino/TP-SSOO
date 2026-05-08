@@ -34,13 +34,14 @@ typedef enum{
 extern t_list* lista_cpus;
 extern t_list* lista_io;
 extern t_list* lista_new;
-extern t_list* lista_ready;     // lista procesos en ready
-extern t_list* lista_exec;      // lista de procesos en exec
-extern t_list* lista_blocked;   // procesos en blocked
+extern t_list* lista_ready;        // lista procesos en ready
+extern t_list* lista_exec;         // lista de procesos en exec
+extern t_list* lista_blocked;      // procesos en blocked
 extern t_list* lista_susp_blocked;
 extern t_list* lista_susp_ready;
 extern t_log* logger;
-extern t_planificacion algoritmo;
+extern t_planificacion algoritmo;  // CMN, FIFO o RR
+extern t_list* queues_algorithms;   // algoritmo que usa cada cola cuando es CMN
 
 // semaforos
 
@@ -50,6 +51,7 @@ extern sem_t s_planificar_largo;
 
 // funciones para inicializar cosas
 void inicializar_variables_globales();
+t_list* queues_algorithms_a_t_list(char** queues_algorithms_str);
 t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
 t_pcb* iniciar_pcb(int pid, int prioridad, t_tipo_estado estado);

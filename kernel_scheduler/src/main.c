@@ -19,16 +19,22 @@ int main(int argc, char* argv[]) {
     char* puerto_kernel_scheduler = config_get_string_value (config, "PUERTO_KERNEL_SCHEDULER");
     char* algoritmo_str = config_get_string_value(config, "PLANIFICATION_ALGORITHM");
     t_log_level log_level = log_level_from_string(config_get_string_value(config, "LOG_LEVEL"));
-    // char* queues_algorithms = config_get_array_value(config, "QUEUES_ALGORITHMS");
+    char** queues_algorithms_str = config_get_array_value(config, "QUEUES_ALGORITHMS");
     // int rr_quantum = config_get_int_value(config, "RR_QUANTUM");
 
     // crear logger
     logger = iniciar_logger("kernel_scheduler.log", "ProcesoKernelScheduler", log_level);
 
     // inicializar variables globales
-    inicializar_variables_globales();
     algoritmo = obtener_algoritmo_planificacion(algoritmo_str);
 
+    // convierto la lista de queues_algorithms de char** a t_list*
+    queues_algorithms = queues_algorithms_a_t_list(queues_algorithms_str);
+
+    string_array_destroy(queues_algorithms_str); // libero la lista de strings despues de haber creado la t_list
+    
+    inicializar_variables_globales();
+ 
     // testear(); // descomentar esto si solo queres testear y defini el test en test.c
 
     // conectar a kernel memory

@@ -19,13 +19,13 @@ t_list* lista_susp_blocked;
 t_list* lista_susp_ready;
 t_log * logger;
 t_planificacion algoritmo;
+t_list* queues_algorithms;  
 
 // semaforos
 
 sem_t s_planificar_corto;
 sem_t s_planificar_largo;
 
-// tipos de datos
 /*
  * Declaracion de funcioens
 */

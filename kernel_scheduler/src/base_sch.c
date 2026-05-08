@@ -1,20 +1,47 @@
 #include "base_sch.h"
+void inicializar_lista_ready();
 
 // inicializar cosas 
-
 void inicializar_variables_globales(){
     // inicialziar listas
 	lista_io = list_create();
     lista_cpus = list_create();
     lista_new = list_create();
-    lista_ready = list_create();
     lista_exec = list_create();
     lista_blocked = list_create();
-
+    inicializar_lista_ready();
     // inicializar semaforos
     sem_init(&s_planificar_largo, 0, 0);
     sem_init(&s_planificar_corto, 0, 0);
 
+}
+
+t_list* queues_algorithms_a_t_list(char** queues_algorithms_str){
+    t_list* ret = list_create();
+    if (queues_algorithms_str == NULL){
+        return NULL;
+    }        
+    for (int i = 0; queues_algorithms_str[i] != NULL; i++)
+    {
+        char *algoritmo_str = queues_algorithms_str[i];
+        t_planificacion* algoritmo = malloc(sizeof(t_planificacion));
+        *algoritmo = obtener_algoritmo_planificacion(algoritmo_str);
+        list_add(ret, algoritmo);
+    }
+    return ret;
+}
+
+void inicializar_lista_ready(){
+    lista_ready = list_create();
+    if(algoritmo == CMN){
+        for(int i = 0; i<list_size(queues_algorithms); i++){
+            // agrego una lista para cada nivel
+            t_list* lista = list_create();
+            list_add(lista_ready, lista);
+        }
+    }else{
+        lista_ready = list_create();
+    }
 }
 
 t_planificacion algoritmo_str_a_enum(char *algoritmo_str){
@@ -104,6 +131,10 @@ void new_a_ready(t_pcb* proceso){
 
 void agregar_a_ready_CMN(t_pcb* proceso){
     // asumo que es CMN y agrego el proceso a ready
+    if (proceso == NULL) {
+        log_error(logger, "proceso NULL en agregar_a_ready_CMN");
+        return;
+    }
     t_list* cola_prioridad = sublista_ready_de_prioridad(proceso->prioridad);
     if(cola_prioridad == NULL){
         log_error(logger, "error al obtener la cola de prioridad %d", proceso->prioridad);
