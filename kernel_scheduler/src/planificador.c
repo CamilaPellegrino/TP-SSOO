@@ -29,9 +29,15 @@ bool planificador_corto_plazo(){
 
 void * planificador_largo_plazo(){
     while(1){
-        t_pcb* proceso_new = list_get(lista_new, 0);
+        sem_wait(&s_planificar_largo);
+        log_info(logger, "Planificador de largo plazo hizo sem_wait");
+        if(list_is_empty(lista_new)){
+            log_info(logger, "no habia nada");
+            continue;
+        }
+        t_pcb* proceso_new = list_remove(lista_new, 0);
         new_a_ready(proceso_new);
-        return NULL;
+        log_info(logger, "cosas en new ahora: %d, cosas en ready: %d", list_size(lista_new), list_size(lista_ready));
     }
 }
 

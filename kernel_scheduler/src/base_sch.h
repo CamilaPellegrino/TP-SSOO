@@ -2,6 +2,7 @@
 #define BASE_SCH_H_
 
 #include <utils/utils.h>
+#include <semaphore.h>
 
 typedef struct{
     int pid;
@@ -41,9 +42,14 @@ extern t_list* lista_susp_ready;
 extern t_log* logger;
 extern t_planificacion algoritmo;
 
+// semaforos
+
+extern sem_t s_planificar_corto;
+extern sem_t s_planificar_largo;
+
+
 // funciones para inicializar cosas
 void inicializar_variables_globales();
-void obtener_algoritmo_planificacion(char *algoritmo_str);
 t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
 t_pcb* iniciar_pcb(int pid, int prioridad, t_tipo_estado estado);
@@ -56,9 +62,13 @@ void ready_a_exec(t_pcb* pid);
 void exec_a_blocked(t_pcb* pid);
 void exec_a_ready(t_pcb* pid);
 void new_a_ready(t_pcb* pid);
+t_pcb* nuevo_proc(int pid, int prioridad, char* instrucciones);
 t_list* sublista_ready_de_prioridad(int prioridad);
+void agregar_a_ready_CMN(t_pcb* proceso);
 
 // funciones genericas
 void pasarA(t_list* ,t_list*, t_pcb*, t_tipo_estado); // mover un pid de una lista a otra
+int iniciar_servidor_o_exit(char* puerto);
+t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str);
 
 #endif

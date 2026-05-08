@@ -1,27 +1,33 @@
 #include "main.h"
 
 int main(int argc, char* argv[]) {
-    if(argc < 2){ 
-        printf("Se esperaban mas parametros. Ejemplo: ./bin/kernel_scheduler ./kernel_scheduler.config");
+    if(argc < 3){ 
+        printf("Se esperaban mas parametros. Ejemplo: ./bin/kernel_scheduler ./kernel_scheduler.config archivo.txt");
         exit(EXIT_FAILURE);
     }
 
     saludar("kernel_scheduler");
     
-    // crear logger
-    logger = iniciar_logger("kernel_scheduler.log", "ProcesoKernelScheduler", LOG_LEVEL_INFO );
-
     char *ruta_config = argv[1];
+    char *instrucciones_pid_0 = argv[2];
 
     t_config *config = iniciar_config(ruta_config); 
 
+    // leer de config
     char* ip = config_get_string_value (config, "IP");
     char* puerto_kernel_memory = config_get_string_value (config, "PUERTO_KERNEL_MEMORY");
     char* puerto_kernel_scheduler = config_get_string_value (config, "PUERTO_KERNEL_SCHEDULER");
+    char* algoritmo_str = config_get_string_value(config, "PLANIFICATION_ALGORITHM");
+    t_log_level log_level = log_level_from_string(config_get_string_value(config, "LOG_LEVEL"));
+    // char* queues_algorithms = config_get_array_value(config, "QUEUES_ALGORITHMS");
+    // int rr_quantum = config_get_int_value(config, "RR_QUANTUM");
+
+    // crear logger
+    logger = iniciar_logger("kernel_scheduler.log", "ProcesoKernelScheduler", log_level);
 
     // inicializar variables globales
     inicializar_variables_globales();
-    obtener_algoritmo_planificacion(config_get_string_value(config, "PLANIFICATION_ALGORITHM"));
+    algoritmo = obtener_algoritmo_planificacion(algoritmo_str);
 
     // testear(); // descomentar esto si solo queres testear y defini el test en test.c
 
@@ -32,6 +38,7 @@ int main(int argc, char* argv[]) {
     
     // handshake a kernel memory
     handshake_cliente(conexion_kernel_memory, logger);
+
     // enviar mensaje a kernel memory
     enviar_mensaje("Hola, soy sche", conexion_kernel_memory, SCH_KM__CONEXION);
     
@@ -39,20 +46,28 @@ int main(int argc, char* argv[]) {
     pthread_create(&thread_km, NULL, atender_km , &conexion_kernel_memory);
     
     // iniciar servidor
-    int kernel_scheduler_fd = iniciar_servidor(puerto_kernel_scheduler);
+    int kernel_scheduler_fd = iniciar_servidor_o_exit(puerto_kernel_scheduler); 
 
-    if(kernel_scheduler_fd == -1){
-        log_error(logger, "No se pudo iniciar el servidor");
-        exit(EXIT_FAILURE);
-    }
+    // crear hilos de planificacion
 
+    pthread_t hilo_corto_plazo, hilo_mediano_plazo, hilo_largo_plazo;
+    pthread_create(&hilo_largo_plazo, NULL, planificador_largo_plazo, NULL);
+    // pthread_create(&hilo_mediano_plazo, NULL, planificador_mediano_plazo, NULL);
+    // pthread_create(&hilo_corto_plazo, NULL, planificador_corto_plazo, NULL);
+
+    printf("hilos creados\n");
+
+    // agregar el proceso de pid 0
+    t_pcb* pcb_pid_0 = nuevo_proc(0, 0, instrucciones_pid_0); //TODO: mandar la ruta de las instrucciones junto al PID al kernel memory para que las guarde
+    
     // esperar clientes
     while(true){
         int *cliente_fd = esperar_cliente(kernel_scheduler_fd);
         log_info(logger, "Me llego un cliente, %d", *cliente_fd);
 
         handshake_servidor(*cliente_fd, logger);
-        // creacion del hilo
+        
+        // crear del hilo que atiende al cliente que se acaba de conectar
         pthread_t thread;
         pthread_create(&thread, NULL, atender_cliente, cliente_fd);
         pthread_detach(thread);
@@ -175,24 +190,11 @@ void enviar_paquete_a_todas_las_cpus(t_paquete* paquete){
 // nueva cpu en lista de cpus: conexion de cpu
 
 /*
-pthread_t hilo_corto_plazo, hilo_mediano_plazo, hilo_largo_plazo;
 sem_init(&semA, 0, 1); 
 sem_wait(&semA);
 sem_post(&semR);
 sem_t semPC;
-sem_t 
-
-pthread_create(&hilo_largo_plazo, NULL, planificador_largo_plazo, NULL);
-pthread_create(&hilo_mediano_plazo, NULL, planificador_mediano_plazo, NULL);
-pthread_create(&hilo_corto_plazo, NULL, planificador_corto_plazo, NULL);
-
 
 join o detach?
 */
-void obtener_algoritmo_planificacion(char *algoritmo_str){
-    algoritmo = algoritmo_str_a_enum(algoritmo_str);
-    if(algoritmo == -1){
-        printf("%s no es un algoritmo invalido, proba con FIFO, RR o CMN", algoritmo_str);
-        exit(EXIT_FAILURE);
-    }
-}
+

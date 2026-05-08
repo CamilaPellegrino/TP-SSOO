@@ -3,12 +3,18 @@
 // inicializar cosas 
 
 void inicializar_variables_globales(){
+    // inicialziar listas
 	lista_io = list_create();
     lista_cpus = list_create();
     lista_new = list_create();
     lista_ready = list_create();
     lista_exec = list_create();
     lista_blocked = list_create();
+
+    // inicializar semaforos
+    sem_init(&s_planificar_largo, 0, 0);
+    sem_init(&s_planificar_corto, 0, 0);
+
 }
 
 t_planificacion algoritmo_str_a_enum(char *algoritmo_str){
@@ -64,7 +70,7 @@ void susp_blocked_a_susp_ready(t_pcb* proceso){
 void susp_ready_a_ready(t_pcb* proceso){
     if(algoritmo == CMN){
         list_remove_element(lista_susp_ready, proceso);
-        // agregar_a_ready_CMN(proceso);
+        agregar_a_ready_CMN(proceso);
     }else{
         pasarA(lista_susp_ready, lista_ready, proceso, LISTO);
     }
@@ -81,7 +87,7 @@ void exec_a_blocked(t_pcb* proceso){
 void exec_a_ready(t_pcb* proceso){
     if(algoritmo == CMN){
         list_remove_element(lista_exec, proceso);
-        // agregar_a_ready_CMN(proceso);
+        agregar_a_ready_CMN(proceso);
     }else{
         pasarA(lista_exec, lista_ready, proceso, LISTO);
     }
@@ -90,10 +96,28 @@ void exec_a_ready(t_pcb* proceso){
 void new_a_ready(t_pcb* proceso){
     if(algoritmo == CMN){
         list_remove_element(lista_new, proceso);
-        //agregar_a_ready_CMN(proceso);
+        agregar_a_ready_CMN(proceso);
     }else{
         pasarA(lista_new, lista_ready, proceso, LISTO);
     }
+}
+
+void agregar_a_ready_CMN(t_pcb* proceso){
+    // asumo que es CMN y agrego el proceso a ready
+    t_list* cola_prioridad = sublista_ready_de_prioridad(proceso->prioridad);
+    if(cola_prioridad == NULL){
+        log_error(logger, "error al obtener la cola de prioridad %d", proceso->prioridad);
+        exit(EXIT_FAILURE); // si no encuentro la cola de prioridad del proceso, exit con error (prioridad fuera de rango)
+    }
+    list_add(cola_prioridad, proceso);
+    proceso->estado = LISTO;
+}
+
+t_pcb* nuevo_proc(int pid, int prioridad, char* instrucciones){
+    t_pcb* pcb = iniciar_pcb(pid, prioridad, NUEVO);
+    list_add(lista_new, pcb);
+    sem_post(&s_planificar_largo);
+    return pcb;
 }
 
 t_list* sublista_ready_de_prioridad(int prioridad){
@@ -106,4 +130,23 @@ void pasarA(t_list* lsrc,t_list*ldest, t_pcb* proceso, t_tipo_estado estado){
     list_remove_element(lsrc, proceso);
     list_add(ldest, proceso);
     proceso->estado = estado;
+}
+
+int iniciar_servidor_o_exit(char* puerto){
+    int fd = iniciar_servidor(puerto);
+
+    if(fd == -1){
+        log_error(logger, "No se pudo iniciar el servidor");
+        exit(EXIT_FAILURE);
+    }
+    return fd;
+}
+
+t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str){
+    t_planificacion algo = algoritmo_str_a_enum(algoritmo_str);
+    if(algo == -1){
+        printf("%s no es un algoritmo invalido, proba con FIFO, RR o CMN", algoritmo_str);
+        exit(EXIT_FAILURE);
+    }
+    return algo;
 }

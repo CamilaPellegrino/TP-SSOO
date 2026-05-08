@@ -6,7 +6,6 @@
 #include "planificador.h"
 #include "test.h"
 #include <pthread.h>
-#include <semaphore.h>
 
 // variables globales 
 
@@ -20,6 +19,11 @@ t_list* lista_susp_blocked;
 t_list* lista_susp_ready;
 t_log * logger;
 t_planificacion algoritmo;
+
+// semaforos
+
+sem_t s_planificar_corto;
+sem_t s_planificar_largo;
 
 // tipos de datos
 /*
