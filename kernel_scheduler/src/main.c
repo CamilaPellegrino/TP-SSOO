@@ -41,8 +41,6 @@ int main(int argc, char* argv[]) {
     int conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
     log_info(logger, "## Conectado a Kernel Memory");
-    
-    // handshake a kernel memory
     handshake_cliente(conexion_kernel_memory, logger);
 
     // enviar mensaje a kernel memory
@@ -62,7 +60,7 @@ int main(int argc, char* argv[]) {
 
     // pthread_create(&hilo_mediano_plazo, NULL, planificador_mediano_plazo, NULL);
 
-    log_debug(logger, "hilos de planificacion creados\n");
+    log_debug(logger, "hilos de planificacion creados");
 
     // agregar el proceso de pid 0
     t_pcb* pcb_pid_0 = nuevo_proc(0, 0, instrucciones_pid_0); //TODO: mandar la ruta de las instrucciones junto al PID al kernel memory para que las guarde
@@ -82,7 +80,6 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
-
 
 void* atender_cliente(void *arg){
     int *cliente_fd_ptr = (int *) arg;
@@ -114,10 +111,12 @@ void* atender_cliente(void *arg){
     return NULL;
 }
 
-
 void* atender_cpu(t_cpu* cpu){
     int cpu_fd = cpu->fd;
     int cpu_id = cpu->id;
+    
+    sem_post(&s_planificar_corto);
+
     log_info(logger, "## CPU <%d> Conectada", cpu_id);
     while(1){
         op_code cod_op = recibir_operacion(cpu_fd);
@@ -191,18 +190,3 @@ void enviar_paquete_a_todas_las_cpus(t_paquete* paquete){
         log_info(logger, "Enviando info a cpu de stick");
     }
 }
-
-// cuando intentar planificar al corto?
-
-// nuevo proceso en la lista de ready: (susp/ready->ready) un proceso xq hay otra mem stick
-// nueva cpu en lista de cpus: conexion de cpu
-
-/*
-sem_init(&semA, 0, 1); 
-sem_wait(&semA);
-sem_post(&semR);
-sem_t semPC;
-
-join o detach?
-*/
-

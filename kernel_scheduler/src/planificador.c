@@ -21,11 +21,12 @@ void* planificador_corto_plazo(){
         prox_cpu->proceso = prox_proceso;
 
         // le asigno a prox_cpu el proceso prox_proceso mandandole el pid
-        // int cpu_fd = prox_cpu->fd;
-        // t_paquete* paquete_asignar_proceso = crear_paquete(SCH_CPU__PID);
-        // agregar_a_paquete(paquete_asignar_proceso, &pid, sizeof(pid));
-        // enviar_paquete_y_liberarlo(paquete_asignar_proceso, cpu_fd);
-        
+        int cpu_fd = prox_cpu->fd;
+        log_debug(logger, "Enviando cosas a cpu de fd: %d", cpu_fd);
+        t_paquete* paquete_asignar_proceso = crear_paquete(SCH_CPU__PID);
+        agregar_a_paquete(paquete_asignar_proceso, &pid, sizeof(pid));
+        enviar_paquete(paquete_asignar_proceso, cpu_fd);
+        log_debug(logger, "voy a enviar pid %d a fd %d", pid, cpu_fd);
         ready_a_exec(prox_proceso);
     }
     return NULL;
