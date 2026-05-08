@@ -70,5 +70,5 @@ void agregar_a_ready_CMN(t_pcb* proceso);
 void pasarA(t_list* ,t_list*, t_pcb*, t_tipo_estado); // mover un pid de una lista a otra
 int iniciar_servidor_o_exit(char* puerto);
 t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str);
-
+pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo);
 #endif

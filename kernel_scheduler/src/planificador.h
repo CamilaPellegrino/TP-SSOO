@@ -3,8 +3,8 @@
 #include "base_sch.h"
 
 // planificacion
-bool planificador_corto_plazo();
-void * planificador_largo_plazo();
+void* planificador_corto_plazo();
+void* planificador_largo_plazo();
 t_cpu* proxima_cpu();
 t_pcb* planificar_CMN();
 t_pcb* planificar_RR_y_FIFO();

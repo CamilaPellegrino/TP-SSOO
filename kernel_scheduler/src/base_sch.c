@@ -150,3 +150,14 @@ t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str){
     }
     return algo;
 }
+
+pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo){
+    pthread_t hilo;
+    int resultado = pthread_create(&hilo, NULL, funcion, arg);
+
+    if(resultado != 0){
+        log_error(logger, "Error al crear el hilo %s. Codigo: %d", nombre_hilo, resultado);
+        exit(EXIT_FAILURE);
+    }
+    return hilo;
+}

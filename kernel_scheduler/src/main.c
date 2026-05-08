@@ -42,20 +42,21 @@ int main(int argc, char* argv[]) {
     // enviar mensaje a kernel memory
     enviar_mensaje("Hola, soy sche", conexion_kernel_memory, SCH_KM__CONEXION);
     
-    pthread_t thread_km;
-    pthread_create(&thread_km, NULL, atender_km , &conexion_kernel_memory);
-    
+    pthread_t thread_km = crear_hilo_o_exit(atender_km, &conexion_kernel_memory, "thread_km");
+    pthread_detach(thread_km);
     // iniciar servidor
     int kernel_scheduler_fd = iniciar_servidor_o_exit(puerto_kernel_scheduler); 
 
     // crear hilos de planificacion
 
-    pthread_t hilo_corto_plazo, hilo_mediano_plazo, hilo_largo_plazo;
-    pthread_create(&hilo_largo_plazo, NULL, planificador_largo_plazo, NULL);
-    // pthread_create(&hilo_mediano_plazo, NULL, planificador_mediano_plazo, NULL);
-    // pthread_create(&hilo_corto_plazo, NULL, planificador_corto_plazo, NULL);
+    pthread_t hilo_largo_plazo = crear_hilo_o_exit(planificador_largo_plazo, NULL, "hilo_largo_plazo");
+    pthread_detach(hilo_largo_plazo);
+    pthread_t hilo_corto_plazo = crear_hilo_o_exit(planificador_corto_plazo, NULL, "hilo_corto_plazo");
+    pthread_detach(hilo_corto_plazo);
 
-    printf("hilos creados\n");
+    // pthread_create(&hilo_mediano_plazo, NULL, planificador_mediano_plazo, NULL);
+
+    log_debug(logger, "hilos de planificacion creados\n");
 
     // agregar el proceso de pid 0
     t_pcb* pcb_pid_0 = nuevo_proc(0, 0, instrucciones_pid_0); //TODO: mandar la ruta de las instrucciones junto al PID al kernel memory para que las guarde
@@ -80,6 +81,7 @@ int main(int argc, char* argv[]) {
 void* atender_cliente(void *arg){
     int *cliente_fd_ptr = (int *) arg;
     int cliente_fd = *cliente_fd_ptr;
+    free(cliente_fd_ptr);
     op_code cod_op = recibir_operacion(cliente_fd);
     switch(cod_op){
         case CPU_SCH__CONEXION: {
