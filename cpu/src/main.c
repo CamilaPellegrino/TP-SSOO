@@ -2,6 +2,9 @@
 #include <utils/utils.h>
 #include "base_cpu.h"
 
+void recibir_pid(int conexion_kernel_scheduler);
+
+
 // variables globales
 t_log* logger;
 
@@ -93,10 +96,7 @@ int main(int argc, char* argv[]){
         }
         switch(cod_op){
             case SCH_CPU__PID:{
-                t_list* lista_paquete = recibir_paquete(conexion_kernel_scheduler);
-                int* nuevo_pid = list_get(lista_paquete, 0);
-                pid = *nuevo_pid;
-                log_info(logger, "me llego un PID, nuevo PID: %d", pid);
+                recibir_pid(conexion_kernel_scheduler);
                 break;
             }
             case SCH_CPU__NUEVO_STICK: {
@@ -148,4 +148,20 @@ void conectarse_a_stick(char* ip, char* puerto){
     exit_si_error_conexion(conexion_memory_stick, logger, "memory stick");
     handshake_cliente(conexion_memory_stick, logger);
     
+}
+
+void recibir_pid(int conexion_kernel_scheduler){
+    t_list* lista_paquete = recibir_paquete(conexion_kernel_scheduler);
+    int* nuevo_pid = list_get(lista_paquete, 0);
+    pid = *nuevo_pid;
+    log_info(logger, "me llego un PID, nuevo PID: %d", pid);
+    // ahora la cpu deberia pedir el contexto, instrucciones y ejecutarlas una a una. Simulo eso en un sleep(2);
+    sleep(2);
+    
+    // supongo que llega la syscall SLEEP
+    int tiempo_sleep = 1000; // 1000 milisegundos = 1 seg
+    t_paquete* paquete = crear_paquete(CPU_SCH__SLEEP);
+    agregar_a_paquete(paquete, &tiempo_sleep, sizeof(tiempo_sleep));
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+    log_debug(logger, "io completada");
 }
