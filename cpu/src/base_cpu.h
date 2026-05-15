@@ -45,6 +45,34 @@ typedef struct
 	
 } t_pcb;
 
+typedef enum {
+    INST_NOOP,
+    INST_SET,
+    INST_SUM,
+    INST_SUB,
+    INST_JNZ,
+    INST_SET_PC,
+    INST_COPY_MEM,
+    INST_MOV_IN,
+    INST_MOV_OUT,
+    INST_MUTEX_CREATE, // sys  no bloqueante
+    INST_MUTEX_LOCK,   // sys  bloqueante
+    INST_MUTEX_UNLOCK, // sys  no bloqueante
+    INST_MEM_ALLOC,    // sys  
+    INST_MEM_FREE,     // sys
+    INST_SLEEP,        // sys  bloqueante
+    INST_STDOUT,       // sys  bloqueante
+    INST_STDIN,        // sys  bloqueante
+    INST_INIT_PROC,    // sys  no bloqueante
+    INST_EXIT          // sys  no bloqueante
+} t_tipo_instruccion;
+
+typedef struct{
+	t_tipo_instruccion tipo;
+	char* param1;
+	char* param2;
+
+} t_instruccion;
 
 t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd);
 void destruir_stick(t_stick* stick);

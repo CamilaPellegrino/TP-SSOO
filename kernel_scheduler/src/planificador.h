@@ -10,4 +10,5 @@ t_pcb* planificar_CMN();
 t_pcb* planificar_RR_y_FIFO();
 t_pcb* proximo_proceso();
 
+
 #endif /* PLANIFICADOR_H_*/

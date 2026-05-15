@@ -20,6 +20,7 @@ int main(int argc, char* argv[]) {
     char* algoritmo_str = config_get_string_value(config, "PLANIFICATION_ALGORITHM");
     t_log_level log_level = log_level_from_string(config_get_string_value(config, "LOG_LEVEL"));
     char** queues_algorithms_str = config_get_array_value(config, "QUEUES_ALGORITHMS");
+    timeout = config_get_int_value(config, "SUSPENSION_TIMEOUT");
     // int rr_quantum = config_get_int_value(config, "RR_QUANTUM");
 
     // crear logger
@@ -58,12 +59,10 @@ int main(int argc, char* argv[]) {
     pthread_t hilo_corto_plazo = crear_hilo_o_exit(planificador_corto_plazo, NULL, "hilo_corto_plazo");
     pthread_detach(hilo_corto_plazo);
 
-    // pthread_create(&hilo_mediano_plazo, NULL, planificador_mediano_plazo, NULL);
-
     log_debug(logger, "hilos de planificacion creados");
 
     // agregar el proceso de pid 0
-    t_pcb* pcb_pid_0 = nuevo_proc(0, 0, instrucciones_pid_0); //TODO: mandar la ruta de las instrucciones junto al PID al kernel memory para que las guarde
+    t_pcb* pcb_pid_0 = nuevo_proc(0, instrucciones_pid_0); //TODO: mandar la ruta de las instrucciones junto al PID al kernel memory para que las guarde
     
     // esperar clientes
     while(true){
@@ -77,7 +76,6 @@ int main(int argc, char* argv[]) {
         pthread_create(&thread, NULL, atender_cliente, cliente_fd);
         pthread_detach(thread);
     }
-
     return 0;
 }
 
@@ -115,8 +113,7 @@ void* atender_cpu(t_cpu* cpu){
     int cpu_fd = cpu->fd;
     int cpu_id = cpu->id;
     
-    sem_post(&s_planificar_corto);
-
+    sem_post(&s_nueva_cpu_libre); 
     log_info(logger, "## CPU <%d> Conectada", cpu_id);
     while(1){
         op_code cod_op = recibir_operacion(cpu_fd);
@@ -124,20 +121,44 @@ void* atender_cpu(t_cpu* cpu){
             log_warning(logger, "Se desconecto cpu de id:%d", cpu_id);
             break;
         }
-    }
-    return NULL;
-}
+        switch(cod_op){
+            case CPU_SCH__SLEEP:{
+                t_list* lista_paquete = recibir_paquete(cpu_fd);
+                int tiempo_sleep = *(int*)list_get(lista_paquete, 0);
+                t_pcb* proceso = cpu->proceso;
+                exec_a_blocked(proceso);
+                liberar_cpu(cpu);
+                log_debug(logger, "tamanio de ready: %d, tamanio de blocked: %d", list_size(lista_ready), list_size(lista_blocked));
+                log_debug(logger, "tiempo:%d", tiempo_sleep);
+                // crear evento
+                t_evt* evt = iniciar_evt_sleep(tiempo_sleep, proceso);
 
-void* atender_io(t_io* io){
-    int io_fd = io->fd;
-    t_tipo_io tipo = io->tipo;
+                // crear el hilo de timeout para que dps del timeout se suspenda el proceso, pero por ahora no hay suspension
+                evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout");
+                
+                // agregar evt a lista de evts
+                pthread_mutex_lock(&m_lista_evt_sleep);
+                list_add(lista_evt_sleep, evt);
+                pthread_mutex_unlock(&m_lista_evt_sleep);
 
-    log_info(logger, "** Atendiendo al io de tipo %d", tipo);
+                sem_post(&s_evt_sleep);
+                break;
+            }case CPU_SCH__MUTEX_CREATE:{
+                log_debug(logger, "cpu %d ejecutando: MUTEX_CREATE", cpu_id);
+                t_list* lista_paquete = recibir_paquete(cpu_fd);
+                char* nombre_mutex = (char*)list_get(lista_paquete, 0);
+                t_mutex* mutex = m_create(nombre_mutex);
+                
+                pthread_mutex_lock(&m_lista_mutex);
+                list_add(lista_mutex, mutex);
+                pthread_mutex_unlock(&m_lista_mutex);
 
-    while(1){
-        op_code cod_op = recibir_operacion(io_fd);
-        if(cod_op == -1){
-            log_warning(logger, "Desconexion de io de tipo %d", tipo);
+                log_debug(logger, "nuevo mutex agregado, tamaño lista ahora: %d", list_size(lista_mutex));
+
+                // TODO: mandar a CPU confirmacion de que se termino la syscall (esta no es bloqueante)
+                break;
+            }default:
+                log_warning(logger, "operacion desconocide en hilo que aiende a cpu id: %d, cod_op: %d", cpu_id, cod_op);
         }
     }
     return NULL;
@@ -176,6 +197,32 @@ void* atender_km(void *conexion_kernel_memory_v){
                 log_warning(logger, "Warning: Operacion desconocida, cod_op = %d",cod_op);
         }
     }
+    return NULL;
+}
+
+// otras
+void* hilo_timeout(void* arg){
+    t_evt* evt = (t_evt*)arg;
+    t_pcb* proceso = evt->proceso;
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_sec += 5; // TODO: Reemplazar esto por lo que reciba en la config (convertir a segundos)
+    int rc = 0;
+
+    pthread_mutex_lock(&evt->mutex);
+    while(!evt->syscall_finalizada && rc == 0){
+        rc = pthread_cond_timedwait(&evt->cond, &evt->mutex, &ts);
+    }
+
+    // timeout vencido o syscall finalizada
+    log_debug(logger, "timeout vencido o syscall finalizada");
+    if(!evt->syscall_finalizada && proceso->estado == BLOQUEADO){
+        log_debug(logger, "syscall no finalizo a tiempo, suspendiendo");
+        blocked_a_susp_blocked(proceso);
+    }
+    log_debug(logger, "Hilo timeout finalizando");
+    
+    pthread_mutex_unlock(&evt->mutex);
     return NULL;
 }
 

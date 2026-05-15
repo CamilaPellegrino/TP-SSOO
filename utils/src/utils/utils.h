@@ -31,6 +31,7 @@ typedef enum
 	KM_SCH__BSOD,
 	CPU_SCH__INIT_PROC,
 	CPU_SCH__SLEEP,
+	CPU_SCH__MUTEX_CREATE,
 	IO_SCH__OK,
 	IO_SCH__ERROR,
 	// mensajes con destino a CPU
