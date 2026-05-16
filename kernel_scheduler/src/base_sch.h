@@ -50,7 +50,7 @@ typedef enum{
 extern t_log* logger;
 extern t_planificacion algoritmo;  // CMN, FIFO o RR
 extern int proximo_pid;
-extern int timeout;
+extern int suspension_timeout;
 extern t_list* lista_cpus;
 extern t_list* lista_io;
 extern t_list* lista_new;
@@ -84,7 +84,8 @@ extern pthread_mutex_t m_lista_cpus;
 extern pthread_mutex_t m_lista_mutex;
 
 // funciones para inicializar cosas
-void inicializar_variables_globales();
+void inicializar_variables_globales(t_config* config);
+void inicializar_parametros_de_config(t_config* config);
 t_list* queues_algorithms_a_t_list(char** queues_algorithms_str);
 t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
@@ -116,6 +117,7 @@ void desbloquear_proceso(t_pcb* proceso);
 int iniciar_servidor_o_exit(char* puerto);
 t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str);
 pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo);
+void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
 
 // liberar
 void liberar_cpu(t_cpu* cpu);     // liberar la cpu, osea que no tenga asignado ningun proceso (no le manda nada a la cpu, solo hace cpu->proceso=NULL)

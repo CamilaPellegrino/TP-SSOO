@@ -110,3 +110,27 @@ t_pcb* proximo_proceso()
 }
 
 
+void* hilo_timeout(void* arg){
+    t_evt* evt = (t_evt*)arg;
+    t_pcb* proceso = evt->proceso;
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_sec += 5; // TODO: Reemplazar esto por lo que reciba en la config (convertir a segundos)
+    int rc = 0;
+
+    pthread_mutex_lock(&evt->mutex);
+    while(!evt->syscall_finalizada && rc == 0){
+        rc = pthread_cond_timedwait(&evt->cond, &evt->mutex, &ts);
+    }
+
+    // timeout vencido o syscall finalizada
+    log_debug(logger, "timeout vencido o syscall finalizada");
+    if(!evt->syscall_finalizada && proceso->estado == BLOQUEADO){
+        log_debug(logger, "syscall no finalizo a tiempo, suspendiendo");
+        blocked_a_susp_blocked(proceso);
+    }
+    log_debug(logger, "Hilo timeout finalizando");
+    
+    pthread_mutex_unlock(&evt->mutex);
+    return NULL;
+}

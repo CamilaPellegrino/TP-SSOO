@@ -9,6 +9,6 @@ t_cpu* proxima_cpu();
 t_pcb* planificar_CMN();
 t_pcb* planificar_RR_y_FIFO();
 t_pcb* proximo_proceso();
-
+void* hilo_timeout(void* arg);
 
 #endif /* PLANIFICADOR_H_*/

@@ -2,7 +2,10 @@
 void inicializar_lista_ready();
 
 // inicializar cosas 
-void inicializar_variables_globales(){
+void inicializar_variables_globales(t_config* config){
+    inicializar_parametros_de_config(config);
+
+
     // inicialziar listas
 	lista_io = list_create();
     lista_cpus = list_create();
@@ -36,6 +39,19 @@ void inicializar_variables_globales(){
     //otras cosas
     proximo_pid = 0;
 }   
+
+void inicializar_parametros_de_config(t_config* config){
+    // leer de config
+    char** queues_str = config_get_array_value(config, "QUEUES_ALGORITHMS");
+    queues_algorithms = queues_algorithms_a_t_list(queues_str);
+    string_array_destroy(queues_str);
+    suspension_timeout = config_get_int_value(config, "SUSPENSION_TIMEOUT");
+    algoritmo = obtener_algoritmo_planificacion(config_get_string_value(config, "PLANIFICATION_ALGORITHM"));
+    t_log_level log_level = log_level_from_string(config_get_string_value(config, "LOG_LEVEL"));
+    logger = iniciar_logger("kernel_scheduler.log", "ProcesoKernelScheduler", log_level);
+    // rr_quantum = config_get_int_value(config, "RR_QUANTUM"); // esto mas adelante
+
+}
 
 t_list* queues_algorithms_a_t_list(char** queues_algorithms_str){
     t_list* ret = list_create();
@@ -356,4 +372,14 @@ pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hil
     return hilo;
 }
 
-
+void enviar_paquete_a_todas_las_cpus(t_paquete* paquete){
+    log_info(logger,"%d", list_size(lista_cpus));
+    for(int i = 0; i < list_size(lista_cpus); i++){
+        
+        t_cpu* cpu = list_get(lista_cpus, i);
+        int cpu_fd = cpu->fd;
+        log_info(logger,"%d", cpu_fd);
+        enviar_paquete(paquete, cpu_fd);
+        log_info(logger, "Enviando info a cpu de stick");
+    }
+}

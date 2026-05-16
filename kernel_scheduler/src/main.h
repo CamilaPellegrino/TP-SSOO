@@ -23,7 +23,7 @@ t_log * logger;
 t_planificacion algoritmo;
 t_list* queues_algorithms;  
 int proximo_pid;
-int timeout;
+int suspension_timeout;
 
 // listas de cosas de syscalls
 t_list* lista_evt_sleep;
@@ -60,7 +60,6 @@ void* atender_km(void *conexion_kernel_memory);
 void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
 
 // otras
-void* hilo_timeout(void* arg);
 void liberar_cpu(t_cpu* cpu);
 t_planificacion algoritmo_str_a_enum(char *algoritmo_str);
 

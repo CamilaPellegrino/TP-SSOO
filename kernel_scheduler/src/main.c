@@ -1,6 +1,6 @@
 #include "main.h"
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[]) { // ejecucion con valgrind: valgrind --leak-check=yes ./bin/kernel_scheduler kernel_scheduler.config a
     if(argc < 3){ 
         printf("Se esperaban mas parametros. Ejemplo: ./bin/kernel_scheduler ./kernel_scheduler.config archivo.txt");
         exit(EXIT_FAILURE);
@@ -17,24 +17,8 @@ int main(int argc, char* argv[]) {
     char* ip = config_get_string_value (config, "IP");
     char* puerto_kernel_memory = config_get_string_value (config, "PUERTO_KERNEL_MEMORY");
     char* puerto_kernel_scheduler = config_get_string_value (config, "PUERTO_KERNEL_SCHEDULER");
-    char* algoritmo_str = config_get_string_value(config, "PLANIFICATION_ALGORITHM");
-    t_log_level log_level = log_level_from_string(config_get_string_value(config, "LOG_LEVEL"));
-    char** queues_algorithms_str = config_get_array_value(config, "QUEUES_ALGORITHMS");
-    timeout = config_get_int_value(config, "SUSPENSION_TIMEOUT");
-    // int rr_quantum = config_get_int_value(config, "RR_QUANTUM");
 
-    // crear logger
-    logger = iniciar_logger("kernel_scheduler.log", "ProcesoKernelScheduler", log_level);
-
-    // inicializar variables globales
-    algoritmo = obtener_algoritmo_planificacion(algoritmo_str);
-
-    // convierto la lista de queues_algorithms de char** a t_list*
-    queues_algorithms = queues_algorithms_a_t_list(queues_algorithms_str);
-
-    string_array_destroy(queues_algorithms_str); // libero la lista de strings despues de haber creado la t_list
-    
-    inicializar_variables_globales();
+    inicializar_variables_globales(config); // tambien inicializa el logger con el log_level de la config
  
     // testear(); // descomentar esto si solo queres testear y defini el test en test.c
 
@@ -55,8 +39,8 @@ int main(int argc, char* argv[]) {
     // crear hilos de planificacion
 
     pthread_t hilo_largo_plazo = crear_hilo_o_exit(planificador_largo_plazo, NULL, "hilo_largo_plazo");
-    pthread_detach(hilo_largo_plazo);
     pthread_t hilo_corto_plazo = crear_hilo_o_exit(planificador_corto_plazo, NULL, "hilo_corto_plazo");
+    pthread_detach(hilo_largo_plazo);
     pthread_detach(hilo_corto_plazo);
 
     log_debug(logger, "hilos de planificacion creados");
@@ -198,42 +182,4 @@ void* atender_km(void *conexion_kernel_memory_v){
         }
     }
     return NULL;
-}
-
-// otras
-void* hilo_timeout(void* arg){
-    t_evt* evt = (t_evt*)arg;
-    t_pcb* proceso = evt->proceso;
-    struct timespec ts;
-    clock_gettime(CLOCK_REALTIME, &ts);
-    ts.tv_sec += 5; // TODO: Reemplazar esto por lo que reciba en la config (convertir a segundos)
-    int rc = 0;
-
-    pthread_mutex_lock(&evt->mutex);
-    while(!evt->syscall_finalizada && rc == 0){
-        rc = pthread_cond_timedwait(&evt->cond, &evt->mutex, &ts);
-    }
-
-    // timeout vencido o syscall finalizada
-    log_debug(logger, "timeout vencido o syscall finalizada");
-    if(!evt->syscall_finalizada && proceso->estado == BLOQUEADO){
-        log_debug(logger, "syscall no finalizo a tiempo, suspendiendo");
-        blocked_a_susp_blocked(proceso);
-    }
-    log_debug(logger, "Hilo timeout finalizando");
-    
-    pthread_mutex_unlock(&evt->mutex);
-    return NULL;
-}
-
-void enviar_paquete_a_todas_las_cpus(t_paquete* paquete){
-    log_info(logger,"%d", list_size(lista_cpus));
-    for(int i = 0; i < list_size(lista_cpus); i++){
-        
-        t_cpu* cpu = list_get(lista_cpus, i);
-        int cpu_fd = cpu->fd;
-        log_info(logger,"%d", cpu_fd);
-        enviar_paquete(paquete, cpu_fd);
-        log_info(logger, "Enviando info a cpu de stick");
-    }
 }
