@@ -320,7 +320,7 @@ t_list* sublista_ready_de_prioridad(int prioridad){
 
 // para desbloquear procesos
 void desbloquear_proceso(t_pcb* proceso){
-    log_debug(logger, "hilo_desbloquear_proceso");
+    log_debug(logger, "desbloquear_proceso: ejecutando");
         if(proceso->estado == SUSP_BLOQUEADO){
         // si esta en susp_blocked: mover a susp_ready
         susp_blocked_a_susp_ready(proceso);

@@ -32,6 +32,8 @@ typedef enum
 	CPU_SCH__INIT_PROC,
 	CPU_SCH__SLEEP,
 	CPU_SCH__MUTEX_CREATE,
+	CPU_SCH__MUTEX_LOCK,
+	CPU_SCH__MUTEX_UNLOCK,
 	IO_SCH__OK,
 	IO_SCH__ERROR,
 	// mensajes con destino a CPU

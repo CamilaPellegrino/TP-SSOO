@@ -105,52 +105,105 @@ void* atender_cpu(t_cpu* cpu){
             log_warning(logger, "Se desconecto cpu de id:%d", cpu_id);
             break;
         }
+        log_debug(logger, "********** atender_cpu <%d>: nueva syscall **********", cpu_id);
         switch(cod_op){
             case CPU_SCH__SLEEP:{
+                log_debug(logger, "atender_cpu <%d>: ejecutando SLEEP", cpu_id);
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 int tiempo_sleep = *(int*)list_get(lista_paquete, 0);
-                t_pcb* proceso = cpu->proceso;
-                exec_a_blocked(proceso);
-                liberar_cpu(cpu);
-                log_debug(logger, "tamanio de ready: %d, tamanio de blocked: %d", list_size(lista_ready), list_size(lista_blocked));
-                log_debug(logger, "tiempo: %d", tiempo_sleep);
-                
-                // crear evento
-                t_evt* evt = iniciar_evt_sleep(tiempo_sleep, proceso);
-
-                // crear el hilo de timeout para que dps del timeout se suspenda el proceso
-                evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout");
-                
-                // agregar evt a lista de evts
-                pthread_mutex_lock(&m_lista_evt_sleep);
-                list_add(lista_evt_sleep, evt);
-                pthread_mutex_unlock(&m_lista_evt_sleep);
-                log_debug(logger, "atender_cpu: por hacer sem_post(&s_evt_sleep)");
-                sem_post(&s_evt_sleep);
-                log_debug(logger, "atender_cpu: sem_post hecho");
+                atender_cpu_syscall_sleep(tiempo_sleep, cpu);
                 break;
             }case CPU_SCH__MUTEX_CREATE:{
-                log_debug(logger, "cpu %d ejecutando: MUTEX_CREATE", cpu_id);
+                log_debug(logger, "atender_cpu <%d>: ejecutando MUTEX_CREATE", cpu_id);
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 char* nombre_mutex = (char*)list_get(lista_paquete, 0);
-                t_mutex* mutex = m_create(nombre_mutex);
-                
-                pthread_mutex_lock(&m_lista_mutex);
-                list_add(lista_mutex, mutex);
-                pthread_mutex_unlock(&m_lista_mutex);
-
-                log_debug(logger, "nuevo mutex agregado, tamaño lista ahora: %d", list_size(lista_mutex));
-
-                // TODO: mandar a CPU confirmacion de que se termino la syscall (esta no es bloqueante)
-                enviar_operacion(cpu_fd, SCH_CPU__REANUDAR_EJECUCION); // reanuda la ejecucion con el mismo pcb que tenia cargado. Solo para este caso creo, porque es muy rapida no deberia desalojar el proceso
+                atender_cpu_syscall_mutex_create(nombre_mutex, cpu);
+                break;
+            }case CPU_SCH__MUTEX_LOCK:{
+                log_debug(logger, "atender_cpu <%d>: ejecutando MUTEX_LOCK", cpu_id);
+                t_list* lista_paquete = recibir_paquete(cpu_fd);
+                char* nombre_mutex = (char*)list_get(lista_paquete, 0);
+                atender_cpu_syscall_mutex_lock(nombre_mutex, cpu);
+                break;
+            }case CPU_SCH__MUTEX_UNLOCK:{
+                log_debug(logger, "atender_cpu <%d>: ejecutando MUTEX_UNLOCK", cpu_id);
+                t_list* lista_paquete = recibir_paquete(cpu_fd);
+                char* nombre_mutex = (char*)list_get(lista_paquete, 0);
+                atender_cpu_syscall_mutex_unlock(nombre_mutex, cpu);
                 break;
             }default:
-                log_warning(logger, "operacion desconocide en hilo que aiende a cpu id: %d, cod_op: %d", cpu_id, cod_op);
+                log_warning(logger, "operacion desconocida en hilo que aiende a cpu id: %d, cod_op: %d", cpu_id, cod_op);
         }
     }
     return NULL;
 }
+void atender_cpu_syscall_mutex_unlock(char* nombre_mutex, t_cpu* cpu){
+    t_mutex* mutex = get_mutex(nombre_mutex);
+    if(mutex == NULL){
+        // TODO: no existe un mutex con ese nombre en lista_mutex, devolver a CPU codigo de error
+    }
+    m_signal(mutex);
+    enviar_operacion(cpu->fd, SCH_CPU__REANUDAR_EJECUCION);
+}
 
+void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu){
+    t_mutex* mutex = get_mutex(nombre_mutex);
+    if(mutex == NULL){
+        // TODO: no existe un mutex con ese nombre en lista_mutex, devolver a CPU codigo de error
+    }
+    t_pcb* proceso = cpu->proceso;
+    bool reservado = m_wait(mutex, proceso);
+    if(reservado){
+        log_debug(logger, "atender_cpu_syscall_mutex_lock: mutex %s reservado", nombre_mutex);
+        enviar_operacion(cpu->fd, SCH_CPU__REANUDAR_EJECUCION);
+    }else{
+        log_debug(logger, "atender_cpu_syscall_mutex_lock: mutex %s no disponible, bloqueando proceso y desalojando de cpu", nombre_mutex);
+        
+        // detener ejecucion de cpu
+        enviar_operacion(cpu->fd, SCH_CPU__DETENER_EJECUCION);
+        // bloquear proceso
+        ready_a_blocked(proceso);
+    }
+
+}
+
+void atender_cpu_syscall_sleep(int tiempo_sleep, t_cpu* cpu){
+    t_pcb* proceso = cpu->proceso;
+    exec_a_blocked(proceso);
+    liberar_cpu(cpu);
+    log_debug(logger, "tamanio de ready: %d, tamanio de blocked: %d", list_size(lista_ready), list_size(lista_blocked));
+    log_debug(logger, "tiempo: %d", tiempo_sleep);
+    
+    // crear evento
+    t_evt* evt = iniciar_evt_sleep(tiempo_sleep, proceso);
+
+    // crear el hilo de timeout para que dps del timeout se suspenda el proceso
+    evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout");
+    
+    // agregar evt a lista de evts
+    pthread_mutex_lock(&m_lista_evt_sleep);
+    list_add(lista_evt_sleep, evt);
+    pthread_mutex_unlock(&m_lista_evt_sleep);
+    sem_post(&s_evt_sleep);
+    log_debug(logger, "atender_cpu: sem_post(&s_evt_sleep)");
+
+}
+
+void atender_cpu_syscall_mutex_create(char* nombre_mutex, t_cpu* cpu){
+    int cpu_fd = cpu->fd;
+    t_mutex* mutex = m_create(nombre_mutex);
+    
+    pthread_mutex_lock(&m_lista_mutex);
+    list_add(lista_mutex, mutex);
+    pthread_mutex_unlock(&m_lista_mutex);
+
+    log_debug(logger, "nuevo mutex agregado, tamaño lista ahora: %d", list_size(lista_mutex));
+
+    // mandar a CPU confirmacion de que se termino la syscall (esta no es bloqueante)
+    enviar_operacion(cpu_fd, SCH_CPU__REANUDAR_EJECUCION); // reanuda la ejecucion con el mismo pcb que tenia cargado. Solo para este caso creo, porque no desaloja el, cpu espera (ver issues)
+}
+
+// Atender modulo KM
 void* atender_km(void *conexion_kernel_memory_v){
     int *conexion_kernel_memory = (int*) conexion_kernel_memory_v; 
     while(1){

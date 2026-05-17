@@ -45,6 +45,14 @@ typedef enum{
     RR
 } t_planificacion;
 
+// para t_mutex
+typedef struct{
+    char* nombre;
+    int mutex_id;
+    int valor;
+    t_list* procesos_en_espera; // procesos que esperan por el mutex, en orden
+    pthread_mutex_t lock;
+} t_mutex;
 
 // variables globales 
 extern t_log* logger;

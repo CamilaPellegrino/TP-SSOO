@@ -1,7 +1,7 @@
 #include "utils.h"
+void send_all(int socket, void* buffer, size_t size);
 
-void* serializar_paquete(t_paquete* paquete, int bytes)
-{
+void* serializar_paquete(t_paquete* paquete, int bytes){
 	void * magic = malloc(bytes);
 	int desplazamiento = 0;
 
@@ -27,7 +27,7 @@ void crear_buffer(t_paquete* paquete)
 void handshake_cliente(int conexion,t_log* logger){
     int32_t handshake = 1;
     int32_t result;
-    send(conexion, &handshake, sizeof(int32_t), 0);
+    send_all(conexion, &handshake, sizeof(int32_t));
     recv(conexion, &result, sizeof(int32_t), MSG_WAITALL);
 
     if (result == 0){
@@ -47,12 +47,12 @@ void handshake_servidor(int cliente_fd, t_log* logger){
 	
     recv(cliente_fd, &handshake, sizeof(int32_t), MSG_WAITALL);
     if (handshake == 1) {
-        send(cliente_fd, &resultOk, sizeof(int32_t), 0);
+        send_all(cliente_fd, &resultOk, sizeof(int32_t));
 		log_info(logger,"Handshake Exitoso de Servidor!");
     }
     else {
 		log_error(logger,"Error inesperado en el handshake");
-        send(cliente_fd, &resultError, sizeof(int32_t), 0);
+        send_all(cliente_fd, &resultError, sizeof(int32_t));
     }
 }
 
@@ -184,7 +184,7 @@ void eliminar_paquete(t_paquete* paquete)
 // enviar
 
 void enviar_operacion(int socket, op_code cod_op){
-	send(socket, &cod_op, sizeof(int), 0);
+	send_all(socket, &cod_op, sizeof(int));
 }
 
 void enviar_mensaje(char* mensaje, int socket_cliente, op_code op_code)
@@ -201,7 +201,7 @@ void enviar_mensaje(char* mensaje, int socket_cliente, op_code op_code)
 
 	void* a_enviar = serializar_paquete(paquete, bytes);
 
-	send(socket_cliente, a_enviar, bytes, 0);
+	send_all(socket_cliente, a_enviar, bytes);
 
 	free(a_enviar);
 	eliminar_paquete(paquete);
@@ -212,7 +212,7 @@ void enviar_paquete(t_paquete* paquete, int socket_cliente)
 	int bytes = paquete->buffer->size + 2*sizeof(int);
 	void* a_enviar = serializar_paquete(paquete, bytes);
 
-	send(socket_cliente, a_enviar, bytes, 0);
+	send_all(socket_cliente, a_enviar, bytes);
 
 	free(a_enviar);
 }
@@ -273,7 +273,18 @@ t_list* recibir_paquete(int socket_cliente)
 	free(buffer);
 	return valores;
 }
+void send_all(int socket, void* buffer, size_t size){
+    size_t enviados = 0;
 
+    while(enviados < size){
+        int r = send(socket, buffer + enviados, size - enviados, 0);
+        if(r <= 0){// error
+            return;
+        }
+
+        enviados += r;
+    }
+}
 // config 
 
 t_config* iniciar_config(char* ruta)

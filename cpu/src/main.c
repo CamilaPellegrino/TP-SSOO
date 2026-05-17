@@ -12,11 +12,13 @@ t_instruccion* crear_instruccion(t_tipo_instruccion tipo, char* param1, char* pa
 t_instruccion* proxima_instruccion();
 void ejecutar_sleep(t_instruccion* instr);
 void ejecutar_m_create(t_instruccion* instr);
-
+void ejecutar_m_lock(t_instruccion* instr);
+void ejecutar_m_unlock(t_instruccion* instr);
 void esperar_a_poder_ejecutar();
+
 // variables globales
 t_log* logger;
-t_list* instrucciones; // lista hardcodeada de instruciones para testear sch
+t_list* lista_instrucciones; // lista hardcodeada de instruciones para testear sch
 t_list* lista_sticks;  // lista global para guardar los memory sticks a los que me conecte
 
 // identificadores del proceso
@@ -208,6 +210,12 @@ void* ejecutar(){
             case INST_MUTEX_CREATE:
                 ejecutar_m_create(prox_instruccion);
                 break;
+            case INST_MUTEX_LOCK:
+                ejecutar_m_lock(prox_instruccion);
+                break;
+            case INST_MUTEX_UNLOCK:
+                ejecutar_m_unlock(prox_instruccion);
+                break;
             default:
                 log_warning(logger, "Instruccion no implementada, tipo %d", prox_instruccion->tipo);
                 break;
@@ -224,13 +232,31 @@ void esperar_a_poder_ejecutar(){
     pthread_mutex_unlock(&m_ejecutar);
 }
 
+void ejecutar_m_unlock(t_instruccion* instr){
+    char* nombre = instr->param1;
+    log_debug(logger, "Ejecutando MUTEX_UNLOCK %s", nombre);
+    t_paquete* paquete = crear_paquete(CPU_SCH__MUTEX_UNLOCK);
+    agregar_string_a_paquete(paquete, nombre);
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+    detener_ejecucion(); // cpu tiene que esperar a que esta syscall se termine (puede ser instantaneo, o no, depende) para seguir ejecutando
+}
+
+void ejecutar_m_lock(t_instruccion* instr){
+    char* nombre = instr->param1;
+    log_debug(logger, "Ejecutando MUTEX_LOCK %s", nombre);
+    t_paquete* paquete = crear_paquete(CPU_SCH__MUTEX_LOCK);
+    agregar_string_a_paquete(paquete, nombre);
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+    detener_ejecucion(); // cpu tiene que esperar a que esta syscall se termine (puede ser instantaneo, o no, depende) para seguir ejecutando
+}
+
 void ejecutar_m_create(t_instruccion* instr){
     char* nombre = instr->param1;
     log_debug(logger, "Ejecutando MUTEX_CREATE %s", nombre);
     t_paquete* paquete = crear_paquete(CPU_SCH__MUTEX_CREATE);
     agregar_string_a_paquete(paquete, nombre);
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
-    detener_ejecucion(); // cpu tiene que esperar a que esta syscall se termine (es muy rapida) para seguir ejecutando
+    detener_ejecucion(); // cpu tiene que esperar a que esta syscall se termine (es instantaneo) para seguir ejecutando
 }
 
 void ejecutar_sleep(t_instruccion* instr){
@@ -259,9 +285,13 @@ void inicializar_variables(){
     execute = false;
     pid_pendiente = -1;
     lista_sticks = list_create();
-    instrucciones = list_create();
-    list_add(instrucciones, crear_instruccion(INST_SLEEP, "2000", NULL));
-    list_add(instrucciones, crear_instruccion(INST_MUTEX_CREATE, "MUTEX_1", NULL));
+    lista_instrucciones = list_create();
+    list_add(lista_instrucciones, crear_instruccion(INST_MUTEX_CREATE, "MUTEX_1", NULL));
+    list_add(lista_instrucciones, crear_instruccion(INST_SLEEP, "2000", NULL));
+    list_add(lista_instrucciones, crear_instruccion(INST_MUTEX_LOCK, "MUTEX_1", NULL));
+    list_add(lista_instrucciones, crear_instruccion(INST_SLEEP, "2000", NULL));
+    list_add(lista_instrucciones, crear_instruccion(INST_MUTEX_UNLOCK, "MUTEX_1", NULL));
+
 }
 
 t_pcb* inicializar_pcb(int pid){
@@ -279,11 +309,11 @@ t_instruccion* crear_instruccion(t_tipo_instruccion tipo, char* param1, char* pa
 }
 
 t_instruccion* proxima_instruccion(){ // TODO: que esta funcion pida a memoria (fetch) y convierta lo que me mande en un t_instruccion (decode)
-    log_debug(logger, "pc=%d size=%d", pc, list_size(instrucciones));
-    if(pc >= list_size(instrucciones)){
+    log_debug(logger, "pc=%d size=%d", pc, list_size(lista_instrucciones));
+    if(pc >= list_size(lista_instrucciones)){
         return NULL;
     }
-    return list_get(instrucciones, pc);
+    return list_get(lista_instrucciones, pc);
 }
 
 void conectarse_a_stick(char* ip, char* puerto){

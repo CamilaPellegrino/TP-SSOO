@@ -54,13 +54,13 @@ pthread_mutex_t m_lista_mutex;
 // atender_x
 void* atender_cliente(void *arg);
 void* atender_cpu(t_cpu* cpu);
-void* atender_io(t_io* io);
-void atender_io_sleep(t_io* io);
+void atender_cpu_syscall_sleep(int tiempo_sleep, t_cpu* cpu);
+void atender_cpu_syscall_mutex_create(char* nombre_mutex, t_cpu* cpu);
+void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu);
+void atender_cpu_syscall_mutex_unlock(char* nombre_mutex, t_cpu* cpu);
 void* atender_km(void *conexion_kernel_memory);
-void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
 
 // otras
-void liberar_cpu(t_cpu* cpu);
 t_planificacion algoritmo_str_a_enum(char *algoritmo_str);
 
 #endif  /* SCHEDULER_H_ */ 

@@ -4,19 +4,19 @@ void* planificador_corto_plazo(){
     while(1){
         log_debug(logger, "esperando cosas en corto plazo");
         sem_wait(&s_nueva_cpu_libre);
-        log_debug(logger, "Planificador de corto plazo: cpu libre encontrada");
+        log_debug(logger, "planificador_corto_plazo: cpu libre encontrada");
         t_cpu* prox_cpu = proxima_cpu();
         if(prox_cpu == NULL){
-            log_debug(logger, "Planificador de corto plazo: no hay cpu, volviendo a wait");
+            log_debug(logger, "planificador_corto_plazo: no hay cpu, volviendo a wait");
             continue;
         }
         
         sem_wait(&s_nuevo_proceso_ready);
-        log_debug(logger, "Planificador de corto plazo: ejecutando");
+        log_debug(logger, "planificador_corto_plazo: ejecutando");
         
         t_pcb* prox_proceso = proximo_proceso();
         if(prox_proceso == NULL){
-            log_debug(logger, "no encontre proceso, volviendo a wait. Probablemente hubo un sem_post de mas");
+            log_debug(logger, "planificador_corto_plazo: no encontre proceso, volviendo a wait. Probablemente hubo un sem_post de mas");
             continue;
         }
         int pid = prox_proceso->pid;
@@ -29,7 +29,7 @@ void* planificador_corto_plazo(){
         t_paquete* paquete_asignar_proceso = crear_paquete(SCH_CPU__PID);         
         agregar_a_paquete(paquete_asignar_proceso, &pid, sizeof(pid));         
         enviar_paquete(paquete_asignar_proceso, cpu_fd);         
-        log_debug(logger, "Planificador corto plazo: Envie pid %d a cpu de fd %d", pid, cpu_fd);         
+        log_debug(logger, "planificador_corto_plazo: Envie pid %d a cpu de fd %d", pid, cpu_fd);         
         ready_a_exec(prox_proceso);
     }
     return NULL;
@@ -38,9 +38,9 @@ void* planificador_corto_plazo(){
 void * planificador_largo_plazo(){
     while(1){
         sem_wait(&s_nuevo_proceso_new);
-        log_info(logger, "Planificador de largo plazo: ejecutando");
+        log_info(logger, "planificador_largo_plazo: ejecutando");
         if(list_is_empty(lista_new)){
-            log_warning(logger, "no habia nada en new (raro que esto pase)");
+            log_warning(logger, "planificador_largo_plazo: no habia nada en new (raro que esto pase)");
             continue;
         }
         t_pcb* proceso_new = list_get(lista_new, 0);

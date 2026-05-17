@@ -1,5 +1,5 @@
 #include "atender_io.h"
-
+// Atender modulo IO: 
 void* atender_io(t_io* io){
     t_tipo_io tipo = io->tipo;
     log_info(logger, "** Atendiendo al io de tipo %d", tipo);
