@@ -37,6 +37,8 @@ typedef enum
 	// mensajes con destino a CPU
 	SCH_CPU__NUEVO_STICK,
 	SCH_CPU__PID,
+	SCH_CPU__DETENER_EJECUCION,
+	SCH_CPU__REANUDAR_EJECUCION,
 	// mensajes con destino a KM
 	// ...
 	// mensajes con destino a IO

@@ -16,7 +16,7 @@ void* planificador_corto_plazo(){
         
         t_pcb* prox_proceso = proximo_proceso();
         if(prox_proceso == NULL){
-            log_debug(logger, "no encontre proceso, volviendo a wait");
+            log_debug(logger, "no encontre proceso, volviendo a wait. Probablemente hubo un sem_post de mas");
             continue;
         }
         int pid = prox_proceso->pid;
@@ -40,13 +40,12 @@ void * planificador_largo_plazo(){
         sem_wait(&s_nuevo_proceso_new);
         log_info(logger, "Planificador de largo plazo: ejecutando");
         if(list_is_empty(lista_new)){
-            log_debug(logger, "no habia nada en new (raro que esto pase)");
+            log_warning(logger, "no habia nada en new (raro que esto pase)");
             continue;
         }
         t_pcb* proceso_new = list_get(lista_new, 0);
         new_a_ready(proceso_new);
         log_debug(logger, "cosas en new ahora: %d, cosas en ready: %d", list_size(lista_new), list_size(lista_ready));
-        sem_post(&s_nuevo_proceso_ready);
     }
 }
 

@@ -5,19 +5,17 @@ void inicializar_lista_ready();
 void inicializar_variables_globales(t_config* config){
     inicializar_parametros_de_config(config);
 
-
     // inicialziar listas
-	lista_io = list_create();
-    lista_cpus = list_create();
-    lista_new = list_create();
-    lista_exec = list_create();
-    lista_blocked = list_create();
+	lista_io           = list_create();
+    lista_cpus         = list_create();
+    lista_new          = list_create();
+    lista_exec         = list_create();
+    lista_blocked      = list_create();
     lista_susp_blocked = list_create();
-    lista_susp_ready = list_create();
+    lista_susp_ready   = list_create();
+    lista_evt_sleep    = list_create();
+    lista_mutex        = list_create();
     inicializar_lista_ready();
-
-    lista_evt_sleep = list_create();
-    lista_mutex = list_create();
 
     // inicializar semaforos
     sem_init(&s_nueva_cpu_libre, 0, 0);
@@ -42,15 +40,15 @@ void inicializar_variables_globales(t_config* config){
 
 void inicializar_parametros_de_config(t_config* config){
     // leer de config
-    char** queues_str = config_get_array_value(config, "QUEUES_ALGORITHMS");
-    queues_algorithms = queues_algorithms_a_t_list(queues_str);
-    string_array_destroy(queues_str);
-    suspension_timeout = config_get_int_value(config, "SUSPENSION_TIMEOUT");
-    algoritmo = obtener_algoritmo_planificacion(config_get_string_value(config, "PLANIFICATION_ALGORITHM"));
     t_log_level log_level = log_level_from_string(config_get_string_value(config, "LOG_LEVEL"));
     logger = iniciar_logger("kernel_scheduler.log", "ProcesoKernelScheduler", log_level);
-    // rr_quantum = config_get_int_value(config, "RR_QUANTUM"); // esto mas adelante
 
+    suspension_timeout = config_get_int_value(config, "SUSPENSION_TIMEOUT");
+    algoritmo = obtener_algoritmo_planificacion(config_get_string_value(config, "PLANIFICATION_ALGORITHM"));
+    char** queues_str = config_get_array_value(config, "QUEUES_ALGORITHMS");
+    queues_algorithms = queues_algorithms_a_t_list(queues_str);
+    string_array_destroy(queues_str); 
+    // rr_quantum = config_get_int_value(config, "RR_QUANTUM"); // esto mas adelante
 }
 
 t_list* queues_algorithms_a_t_list(char** queues_algorithms_str){
@@ -330,7 +328,6 @@ void desbloquear_proceso(t_pcb* proceso){
     }else if(proceso->estado == BLOQUEADO){
         // si esta en blocked: mover a ready
         blocked_a_ready(proceso);
-        sem_post(&s_nuevo_proceso_ready);
     }
 }
 
@@ -339,6 +336,8 @@ void desbloquear_proceso(t_pcb* proceso){
 void liberar_cpu(t_cpu* cpu){
     log_debug(logger, "liberando cpu de id %d", cpu->id);
     cpu->proceso = NULL;
+    log_debug(logger, "haciendo sem_post de cpus libres");
+    sem_post(&s_nueva_cpu_libre);
 }
 
 // genericas

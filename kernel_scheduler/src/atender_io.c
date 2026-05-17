@@ -1,6 +1,5 @@
 #include "atender_io.h"
 
-
 void* atender_io(t_io* io){
     t_tipo_io tipo = io->tipo;
     log_info(logger, "** Atendiendo al io de tipo %d", tipo);
@@ -9,9 +8,11 @@ void* atender_io(t_io* io){
             atender_io_sleep(io);
             break;
         case STDIN:
+        log_warning(logger, "atender_io: falta implementar STDIN");
             // atender_io_stdin(io);
             break;
         case STDOUT:
+        log_warning(logger, "atender_io: falta implementar STDOUT");
             // atender_io_stdout(io);
             break;
     }
@@ -55,7 +56,6 @@ void atender_io_sleep(t_io* io){
         if(proceso->estado == BLOQUEADO){
             log_debug(logger, "pasando a ready");
             blocked_a_ready(proceso);
-            sem_post(&s_nuevo_proceso_ready);
         }else if(proceso->estado == SUSP_BLOQUEADO){
             log_debug(logger, "pasando a susp_ready");  
             susp_blocked_a_susp_ready(proceso);

@@ -113,19 +113,21 @@ void* atender_cpu(t_cpu* cpu){
                 exec_a_blocked(proceso);
                 liberar_cpu(cpu);
                 log_debug(logger, "tamanio de ready: %d, tamanio de blocked: %d", list_size(lista_ready), list_size(lista_blocked));
-                log_debug(logger, "tiempo:%d", tiempo_sleep);
+                log_debug(logger, "tiempo: %d", tiempo_sleep);
+                
                 // crear evento
                 t_evt* evt = iniciar_evt_sleep(tiempo_sleep, proceso);
 
-                // crear el hilo de timeout para que dps del timeout se suspenda el proceso, pero por ahora no hay suspension
+                // crear el hilo de timeout para que dps del timeout se suspenda el proceso
                 evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout");
                 
                 // agregar evt a lista de evts
                 pthread_mutex_lock(&m_lista_evt_sleep);
                 list_add(lista_evt_sleep, evt);
                 pthread_mutex_unlock(&m_lista_evt_sleep);
-
+                log_debug(logger, "atender_cpu: por hacer sem_post(&s_evt_sleep)");
                 sem_post(&s_evt_sleep);
+                log_debug(logger, "atender_cpu: sem_post hecho");
                 break;
             }case CPU_SCH__MUTEX_CREATE:{
                 log_debug(logger, "cpu %d ejecutando: MUTEX_CREATE", cpu_id);
@@ -140,6 +142,7 @@ void* atender_cpu(t_cpu* cpu){
                 log_debug(logger, "nuevo mutex agregado, tamaño lista ahora: %d", list_size(lista_mutex));
 
                 // TODO: mandar a CPU confirmacion de que se termino la syscall (esta no es bloqueante)
+                enviar_operacion(cpu_fd, SCH_CPU__REANUDAR_EJECUCION); // reanuda la ejecucion con el mismo pcb que tenia cargado. Solo para este caso creo, porque es muy rapida no deberia desalojar el proceso
                 break;
             }default:
                 log_warning(logger, "operacion desconocide en hilo que aiende a cpu id: %d, cod_op: %d", cpu_id, cod_op);
