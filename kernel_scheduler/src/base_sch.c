@@ -1,5 +1,6 @@
 #include "base_sch.h"
 void inicializar_lista_ready();
+void log_obligatorio_cambio_de_estado(int pid, char* estado_anterior, char* estado_actual);
 
 // inicializar cosas 
 void inicializar_variables_globales(t_config* config){
@@ -140,6 +141,8 @@ void blocked_a_susp_blocked(t_pcb* proceso){
         agregar_proceso_a_lista(lista_susp_blocked, proceso, SUSP_BLOQUEADO);
         pthread_mutex_unlock(&m_lista_susp_blocked);
     }
+    log_obligatorio_cambio_de_estado(proceso->pid, "BLOCKED", "SUSP_BLOCKED");
+
 }
 
 void susp_blocked_a_susp_ready(t_pcb* proceso){
@@ -152,6 +155,8 @@ void susp_blocked_a_susp_ready(t_pcb* proceso){
         agregar_proceso_a_lista(lista_susp_ready, proceso, SUSP_LISTO);
         pthread_mutex_unlock(&m_lista_susp_ready);
     }
+    log_obligatorio_cambio_de_estado(proceso->pid, "SUSP_BLOCKED", "SUSP_READY");
+
 }
 
 void susp_ready_a_ready(t_pcb* proceso){
@@ -162,6 +167,8 @@ void susp_ready_a_ready(t_pcb* proceso){
     if(eliminado){
         agregar_a_ready(proceso);
     }
+    log_obligatorio_cambio_de_estado(proceso->pid, "SUSP_READY", "READY");
+
 }
 
 void ready_a_exec(t_pcb* proceso){
@@ -172,6 +179,7 @@ void ready_a_exec(t_pcb* proceso){
         agregar_proceso_a_lista(lista_exec, proceso, EJECUTANDO);
         pthread_mutex_unlock(&m_lista_exec);
     }
+    log_obligatorio_cambio_de_estado(proceso->pid, "READY", "EXEC");
 }
 
 void ready_a_blocked(t_pcb* proceso){
@@ -181,6 +189,7 @@ void ready_a_blocked(t_pcb* proceso){
         agregar_proceso_a_lista(lista_blocked, proceso, BLOQUEADO);
         pthread_mutex_unlock(&m_lista_blocked);
     }
+    log_obligatorio_cambio_de_estado(proceso->pid, "READY", "BLOCKED");
 }
 
 void blocked_a_ready(t_pcb* proceso){
@@ -192,6 +201,7 @@ void blocked_a_ready(t_pcb* proceso){
     if(eliminado){
         agregar_a_ready(proceso);
     }
+    log_obligatorio_cambio_de_estado(proceso->pid, "BLOCKED", "READY");
 }
 
 void exec_a_blocked(t_pcb* proceso){
@@ -204,6 +214,7 @@ void exec_a_blocked(t_pcb* proceso){
         agregar_proceso_a_lista(lista_blocked, proceso, BLOQUEADO);
         pthread_mutex_unlock(&m_lista_blocked);
     }
+    log_obligatorio_cambio_de_estado(proceso->pid, "EXEC", "BLOCKED");
 }
 
 void exec_a_ready(t_pcb* proceso){
@@ -215,6 +226,7 @@ void exec_a_ready(t_pcb* proceso){
     if(eliminado){
         agregar_a_ready(proceso);
     }
+    log_obligatorio_cambio_de_estado(proceso->pid, "EXEC", "READY");
 }
 
 void new_a_ready(t_pcb* proceso){
@@ -225,12 +237,14 @@ void new_a_ready(t_pcb* proceso){
     if(eliminado){
         agregar_a_ready(proceso);
     }
+    log_obligatorio_cambio_de_estado(proceso->pid, "NEW", "READY");
 }
 
 void proceso_a_new(t_pcb* proceso){
     pthread_mutex_lock(&m_lista_new);
     agregar_proceso_a_lista(lista_new, proceso, NUEVO);
     pthread_mutex_unlock(&m_lista_new);
+    log_info(logger, "## (<%d>) Se crea el proceso - Estado: NEW", proceso->pid);
 }
 
 void agregar_a_ready(t_pcb* proceso){
@@ -303,7 +317,6 @@ t_pcb* nuevo_proc(int prioridad, char* instrucciones){
     proceso_a_new(pcb);
     log_debug(logger, "tamanio ready: %d, tamanio new: %d", list_size(lista_ready), list_size(lista_new));
     sem_post(&s_nuevo_proceso_new);
-    log_debug(logger, "fin nuevo proc");
 
     return pcb;
 }
@@ -381,4 +394,8 @@ void enviar_paquete_a_todas_las_cpus(t_paquete* paquete){
         enviar_paquete(paquete, cpu_fd);
         log_info(logger, "Enviando info a cpu de stick");
     }
+}
+
+void log_obligatorio_cambio_de_estado(int pid, char* estado_anterior, char* estado_actual){
+    log_info(logger, "## (<%d>) Pasa del estado <%s> al estado <%s>", pid, estado_anterior, estado_actual);
 }
