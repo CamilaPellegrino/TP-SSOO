@@ -137,6 +137,32 @@ void atender_cpu(t_cpu* cpu){
             log_warning(logger, "se desconecto CPU");
             break;
         }
+    switch(cod_op) {
+                case KM_GET_INSTRUCTION: {
+                    t_list* paquete = recibir_paquete(cpu_fd);
+                    uint32_t pid = *(uint32_t*)list_get(paquete, 0);
+                    uint32_t pc = *(uint32_t*)list_get(paquete, 1);
+                    
+                    // MOCK: Enviar instrucción genérica para que CPU avance 
+                    char* instruccion = "SET AX 1"; 
+                    log_info(logger, "## PID: %u - Obtener instrucción: %u - Instrucción: %s", pid, pc, instruccion);
+                    
+                    enviar_mensaje(instruccion, cpu_fd, HANDSHAKE);
+                    list_destroy_and_destroy_elements(paquete, free);
+                    break;
+                }
+                case KM_READ:
+                case KM_WRITE:{
+                    // MOCK: Responder OK sin implementar lógica real [3]
+                    enviar_mensaje("OK", cpu_fd, KM_CPU__RESPUESTA);
+                    log_info(logger, "Respuesta MOCK: OK");
+                    break;
+                }
+                default:{
+                    log_warning(logger,"atender_cpu: op desconocida, op=%d", cod_op);
+                }
+
+            }
     }
     close(cpu_fd);
     log_info(logger, "cerrando hilo de CPU");

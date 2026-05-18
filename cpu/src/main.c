@@ -286,12 +286,8 @@ void inicializar_variables(){
     pid_pendiente = -1;
     lista_sticks = list_create();
     lista_instrucciones = list_create();
-    list_add(lista_instrucciones, crear_instruccion(INST_MUTEX_CREATE, "MUTEX_1", NULL));
     list_add(lista_instrucciones, crear_instruccion(INST_SLEEP, "2000", NULL));
-    list_add(lista_instrucciones, crear_instruccion(INST_MUTEX_LOCK, "MUTEX_1", NULL));
-    list_add(lista_instrucciones, crear_instruccion(INST_SLEEP, "2000", NULL));
-    list_add(lista_instrucciones, crear_instruccion(INST_MUTEX_UNLOCK, "MUTEX_1", NULL));
-
+    list_add(lista_instrucciones, crear_instruccion(INST_SLEEP, "3500", NULL));
 }
 
 t_pcb* inicializar_pcb(int pid){

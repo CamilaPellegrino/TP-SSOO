@@ -39,6 +39,7 @@ void atender_io_sleep(t_io* io){
 
         // mandar al modulo de io la solic (con todos los datos que haya en t_evt_sleep, en este caso seria el tiempo de sleep)
         t_paquete* paquete_sleep = crear_paquete(SCH_IO__SOLICITUD);
+        agregar_a_paquete(paquete_sleep, &(proceso->pid), sizeof(proceso->pid));
         agregar_a_paquete(paquete_sleep, &(tiempo_sleep), sizeof(tiempo_sleep));
         enviar_paquete_y_liberarlo(paquete_sleep, io_fd);
         
