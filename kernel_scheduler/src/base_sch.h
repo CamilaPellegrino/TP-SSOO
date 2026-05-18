@@ -2,20 +2,22 @@
 #define BASE_SCH_H_
 
 #include <utils/utils.h>
-typedef struct 
-{
-    int tamanio;
-    int fd;
-    char* puerto;
-    char* ip;
-}t_stick;
+#include <semaphore.h>
+#include <pthread.h>
 
+typedef struct{
+    int pid;
+    int prioridad;
+	t_tipo_estado estado;
+} t_pcb;
 typedef struct
 {
 	int fd;
 	int id;
+	t_pcb* proceso; // proceso que esta ejecutando (NULL si no esta ejecutando nada)
 } t_cpu;
 
+// cosas de IO
 typedef struct
 {
 	int fd;
@@ -24,31 +26,109 @@ typedef struct
 
 typedef struct
 {
-	// identificadores del proceso
-	int pid;
-	int ppid;
-	int priodidad;
-	t_tipo_estado estado;
-	// registros de estado
-	uint32_t pc;
-	uint8_t ax;
-	uint8_t bx;
-	uint8_t cx;
-	uint8_t dx;
-	uint32_t eax;
-	uint32_t ebx;
-	uint32_t ecx;
-	uint32_t edx;
-	uint32_t si;
-	uint32_t di;
-	
-} t_pcb;
+	int tiempo_sleep;
+} t_evt_sleep;
 
+typedef struct
+{
+	void* data_evt;
+	t_pcb* proceso;
+	bool syscall_finalizada;
+	pthread_mutex_t mutex;
+    pthread_cond_t cond;
+	pthread_t hilo_timeout;
 
-t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd);
-void destruir_stick(t_stick* stick);
+} t_evt;
+typedef enum{
+    CMN,
+    FIFO,
+    RR
+} t_planificacion;
+
+// para t_mutex
+typedef struct{
+    char* nombre;
+    int mutex_id;
+    int valor;
+    t_list* procesos_en_espera; // procesos que esperan por el mutex, en orden
+    pthread_mutex_t lock;
+} t_mutex;
+
+// variables globales 
+extern t_log* logger;
+extern t_planificacion algoritmo;  // CMN, FIFO o RR
+extern int proximo_pid;
+extern int suspension_timeout;
+extern t_list* lista_cpus;
+extern t_list* lista_io;
+extern t_list* lista_new;
+extern t_list* lista_ready;        // lista procesos en ready
+extern t_list* lista_exec;         // lista de procesos en exec
+extern t_list* lista_blocked;      // procesos en blocked
+extern t_list* lista_susp_blocked;
+extern t_list* lista_susp_ready;
+
+extern t_list* queues_algorithms;  // algoritmo que usa cada cola cuando es CMN
+
+// listas de cosas de syscalls
+extern t_list* lista_evt_sleep;
+extern t_list* lista_mutex;        // mutexs creados por los procesos (tiene cosas de tipo t_mutex adentro)
+
+// semaforos
+extern sem_t s_nuevo_proceso_ready;
+extern sem_t s_nueva_cpu_libre;
+extern sem_t s_nuevo_proceso_new;
+extern sem_t s_evt_sleep;       // cuando hay una nueva solic de sleep
+
+// mutexs
+extern pthread_mutex_t m_lista_evt_sleep;
+extern pthread_mutex_t m_lista_new;
+extern pthread_mutex_t m_lista_ready;
+extern pthread_mutex_t m_lista_exec;
+extern pthread_mutex_t m_lista_blocked;
+extern pthread_mutex_t m_lista_susp_blocked;
+extern pthread_mutex_t m_lista_susp_ready;
+extern pthread_mutex_t m_lista_cpus;
+extern pthread_mutex_t m_lista_mutex;
+
+// funciones para inicializar cosas
+void inicializar_variables_globales(t_config* config);
+void inicializar_parametros_de_config(t_config* config);
+t_list* queues_algorithms_a_t_list(char** queues_algorithms_str);
 t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
+t_pcb* iniciar_pcb(int pid, int prioridad, t_tipo_estado estado);
+t_evt* iniciar_evt_sleep(int tiempo_sleep, t_pcb* proceso);
+
+// mover entre listas de procesos
+void blocked_a_susp_blocked(t_pcb* pid);
+void susp_blocked_a_susp_ready(t_pcb* pid);
+void susp_ready_a_ready(t_pcb* pid);
+void ready_a_exec(t_pcb* pid);
+void ready_a_blocked(t_pcb* proceso);
+void blocked_a_ready(t_pcb* proceso);
+void exec_a_blocked(t_pcb* pid);
+void exec_a_ready(t_pcb* pid);
+void new_a_ready(t_pcb* pid);
+
+void agregar_a_ready(t_pcb* proceso);
+bool eliminar_de_ready(t_pcb* proceso);
+void agregar_a_ready_CMN(t_pcb* proceso);
+bool eliminar_de_ready_CMN(t_pcb* proceso);
+void agregar_proceso_a_lista(t_list* lista, t_pcb* proceso, t_tipo_estado nuevo_estado);
+bool eliminar_proceso_de_lista(t_list* lista, t_pcb* proceso, char* nombre_lista);
+t_pcb* nuevo_proc(int prioridad, char* instrucciones);
+t_list* sublista_ready_de_prioridad(int prioridad);
+void desbloquear_proceso(t_pcb* proceso);
+
+// funciones genericas
+int iniciar_servidor_o_exit(char* puerto);
+t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str);
+pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo);
+void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
+
+// liberar
+void liberar_cpu(t_cpu* cpu);     // liberar la cpu, osea que no tenga asignado ningun proceso (no le manda nada a la cpu, solo hace cpu->proceso=NULL)
 
 
-#endif
+#endif /* BASE_SCH_H_ */

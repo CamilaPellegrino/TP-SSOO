@@ -1,11 +1,25 @@
 #include <utils/hello.h>
 #include <utils/utils.h>
 #include "base_cpu.h"
+#include <semaphore.h>
+
+void* ejecutar();
+void detener_ejecucion();
+void reanudar_ejecucion();
+void inicializar_variables();
+t_pcb* inicializar_pcb(int pid);
+t_instruccion* crear_instruccion(t_tipo_instruccion tipo, char* param1, char* param2);
+t_instruccion* proxima_instruccion();
+void ejecutar_sleep(t_instruccion* instr);
+void ejecutar_m_create(t_instruccion* instr);
+void ejecutar_m_lock(t_instruccion* instr);
+void ejecutar_m_unlock(t_instruccion* instr);
+void esperar_a_poder_ejecutar();
 
 // variables globales
 t_log* logger;
-
-t_list* lista_sticks; // lista global para guardar los memory sticks a los que me conecte
+t_list* lista_instrucciones; // lista hardcodeada de instruciones para testear sch
+t_list* lista_sticks;  // lista global para guardar los memory sticks a los que me conecte
 
 // identificadores del proceso
 int pid;
@@ -23,8 +37,18 @@ uint32_t edx;
 uint32_t si;
 uint32_t di;
 
-void conectarse_a_stick(char* ip, char* puerto);
+bool execute;
+pthread_cond_t cond_ejecutar;
+pthread_mutex_t m_ejecutar;
 
+int pid_pendiente;
+pthread_mutex_t m_pid_pendiente;
+
+// otros
+int conexion_kernel_scheduler;
+int conexion_kernel_memory;
+
+void conectarse_a_stick(char* ip, char* puerto);
 
 int main(int argc, char* argv[]){
     // ejemplo para ejecutar: ./bin/cpu ./cpu.config 0
@@ -44,7 +68,7 @@ int main(int argc, char* argv[]){
     char *puerto_kernel_memory;
 
     // crear logger
-    logger = iniciar_logger("cpu.log", "ProcesoCPU", LOG_LEVEL_INFO);
+    logger = iniciar_logger("cpu.log", "ProcesoCPU", LOG_LEVEL_DEBUG);
 
     // iniciar config
     config = iniciar_config(ruta_config);
@@ -58,9 +82,8 @@ int main(int argc, char* argv[]){
     puerto_kernel_memory = config_get_string_value(config, "PUERTO_KERNEL_MEMORY");
     puerto_kernel_scheduler = config_get_string_value(config, "PUERTO_KERNEL_SCHEDULER");
 
-
     // conectar a kernel scheduler
-    int conexion_kernel_scheduler = crear_conexion(ip, puerto_kernel_scheduler);
+    conexion_kernel_scheduler = crear_conexion(ip, puerto_kernel_scheduler);
     exit_si_error_conexion(conexion_kernel_scheduler, logger, "kernel scheduler");
     handshake_cliente(conexion_kernel_scheduler,logger);
     
@@ -70,7 +93,7 @@ int main(int argc, char* argv[]){
     enviar_paquete_y_liberarlo(paquete_conexion_sch, conexion_kernel_scheduler);
 
     // conectar a kernel memory
-    int conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
+    conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
     handshake_cliente(conexion_kernel_memory,logger);
         
@@ -79,22 +102,40 @@ int main(int argc, char* argv[]){
     agregar_a_paquete(paquete_conexion_km, &id_cpu, sizeof(id_cpu));
     enviar_paquete_y_liberarlo(paquete_conexion_km, conexion_kernel_memory);
 
-    // inicializar listas
-    lista_sticks = list_create();
-
+    // inicializar variables
+    inicializar_variables();
+    
+    // hilo que ejecuta instrucciones:
+    pthread_t hilo_ejecucion;
+    pthread_create(&hilo_ejecucion, NULL, ejecutar, NULL);
+    pthread_detach(hilo_ejecucion);
 
     // queda escuchando mensajes que envie el scheduler
-    while (1)
-    {
+    while (1){
         op_code cod_op = recibir_operacion(conexion_kernel_scheduler);
         if(cod_op == -1){
             log_error(logger, "Error: se desconecto scheduler"); 
             break; 
         }
         switch(cod_op){
-            case SCH_CPU__PID:{
-                log_info(logger, "me llego un PID");
-                
+            case SCH_CPU__PID:{ // ej: al principio, o despues de haber desalojado cuando le asigna otro proceso
+                log_debug(logger, "hilo principal: nuevo_pid");
+                pthread_mutex_lock(&m_pid_pendiente);
+                t_list* lista_paquete = recibir_paquete(conexion_kernel_scheduler);
+                int* nuevo_pid = list_get(lista_paquete, 0);
+                pid_pendiente = *nuevo_pid;
+                reanudar_ejecucion();
+                pthread_mutex_unlock(&m_pid_pendiente);
+                break;
+            }
+            case SCH_CPU__DETENER_EJECUCION:{ // ej cuando hace un MUTEX_LOCK y se bloquea, o cuando se desaloja
+                log_debug(logger, "hilo principal: detener_ejecucion");
+                detener_ejecucion();
+                break;
+            }
+            case SCH_CPU__REANUDAR_EJECUCION:{ // cuando hace MUTEX_LOCK y estaba el semaforo disponible, no bloquea el proceso
+                log_debug(logger, "hilo principal: Reanudar ejecucion");
+                reanudar_ejecucion();
                 break;
             }
             case SCH_CPU__NUEVO_STICK: {
@@ -118,13 +159,6 @@ int main(int argc, char* argv[]){
                 
                 // liberar lista_del_paquete
                 list_destroy_and_destroy_elements(lista_del_paquete, free);
-
-                /*
-                1. A través de variables globales: Cualquier hilo puede acceder a ellas.
-
-                2. Pasando punteros al crearlos: Cuando usas pthread_create, el último parámetro es un void* que te permite 
-                pasarle cualquier estructura de datos (como el t_stick de tu ejemplo anterior) al nuevo hilo.
-                */
                 break;
             }
             default:
@@ -141,9 +175,149 @@ int main(int argc, char* argv[]){
     return 0;
 }
 
+void* ejecutar(){
+    t_instruccion* prox_instruccion;
+
+    while(1){
+        log_debug(logger, "ejecutar: esperando a poder ejecutar");
+        esperar_a_poder_ejecutar(); 
+        log_debug(logger, "ejecutar: execute vale true");
+        pthread_mutex_lock(&m_pid_pendiente);
+
+        if(pid_pendiente >= 0){ // significa que tengo que cambiar de proceso
+            // reemplazar pcb actual por el pendiente (recibirlo de km)
+            // ...
+            log_debug(logger, "ejecutar: pidiendo nuevo pcb de pid %d a km y cargandolo", pid_pendiente);
+            pid_pendiente = -1;
+        }
+        pthread_mutex_unlock(&m_pid_pendiente);
+
+        log_debug(logger, "ejecutar: buscando prox instruccion");
+        prox_instruccion = proxima_instruccion();
+        if(prox_instruccion == NULL){ // puede pasar esto?
+            log_debug(logger, "en ejecutar: prox_instruccion valia NULL");
+            detener_ejecucion();
+            continue;
+        };
+        log_debug(logger, "ejecutar: proxima instruccion de tipo: %d, pc = %d", prox_instruccion->tipo, pc);
+
+        pc++; // cuando haya un salto no se deberia aumentar pc
+
+        switch(prox_instruccion->tipo){ // falta implemenetar todas las instrucciones, dejo 2 syscalls hechas para probar sch
+            case INST_SLEEP:
+                ejecutar_sleep(prox_instruccion);
+                break;
+            case INST_MUTEX_CREATE:
+                ejecutar_m_create(prox_instruccion);
+                break;
+            case INST_MUTEX_LOCK:
+                ejecutar_m_lock(prox_instruccion);
+                break;
+            case INST_MUTEX_UNLOCK:
+                ejecutar_m_unlock(prox_instruccion);
+                break;
+            default:
+                log_warning(logger, "Instruccion no implementada, tipo %d", prox_instruccion->tipo);
+                break;
+        }
+    }
+    return NULL;
+}
+
+void esperar_a_poder_ejecutar(){
+    pthread_mutex_lock(&m_ejecutar);
+    while(!execute){
+        pthread_cond_wait(&cond_ejecutar, &m_ejecutar);
+    }
+    pthread_mutex_unlock(&m_ejecutar);
+}
+
+void ejecutar_m_unlock(t_instruccion* instr){
+    char* nombre = instr->param1;
+    log_debug(logger, "Ejecutando MUTEX_UNLOCK %s", nombre);
+    t_paquete* paquete = crear_paquete(CPU_SCH__MUTEX_UNLOCK);
+    agregar_string_a_paquete(paquete, nombre);
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+    detener_ejecucion(); // cpu tiene que esperar a que esta syscall se termine (puede ser instantaneo, o no, depende) para seguir ejecutando
+}
+
+void ejecutar_m_lock(t_instruccion* instr){
+    char* nombre = instr->param1;
+    log_debug(logger, "Ejecutando MUTEX_LOCK %s", nombre);
+    t_paquete* paquete = crear_paquete(CPU_SCH__MUTEX_LOCK);
+    agregar_string_a_paquete(paquete, nombre);
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+    detener_ejecucion(); // cpu tiene que esperar a que esta syscall se termine (puede ser instantaneo, o no, depende) para seguir ejecutando
+}
+
+void ejecutar_m_create(t_instruccion* instr){
+    char* nombre = instr->param1;
+    log_debug(logger, "Ejecutando MUTEX_CREATE %s", nombre);
+    t_paquete* paquete = crear_paquete(CPU_SCH__MUTEX_CREATE);
+    agregar_string_a_paquete(paquete, nombre);
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+    detener_ejecucion(); // cpu tiene que esperar a que esta syscall se termine (es instantaneo) para seguir ejecutando
+}
+
+void ejecutar_sleep(t_instruccion* instr){
+    int tiempo_sleep = atoi(instr->param1); // solo puede recibir un numero
+    log_debug(logger, "Ejecutando SLEEP %d", tiempo_sleep);
+    t_paquete* paquete = crear_paquete(CPU_SCH__SLEEP);
+    agregar_a_paquete(paquete, &tiempo_sleep, sizeof(tiempo_sleep));
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+    detener_ejecucion(); // esta es bloqueante, obligatoriamente detiene la ejecucion hasta que scheduler le mande el proximo pid
+}
+
+void detener_ejecucion(){
+    pthread_mutex_lock(&m_ejecutar);
+    execute = false;
+    pthread_mutex_unlock(&m_ejecutar);
+}
+
+void reanudar_ejecucion(){
+    pthread_mutex_lock(&m_ejecutar);
+    execute = true;
+    pthread_cond_signal(&cond_ejecutar);
+    pthread_mutex_unlock(&m_ejecutar);
+}
+
+void inicializar_variables(){
+    execute = false;
+    pid_pendiente = -1;
+    lista_sticks = list_create();
+    lista_instrucciones = list_create();
+    list_add(lista_instrucciones, crear_instruccion(INST_MUTEX_CREATE, "MUTEX_1", NULL));
+    list_add(lista_instrucciones, crear_instruccion(INST_SLEEP, "2000", NULL));
+    list_add(lista_instrucciones, crear_instruccion(INST_MUTEX_LOCK, "MUTEX_1", NULL));
+    list_add(lista_instrucciones, crear_instruccion(INST_SLEEP, "2000", NULL));
+    list_add(lista_instrucciones, crear_instruccion(INST_MUTEX_UNLOCK, "MUTEX_1", NULL));
+
+}
+
+t_pcb* inicializar_pcb(int pid){
+    t_pcb* pcb = malloc(sizeof(t_pcb)); 
+    pcb->pid = pid;
+    return pcb;
+}
+
+t_instruccion* crear_instruccion(t_tipo_instruccion tipo, char* param1, char* param2){
+    t_instruccion* inst = malloc(sizeof(t_instruccion));
+    inst->tipo = tipo;
+    inst->param1 = param1 ? strdup(param1) : NULL;
+    inst->param2 = param2 ? strdup(param2) : NULL;
+    return inst;
+}
+
+t_instruccion* proxima_instruccion(){ // TODO: que esta funcion pida a memoria (fetch) y convierta lo que me mande en un t_instruccion (decode)
+    log_debug(logger, "pc=%d size=%d", pc, list_size(lista_instrucciones));
+    if(pc >= list_size(lista_instrucciones)){
+        return NULL;
+    }
+    return list_get(lista_instrucciones, pc);
+}
+
 void conectarse_a_stick(char* ip, char* puerto){
     int conexion_memory_stick = crear_conexion(ip, puerto);
     exit_si_error_conexion(conexion_memory_stick, logger, "memory stick");
     handshake_cliente(conexion_memory_stick, logger);
-    
 }

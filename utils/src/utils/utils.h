@@ -29,11 +29,23 @@ typedef enum
 	// mensajes con destino a SCH
 	KM_SCH__NUEVO_STICK,
 	KM_SCH__BSOD,
+	CPU_SCH__INIT_PROC,
+	CPU_SCH__SLEEP,
+	CPU_SCH__MUTEX_CREATE,
+	CPU_SCH__MUTEX_LOCK,
+	CPU_SCH__MUTEX_UNLOCK,
+	IO_SCH__OK,
+	IO_SCH__ERROR,
 	// mensajes con destino a CPU
 	SCH_CPU__NUEVO_STICK,
-	SCH_CPU__PID
+	SCH_CPU__PID,
+	SCH_CPU__DETENER_EJECUCION,
+	SCH_CPU__REANUDAR_EJECUCION,
 	// mensajes con destino a KM
 	// ...
+	// mensajes con destino a IO
+	SCH_IO__SOLICITUD,
+
 
 }op_code;
 
