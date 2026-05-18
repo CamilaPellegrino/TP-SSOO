@@ -105,27 +105,30 @@ void* atender_cpu(t_cpu* cpu){
             log_warning(logger, "Se desconecto cpu de id:%d", cpu_id);
             break;
         }
-        log_debug(logger, "********** atender_cpu <%d>: nueva syscall **********", cpu_id);
         switch(cod_op){
             case CPU_SCH__SLEEP:{
+                log_info(logger, "## (<%d>) - Solicito syscall: <SLEEP>", cpu->proceso->pid);
                 log_debug(logger, "atender_cpu <%d>: ejecutando SLEEP", cpu_id);
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 int tiempo_sleep = *(int*)list_get(lista_paquete, 0);
                 atender_cpu_syscall_sleep(tiempo_sleep, cpu);
                 break;
             }case CPU_SCH__MUTEX_CREATE:{
+                log_info(logger, "## (<%d>) - Solicito syscall: <MUTEX_CREATE>", cpu->proceso->pid);
                 log_debug(logger, "atender_cpu <%d>: ejecutando MUTEX_CREATE", cpu_id);
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 char* nombre_mutex = (char*)list_get(lista_paquete, 0);
                 atender_cpu_syscall_mutex_create(nombre_mutex, cpu);
                 break;
             }case CPU_SCH__MUTEX_LOCK:{
+                log_info(logger, "## (<%d>) - Solicito syscall: <MUTEX_LOCK>", cpu->proceso->pid);
                 log_debug(logger, "atender_cpu <%d>: ejecutando MUTEX_LOCK", cpu_id);
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 char* nombre_mutex = (char*)list_get(lista_paquete, 0);
                 atender_cpu_syscall_mutex_lock(nombre_mutex, cpu);
                 break;
             }case CPU_SCH__MUTEX_UNLOCK:{
+                log_info(logger, "## (<%d>) - Solicito syscall: <MUTEX_UNLOCK>", cpu->proceso->pid);
                 log_debug(logger, "atender_cpu <%d>: ejecutando MUTEX_UNLOCK", cpu_id);
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 char* nombre_mutex = (char*)list_get(lista_paquete, 0);
@@ -143,6 +146,7 @@ void atender_cpu_syscall_mutex_unlock(char* nombre_mutex, t_cpu* cpu){
         // TODO: no existe un mutex con ese nombre en lista_mutex, devolver a CPU codigo de error
     }
     m_signal(mutex);
+    log_info(logger, "## (<%d>) Libera el Mutex <%s>", cpu->proceso->pid, nombre_mutex);
     enviar_operacion(cpu->fd, SCH_CPU__REANUDAR_EJECUCION);
 }
 
@@ -154,6 +158,7 @@ void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu){
     t_pcb* proceso = cpu->proceso;
     bool reservado = m_wait(mutex, proceso);
     if(reservado){
+        log_info(logger, "## (<%d>) Toma el Mutex <%s>", proceso->pid, nombre_mutex);
         log_debug(logger, "atender_cpu_syscall_mutex_lock: mutex %s reservado", nombre_mutex);
         enviar_operacion(cpu->fd, SCH_CPU__REANUDAR_EJECUCION);
     }else{

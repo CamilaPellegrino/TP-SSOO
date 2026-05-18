@@ -41,7 +41,11 @@ typedef enum
 	SCH_CPU__PID,
 	SCH_CPU__DETENER_EJECUCION,
 	SCH_CPU__REANUDAR_EJECUCION,
+	KM_CPU__RESPUESTA,
 	// mensajes con destino a KM
+	KM_READ,
+	KM_WRITE,
+	KM_GET_INSTRUCTION,
 	// ...
 	// mensajes con destino a IO
 	SCH_IO__SOLICITUD,

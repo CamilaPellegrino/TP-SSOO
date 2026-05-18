@@ -1,6 +1,7 @@
 #ifndef PLANIFICADOR_H_
 #define PLANIFICADOR_H_
 #include "base_sch.h"
+#include <time.h>
 
 // planificacion
 void* planificador_corto_plazo();

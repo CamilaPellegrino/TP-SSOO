@@ -39,6 +39,7 @@ void atender_io_sleep(t_io* io){
 
         // mandar al modulo de io la solic (con todos los datos que haya en t_evt_sleep, en este caso seria el tiempo de sleep)
         t_paquete* paquete_sleep = crear_paquete(SCH_IO__SOLICITUD);
+        agregar_a_paquete(paquete_sleep, &(proceso->pid), sizeof(proceso->pid));
         agregar_a_paquete(paquete_sleep, &(tiempo_sleep), sizeof(tiempo_sleep));
         enviar_paquete_y_liberarlo(paquete_sleep, io_fd);
         
@@ -49,15 +50,14 @@ void atender_io_sleep(t_io* io){
 
         evt->syscall_finalizada = true;
         pthread_cond_signal(&evt->cond);
-        log_info(logger, "operacion completada");
         
         pthread_mutex_unlock(&evt->mutex);
         
         if(proceso->estado == BLOQUEADO){
-            log_debug(logger, "pasando a ready");
+            log_info(logger, "## (<%d>) finalizó IO y pasa a READY", proceso->pid);
             blocked_a_ready(proceso);
         }else if(proceso->estado == SUSP_BLOQUEADO){
-            log_debug(logger, "pasando a susp_ready");  
+            log_info(logger, "## (<%d>) finalizó IO y pasa a SUSP_READY", proceso->pid);
             susp_blocked_a_susp_ready(proceso);
         }
         pthread_join(evt->hilo_timeout, NULL); //estoy espserando que termine para que el hilo_timeout no intente acceder a evt 

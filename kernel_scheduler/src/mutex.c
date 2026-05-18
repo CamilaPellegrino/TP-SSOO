@@ -21,6 +21,7 @@ void m_signal(t_mutex* mutex){
     if(mutex->valor <= 0){
         t_pcb* proceso = list_remove(mutex->procesos_en_espera, 0);
         desbloquear_proceso(proceso);
+        log_info(logger, "## (<%d>) Toma el Mutex <%s>", proceso->pid, mutex->nombre);
     }
     pthread_mutex_unlock(&mutex->lock);
 }
