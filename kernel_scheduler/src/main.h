@@ -53,6 +53,9 @@ pthread_mutex_t m_lista_susp_ready;
 pthread_mutex_t m_lista_cpus;
 pthread_mutex_t m_lista_mutex;
 
+// sockets
+int conexion_kernel_memory;
+
 /*
  * Declaracion de funcioens
 */

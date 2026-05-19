@@ -9,35 +9,49 @@ t_mutex* m_create(char* nombre){
     t_mutex* m = malloc(sizeof(t_mutex));
     m->nombre = nombre;
     m->mutex_id = proximo_mutex_id++;
-    m->valor = 1;
+    m->duenio = NULL;
     m->procesos_en_espera = list_create();
     pthread_mutex_init(&m->lock, NULL);
     return m;
 }
 
-void m_signal(t_mutex* mutex){
+void m_signal(t_mutex* mutex, t_pcb* proceso){
     pthread_mutex_lock(&mutex->lock);
-    mutex->valor++;
-    if(mutex->valor <= 0){
-        t_pcb* proceso = list_remove(mutex->procesos_en_espera, 0);
-        desbloquear_proceso(proceso);
-        log_info(logger, "## (<%d>) Toma el Mutex <%s>", proceso->pid, mutex->nombre);
+
+    if(mutex->duenio != proceso){
+        log_debug(logger, "hizo signal un proc que no tenia asignado el mutex");
+        pthread_mutex_unlock(&mutex->lock);
+        return;
     }
+
+    if(list_is_empty(mutex->procesos_en_espera)){
+        mutex->duenio = NULL;
+        pthread_mutex_unlock(&mutex->lock);
+        return;
+    }
+    t_pcb* siguiente = list_remove(mutex->procesos_en_espera, 0);
+    mutex->duenio = siguiente;
+    desbloquear_proceso(siguiente);
+
+    log_info(logger, "## (<%d>) Toma el Mutex <%s>", siguiente->pid, mutex->nombre);
+
     pthread_mutex_unlock(&mutex->lock);
 }
 
 bool m_wait(t_mutex* mutex, t_pcb* proceso){
-    log_debug(logger, "m_wait: iniciando");
     pthread_mutex_lock(&mutex->lock);
-    mutex->valor--;
-    if(mutex->valor < 0){
-        log_debug(logger, "m_wait: mutex no disponible, encolando proceso");
-        list_add(mutex->procesos_en_espera, proceso);
+    if(mutex->duenio == NULL){
+        mutex->duenio = proceso;
+        log_info(logger, "## (<%d>) Toma el Mutex <%s>", proceso->pid, mutex->nombre);
         pthread_mutex_unlock(&mutex->lock);
-        return false; // bloqueado
+        return true;
     }
-    pthread_mutex_unlock(&mutex->lock);
-    return true; // continua ejecutando
+    list_add(mutex->procesos_en_espera, proceso);
+
+    log_info(logger, "## (<%d>) Bloqueado por Mutex <%s>", proceso->pid, mutex->nombre);
+    pthread_mutex_unlock(&mutex->lock); 
+    
+    return false;
 }
 
 t_mutex* get_mutex(char* nombre){

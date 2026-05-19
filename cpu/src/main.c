@@ -17,7 +17,7 @@ void ejecutar_m_create(t_instruccion* instr);
 void ejecutar_m_lock(t_instruccion* instr);
 void ejecutar_m_unlock(t_instruccion* instr);
 void esperar_a_poder_ejecutar(); 
-
+void ejecutar_exit(t_instruccion* instr);
 // variables globales
 t_log* logger;
 t_list* lista_instrucciones; // lista hardcodeada de instruciones para testear sch
@@ -224,6 +224,8 @@ void* ejecutar(){
             case INST_STDOUT:
                 ejecutar_stdout(prox_instruccion);
                 break;
+            case INST_EXIT:
+                ejecutar_exit(prox_instruccion);
             default:
                 log_warning(logger, "Instruccion no implementada, tipo %d", prox_instruccion->tipo);
                 break;
@@ -232,12 +234,20 @@ void* ejecutar(){
     return NULL;
 }
 
+
+
 void esperar_a_poder_ejecutar(){
     pthread_mutex_lock(&m_ejecutar);
     while(!execute){
         pthread_cond_wait(&cond_ejecutar, &m_ejecutar);
     }
     pthread_mutex_unlock(&m_ejecutar);
+}
+
+void ejecutar_exit(t_instruccion* instr){
+    log_debug(logger, "Ejecutando EXIT");
+    enviar_operacion(conexion_kernel_scheduler, CPU_SCH__EXIT);
+    detener_ejecucion();
 }
 
 void ejecutar_m_unlock(t_instruccion* instr){
@@ -317,7 +327,10 @@ void inicializar_variables(){
     // list_add(lista_instrucciones, crear_instruccion(INST_SLEEP, "2000", NULL));
     // list_add(lista_instrucciones, crear_instruccion(INST_SLEEP, "3500", NULL));
     // list_add(lista_instrucciones, crear_instruccion(INST_STDIN, "0", "10")); // El 0 representa la dir logica, deberia ser distinto cuando este bien implementado
-    list_add(lista_instrucciones, crear_instruccion(INST_STDOUT, "0", "10")); // El 0 representa la dir logica, deberia ser distinto cuando este bien implementado
+    // list_add(lista_instrucciones, crear_instruccion(INST_STDOUT, "0", "10")); // El 0 representa la dir logica, deberia ser distinto cuando este bien implementado
+    list_add(lista_instrucciones, crear_instruccion(INST_MUTEX_CREATE, "MUTEX_1", NULL)); 
+    list_add(lista_instrucciones, crear_instruccion(INST_MUTEX_LOCK, "MUTEX_1", NULL)); 
+    list_add(lista_instrucciones, crear_instruccion(INST_EXIT, NULL, NULL)); 
 }
 
 t_pcb* inicializar_pcb(int pid){

@@ -50,7 +50,7 @@ typedef enum{
 typedef struct{
     char* nombre;
     int mutex_id;
-    int valor;
+    t_pcb* duenio;
     t_list* procesos_en_espera; // procesos que esperan por el mutex, en orden
     pthread_mutex_t lock;
 } t_mutex;
@@ -100,6 +100,11 @@ extern pthread_mutex_t m_lista_susp_ready;
 extern pthread_mutex_t m_lista_cpus;
 extern pthread_mutex_t m_lista_mutex;
 
+// sockets
+extern int conexion_kernel_memory;
+
+
+
 // funciones para inicializar cosas
 void inicializar_variables_globales(t_config* config);
 void inicializar_parametros_de_config(t_config* config);
@@ -109,6 +114,9 @@ t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
 t_pcb* iniciar_pcb(int pid, int prioridad, t_tipo_estado estado);
 t_evt* iniciar_evt_sleep(int tiempo_sleep, t_pcb* proceso);
 t_evt* iniciar_evt_std_in_out(int tamanio, int dir_logica, t_pcb* proceso);
+
+// funciones para destroy
+void destroy_pcb(t_pcb* pcb);
 
 // mover entre listas de procesos
 void blocked_a_susp_blocked(t_pcb* pid);
@@ -120,6 +128,7 @@ void blocked_a_ready(t_pcb* proceso);
 void exec_a_blocked(t_pcb* pid);
 void exec_a_ready(t_pcb* pid);
 void new_a_ready(t_pcb* pid);
+void eliminar_de_exec(t_pcb* proceso);
 
 void agregar_a_ready(t_pcb* proceso);
 bool eliminar_de_ready(t_pcb* proceso);
@@ -137,6 +146,7 @@ t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str);
 pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo);
 void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
 void sumar_milisegundos(struct timespec* ts, int milisegundos);
+void loguear_tamanio_listas_de_estado();
 
 // liberar
 void liberar_cpu(t_cpu* cpu);     // liberar la cpu, osea que no tenga asignado ningun proceso (no le manda nada a la cpu, solo hace cpu->proceso=NULL)

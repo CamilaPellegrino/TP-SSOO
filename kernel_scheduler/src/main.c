@@ -23,7 +23,7 @@ int main(int argc, char* argv[]) { // ejecucion con valgrind: valgrind --leak-ch
     // testear(); // descomentar esto si solo queres testear y defini el test en test.c
 
     // conectar a kernel memory
-    int conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
+    conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
     log_info(logger, "## Conectado a Kernel Memory");
     handshake_cliente(conexion_kernel_memory, logger);
@@ -144,19 +144,28 @@ void* atender_cpu(t_cpu* cpu){
                 int tamanio = *(int*)list_get(lista_paquete, 1);
                 atender_cpu_syscall_stdout(tamanio, dir_logica, cpu);
                 break;
+            }case CPU_SCH__EXIT:{
+                log_info(logger, "## (<%d>) - Solicito syscall: <EXIT>", cpu->proceso->pid);
+                t_pcb* proceso_exit = cpu->proceso;
+                liberar_cpu(cpu);
+                manejar_proceso_exit(proceso_exit);
+
+                break;
             }default:
                 log_warning(logger, "operacion desconocida en hilo que atiende a cpu id: %d, cod_op: %d", cpu_id, cod_op);
         }
+        loguear_tamanio_listas_de_estado();
     }
     return NULL;
 }
 void atender_cpu_syscall_mutex_unlock(char* nombre_mutex, t_cpu* cpu){
     t_mutex* mutex = get_mutex(nombre_mutex);
+    t_pcb* proceso = cpu->proceso;
     if(mutex == NULL){
         // TODO: no existe un mutex con ese nombre en lista_mutex, devolver a CPU codigo de error
     }
-    m_signal(mutex);
-    log_info(logger, "## (<%d>) Libera el Mutex <%s>", cpu->proceso->pid, nombre_mutex);
+    m_signal(mutex, proceso);
+    log_info(logger, "## (<%d>) Libera el Mutex <%s>", proceso->pid, nombre_mutex);
     enviar_operacion(cpu->fd, SCH_CPU__REANUDAR_EJECUCION);
 }
 

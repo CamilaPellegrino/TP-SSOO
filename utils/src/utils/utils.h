@@ -36,6 +36,7 @@ typedef enum
 	CPU_SCH__MUTEX_CREATE,
 	CPU_SCH__MUTEX_LOCK,
 	CPU_SCH__MUTEX_UNLOCK,
+	CPU_SCH__EXIT,
 	IO_SCH__OK,
 	IO_SCH__ERROR,
 	// mensajes con destino a CPU
@@ -48,7 +49,7 @@ typedef enum
 	KM_READ,
 	KM_WRITE,
 	KM_GET_INSTRUCTION,
-	// ...
+	SCH_KM__EXIT,
 	// mensajes con destino a IO
 	SCH_IO__SOLICITUD,
 

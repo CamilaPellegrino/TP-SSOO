@@ -51,6 +51,14 @@ void * planificador_largo_plazo(){
     }
 }
 
+void manejar_proceso_exit(t_pcb* proceso){
+    eliminar_de_exec(proceso);
+    loguear_tamanio_listas_de_estado();
+    // t_paquete* paquete_fin_proc = crear_paquete(SCH_KM__EXIT);
+    // agregar_a_paquete(paquete_fin_proc, &proceso->pid, sizeof(proceso->pid));
+    // enviar_paquete_y_liberarlo(paquete_fin_proc, conexion_kernel_memory); // TODO: enviar el paquete a km y que km avise cuando libero todo 
+}
+
 t_cpu* proxima_cpu()
 { // no saca la cpu de la lista, solamente devuelve el puntero ala cpu
     t_cpu* ret = NULL;
@@ -64,7 +72,6 @@ t_cpu* proxima_cpu()
 
     return ret;
 }
-
 
 // devuelve el pcb dep proximo proceso a ejecutar si el algoritmo es CMN
 t_pcb* planificar_CMN(){

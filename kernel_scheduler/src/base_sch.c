@@ -2,6 +2,8 @@
 void inicializar_lista_ready();
 void log_obligatorio_cambio_de_estado(int pid, char* estado_anterior, char* estado_actual);
 
+int procesos_en_ready = 0;
+
 // inicializar cosas 
 void inicializar_variables_globales(t_config* config){
     inicializar_parametros_de_config(config);
@@ -153,6 +155,8 @@ t_evt* iniciar_evt_std_in_out(int tamanio, int dir_logica, t_pcb* proceso){
     evt->data_evt = evt_std_in_out;
     return evt;
 }
+// funciones par destroy
+void destroy_pcb(t_pcb* pcb){ free(pcb); }
 
 // mover entre estados
 void blocked_a_susp_blocked(t_pcb* proceso){
@@ -262,6 +266,12 @@ void new_a_ready(t_pcb* proceso){
     log_obligatorio_cambio_de_estado(proceso->pid, "NEW", "READY");
 }
 
+void eliminar_de_exec(t_pcb* proceso){
+    pthread_mutex_lock(&m_lista_exec);
+    eliminar_proceso_de_lista(lista_exec, proceso, "lista_exec");
+    pthread_mutex_unlock(&m_lista_exec);
+}
+
 void proceso_a_new(t_pcb* proceso){
     pthread_mutex_lock(&m_lista_new);
     agregar_proceso_a_lista(lista_new, proceso, NUEVO);
@@ -277,6 +287,7 @@ void agregar_a_ready(t_pcb* proceso){
         agregar_proceso_a_lista(lista_ready, proceso, LISTO);
         pthread_mutex_unlock(&m_lista_ready);
     }
+    procesos_en_ready++;
     sem_post(&s_nuevo_proceso_ready);
 }
 
@@ -294,16 +305,20 @@ void agregar_a_ready_CMN(t_pcb* proceso){
 }
 
 bool eliminar_de_ready(t_pcb* proceso){
+    bool eliminado;
     if(algoritmo == CMN){
-        return eliminar_de_ready_CMN(proceso);
+        eliminado = eliminar_de_ready_CMN(proceso);
     }else{
         pthread_mutex_lock(&m_lista_ready);
-        bool eliminado = eliminar_proceso_de_lista(lista_ready, proceso, "lista_ready");
+        eliminado = eliminar_proceso_de_lista(lista_ready, proceso, "lista_ready");
         pthread_mutex_unlock(&m_lista_ready);
-        return eliminado;
     }
-}
+    if(eliminado){
+        procesos_en_ready--;
+    }
 
+    return eliminado;
+}
 bool eliminar_de_ready_CMN(t_pcb* proceso){
     pthread_mutex_lock(&m_lista_ready);
     t_list* cola = list_get(lista_ready, proceso->prioridad);
@@ -337,7 +352,6 @@ void agregar_proceso_a_lista(t_list* lista, t_pcb* proceso, t_tipo_estado nuevo_
 t_pcb* nuevo_proc(int prioridad, char* instrucciones){
     t_pcb* pcb = iniciar_pcb(proximo_pid++, prioridad, NUEVO);
     proceso_a_new(pcb);
-    log_debug(logger, "tamanio ready: %d, tamanio new: %d", list_size(lista_ready), list_size(lista_new));
     sem_post(&s_nuevo_proceso_new);
 
     return pcb;
@@ -431,4 +445,14 @@ void sumar_milisegundos(struct timespec* ts, int milisegundos)
 
 void log_obligatorio_cambio_de_estado(int pid, char* estado_anterior, char* estado_actual){
     log_info(logger, "## (<%d>) Pasa del estado <%s> al estado <%s>", pid, estado_anterior, estado_actual);
+}
+
+void loguear_tamanio_listas_de_estado(){
+    log_debug(logger, "new: %d, ready: %d, exec: %d, blocked: %d, susp_blocked: %d, susp_ready: %d"
+                    , list_size(lista_new)
+                    , procesos_en_ready
+                    , list_size(lista_exec)
+                    , list_size(lista_blocked)
+                    , list_size(lista_susp_blocked)
+                    , list_size(lista_susp_ready));
 }
