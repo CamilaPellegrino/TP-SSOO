@@ -124,12 +124,27 @@ void atender_cpu(t_cpu* cpu){
     int cpu_fd = cpu->fd;
     int cpu_id = cpu->id;
     log_info(logger, "## CPU <%d> Conectada", cpu_id);
+
+    int pid = 1;
+
+    t_paquete* paquete = crear_paquete(SCH_CPU__PID);
+
+    agregar_a_paquete(paquete, &pid, sizeof(int));
+
+    enviar_paquete_y_liberarlo(paquete, cpu_fd);
+
+    log_info(logger, "PID enviado a CPU");
     while(1){
         op_code cod_op = recibir_operacion(cpu_fd);
         if(cod_op == -1){
             log_warning(logger, "Se desconecto cpu de id:%d", cpu_id);
             break;
         }
+     //   if(cod_op == CPU_SCH__PEDIDO_PID){
+     //       t_paquete* paquete_id = crear_paquete(SCH_CPU__PID);
+     //       agregar_a_paquete(paquete_id, &()
+     //   }
+        
     }
 }
 

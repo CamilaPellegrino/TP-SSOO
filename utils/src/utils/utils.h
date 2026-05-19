@@ -29,13 +29,19 @@ typedef enum
 	// mensajes con destino a SCH
 	KM_SCH__NUEVO_STICK,
 	KM_SCH__BSOD,
+	CPU_SCH__PEDIDO_PID,
+	CPU_SCH__EXIT,
+	CPU_SCH__SYSCALL,
 	// mensajes con destino a CPU
 	SCH_CPU__NUEVO_STICK,
-	SCH_CPU__PID
+	SCH_CPU__PID,
+	KM_CPU__CONTEXTO,
+	KM_CPU__INSTRUCCION,
 	// mensajes con destino a KM
-	// ...
-
+	CPU_KM__PCONTEXTO,
+	CPU_KM__FETCH
 }op_code;
+
 
 typedef struct
 {

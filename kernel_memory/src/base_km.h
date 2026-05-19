@@ -44,6 +44,16 @@ typedef struct
 	
 } t_pcb;
 
+typedef enum {
+    INST_SET,
+    INST_SUM,
+    INST_SUB,
+    INST_JNZ,
+    INST_MOV_IN,
+    INST_MOV_OUT,
+    INST_EXIT,
+    INST_NOOP
+} tipo_instruccion;
 
 t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd);
 void destruir_stick(t_stick* stick);
