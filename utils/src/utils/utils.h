@@ -29,6 +29,7 @@ typedef enum
 	// mensajes con destino a SCH
 	KM_SCH__NUEVO_STICK,
 	KM_SCH__BSOD,
+	KM_SCH__EXIT_OK,
 	CPU_SCH__INIT_PROC,
 	CPU_SCH__SLEEP,
 	CPU_SCH__STDIN,
@@ -82,7 +83,7 @@ typedef enum
 	BLOQUEADO,
 	FINALIZADO,
 	SUSP_LISTO,
-	SUSP_BLOQUEADO
+	SUSP_BLOQUEADO,
 } t_tipo_estado;
 
 //declaracion de funciones

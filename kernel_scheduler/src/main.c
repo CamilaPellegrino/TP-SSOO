@@ -31,7 +31,7 @@ int main(int argc, char* argv[]) { // ejecucion con valgrind: valgrind --leak-ch
     // enviar mensaje a kernel memory
     enviar_mensaje("Hola, soy sche", conexion_kernel_memory, SCH_KM__CONEXION);
     
-    pthread_t thread_km = crear_hilo_o_exit(atender_km, &conexion_kernel_memory, "thread_km");
+    pthread_t thread_km = crear_hilo_o_exit(atender_km, NULL, "thread_km");
     pthread_detach(thread_km);
     // iniciar servidor
     int kernel_scheduler_fd = iniciar_servidor_o_exit(puerto_kernel_scheduler); 
@@ -149,7 +149,6 @@ void* atender_cpu(t_cpu* cpu){
                 t_pcb* proceso_exit = cpu->proceso;
                 liberar_cpu(cpu);
                 manejar_proceso_exit(proceso_exit);
-
                 break;
             }default:
                 log_warning(logger, "operacion desconocida en hilo que atiende a cpu id: %d, cod_op: %d", cpu_id, cod_op);
@@ -262,19 +261,19 @@ void atender_cpu_syscall_mutex_create(char* nombre_mutex, t_cpu* cpu){
 }
 
 // Atender modulo KM
-void* atender_km(void *conexion_kernel_memory_v){
-    int *conexion_kernel_memory = (int*) conexion_kernel_memory_v; 
+void* atender_km(void*){
     while(1){
-        op_code cod_op = recibir_operacion(*conexion_kernel_memory);
+        op_code cod_op = recibir_operacion(conexion_kernel_memory);
         if(cod_op == -1){
             log_warning(logger, "error, se desconecto kernel memory");
+            // exit(EXIT_FAILURE);
             break;
         }
 
         switch(cod_op){
             case KM_SCH__NUEVO_STICK: {
                 log_info(logger, "Conexion de modulo stick");
-                t_list* lista_paquete = recibir_paquete(*conexion_kernel_memory);
+                t_list* lista_paquete = recibir_paquete(conexion_kernel_memory);
                 char* ip_stick = list_get(lista_paquete, 0);
                 char* puerto_stick = list_get(lista_paquete, 1);
                 int *tamanio_stick = list_get(lista_paquete, 2);
@@ -290,7 +289,11 @@ void* atender_km(void *conexion_kernel_memory_v){
             }case KM_SCH__BSOD: {
                 log_error(logger, "BSOD, cerrando todo");
                 exit(EXIT_FAILURE);
-            
+            }case KM_SCH__EXIT_OK: {
+                t_list* data_pcb = recibir_paquete(conexion_kernel_memory);
+                int pid = *(int*)list_get(data_pcb, 0);
+                liberar_pcb_de_exit(pid);
+                break;
             }default: 
                 log_warning(logger, "Warning: Operacion desconocida, cod_op = %d",cod_op);
         }

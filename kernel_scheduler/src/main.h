@@ -18,6 +18,7 @@ t_list* lista_exec;          // lista de procesos en exec
 t_list* lista_blocked;       // procesos en blocked
 t_list* lista_susp_blocked;
 t_list* lista_susp_ready;
+t_list* lista_exit;
 
 t_log * logger;
 t_planificacion algoritmo;
@@ -50,6 +51,7 @@ pthread_mutex_t m_lista_exec;
 pthread_mutex_t m_lista_blocked;
 pthread_mutex_t m_lista_susp_blocked;
 pthread_mutex_t m_lista_susp_ready;
+pthread_mutex_t m_lista_exit;
 pthread_mutex_t m_lista_cpus;
 pthread_mutex_t m_lista_mutex;
 
@@ -68,7 +70,7 @@ void atender_cpu_syscall_stdout(int tamanio, int dir_logica, t_cpu* cpu);
 void atender_cpu_syscall_mutex_create(char* nombre_mutex, t_cpu* cpu);
 void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu);
 void atender_cpu_syscall_mutex_unlock(char* nombre_mutex, t_cpu* cpu);
-void* atender_km(void *conexion_kernel_memory);
+void* atender_km(void*);
 
 // otras
 t_planificacion algoritmo_str_a_enum(char *algoritmo_str);

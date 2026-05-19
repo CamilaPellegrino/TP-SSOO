@@ -68,6 +68,7 @@ extern t_list* lista_exec;         // lista de procesos en exec
 extern t_list* lista_blocked;      // procesos en blocked
 extern t_list* lista_susp_blocked;
 extern t_list* lista_susp_ready;
+extern t_list* lista_exit;
 
 extern t_list* queues_algorithms;  // algoritmo que usa cada cola cuando es CMN
 
@@ -97,6 +98,7 @@ extern pthread_mutex_t m_lista_exec;
 extern pthread_mutex_t m_lista_blocked;
 extern pthread_mutex_t m_lista_susp_blocked;
 extern pthread_mutex_t m_lista_susp_ready;
+extern pthread_mutex_t m_lista_exit;
 extern pthread_mutex_t m_lista_cpus;
 extern pthread_mutex_t m_lista_mutex;
 
@@ -128,8 +130,7 @@ void blocked_a_ready(t_pcb* proceso);
 void exec_a_blocked(t_pcb* pid);
 void exec_a_ready(t_pcb* pid);
 void new_a_ready(t_pcb* pid);
-void eliminar_de_exec(t_pcb* proceso);
-
+void exec_a_exit(t_pcb* proceso);
 void agregar_a_ready(t_pcb* proceso);
 bool eliminar_de_ready(t_pcb* proceso);
 void agregar_a_ready_CMN(t_pcb* proceso);
@@ -147,8 +148,8 @@ pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hil
 void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
 void sumar_milisegundos(struct timespec* ts, int milisegundos);
 void loguear_tamanio_listas_de_estado();
-
 // liberar
 void liberar_cpu(t_cpu* cpu);     // liberar la cpu, osea que no tenga asignado ningun proceso (no le manda nada a la cpu, solo hace cpu->proceso=NULL)
+void liberar_pcb_de_exit(int pid);
 
 #endif /* BASE_SCH_H_ */

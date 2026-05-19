@@ -52,7 +52,7 @@ void * planificador_largo_plazo(){
 }
 
 void manejar_proceso_exit(t_pcb* proceso){
-    eliminar_de_exec(proceso);
+    exec_a_exit(proceso);
     loguear_tamanio_listas_de_estado();
     // t_paquete* paquete_fin_proc = crear_paquete(SCH_KM__EXIT);
     // agregar_a_paquete(paquete_fin_proc, &proceso->pid, sizeof(proceso->pid));

@@ -14,6 +14,7 @@ void inicializar_variables_globales(t_config* config){
     lista_blocked      = list_create();
     lista_susp_blocked = list_create();
     lista_susp_ready   = list_create();
+    lista_exit         = list_create();
     inicializar_lista_ready();
 
     // inicializar listas de eventos
@@ -45,6 +46,7 @@ void inicializar_variables_globales(t_config* config){
     pthread_mutex_init(&m_lista_blocked, NULL);
     pthread_mutex_init(&m_lista_susp_blocked, NULL);
     pthread_mutex_init(&m_lista_susp_ready, NULL);
+    pthread_mutex_init(&m_lista_exit, NULL);
     pthread_mutex_init(&m_lista_mutex, NULL);
     pthread_mutex_init(&m_lista_cpus, NULL);
     
@@ -266,11 +268,19 @@ void new_a_ready(t_pcb* proceso){
     log_obligatorio_cambio_de_estado(proceso->pid, "NEW", "READY");
 }
 
-void eliminar_de_exec(t_pcb* proceso){
+void exec_a_exit(t_pcb* proceso){
     pthread_mutex_lock(&m_lista_exec);
-    eliminar_proceso_de_lista(lista_exec, proceso, "lista_exec");
+    bool eliminado = eliminar_proceso_de_lista(lista_exec, proceso, "lista_exec");
     pthread_mutex_unlock(&m_lista_exec);
+
+    if(eliminado){
+        pthread_mutex_lock(&m_lista_exit);
+        agregar_proceso_a_lista(lista_exit, proceso, FINALIZADO);
+        pthread_mutex_unlock(&m_lista_exit);
+    }
+    log_obligatorio_cambio_de_estado(proceso->pid, "EXEC", "BLOCKED");
 }
+
 
 void proceso_a_new(t_pcb* proceso){
     pthread_mutex_lock(&m_lista_new);
@@ -386,6 +396,22 @@ void liberar_cpu(t_cpu* cpu){
     log_debug(logger, "liberando cpu de id %d", cpu->id);
     cpu->proceso = NULL;
     sem_post(&s_nueva_cpu_libre);
+}
+
+void liberar_pcb_de_exit(int pid){
+    pthread_mutex_lock(&m_lista_exit);
+    for(int i = 0; i < list_size(lista_exit); i++){
+        t_pcb* proceso = list_get(lista_exit, i);
+        if(proceso->pid == pid){
+            log_debug(logger, "libereando proc encontrado depid = %d", pid);
+            list_remove(lista_exit, i);
+            destroy_pcb(proceso);
+            pthread_mutex_unlock(&m_lista_exit);
+            return;
+        }
+    }
+    pthread_mutex_unlock(&m_lista_exit);
+    log_error(logger, "No se encontro el proceso PID <%d> en lista_exit", pid);
 }
 
 // genericas
