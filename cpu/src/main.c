@@ -11,10 +11,11 @@ t_pcb* inicializar_pcb(int pid);
 t_instruccion* crear_instruccion(t_tipo_instruccion tipo, char* param1, char* param2);
 t_instruccion* proxima_instruccion();
 void ejecutar_sleep(t_instruccion* instr);
+void ejecutar_stdin(t_instruccion* instr);
 void ejecutar_m_create(t_instruccion* instr);
 void ejecutar_m_lock(t_instruccion* instr);
 void ejecutar_m_unlock(t_instruccion* instr);
-void esperar_a_poder_ejecutar();
+void esperar_a_poder_ejecutar(); 
 
 // variables globales
 t_log* logger;
@@ -112,7 +113,7 @@ int main(int argc, char* argv[]){
 
     // queda escuchando mensajes que envie el scheduler
     while (1){
-        op_code cod_op = recibir_operacion(conexion_kernel_scheduler);
+        op_code cod_op = recibir_operacion(conexion_kernel_scheduler);log_debug(logger, "RECIBI OP=%d", cod_op);
         if(cod_op == -1){
             log_error(logger, "Error: se desconecto scheduler"); 
             break; 
@@ -216,6 +217,9 @@ void* ejecutar(){
             case INST_MUTEX_UNLOCK:
                 ejecutar_m_unlock(prox_instruccion);
                 break;
+            case INST_STDIN:
+                ejecutar_stdin(prox_instruccion);
+                break;
             default:
                 log_warning(logger, "Instruccion no implementada, tipo %d", prox_instruccion->tipo);
                 break;
@@ -259,6 +263,16 @@ void ejecutar_m_create(t_instruccion* instr){
     detener_ejecucion(); // cpu tiene que esperar a que esta syscall se termine (es instantaneo) para seguir ejecutando
 }
 
+void ejecutar_stdin(t_instruccion* instr){
+    int dir_logica = atoi(instr->param1); // TODO: esto tiene q ser distinto cuando le pida a km las cosas, se deberia poder guardar en un registro, ej "AX"
+    int tamanio = atoi(instr->param2);
+    t_paquete* paquete = crear_paquete(CPU_SCH__STDIN);
+    agregar_a_paquete(paquete, &dir_logica, sizeof(dir_logica));
+    agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+    detener_ejecucion(); // esta es bloqueante, obligatoriamente detiene la ejecucion hasta que scheduler le mande el proximo pid
+}
+
 void ejecutar_sleep(t_instruccion* instr){
     int tiempo_sleep = atoi(instr->param1); // solo puede recibir un numero
     log_debug(logger, "Ejecutando SLEEP %d", tiempo_sleep);
@@ -286,8 +300,9 @@ void inicializar_variables(){
     pid_pendiente = -1;
     lista_sticks = list_create();
     lista_instrucciones = list_create();
-    list_add(lista_instrucciones, crear_instruccion(INST_SLEEP, "2000", NULL));
-    list_add(lista_instrucciones, crear_instruccion(INST_SLEEP, "3500", NULL));
+    // list_add(lista_instrucciones, crear_instruccion(INST_SLEEP, "2000", NULL));
+    // list_add(lista_instrucciones, crear_instruccion(INST_SLEEP, "3500", NULL));
+    list_add(lista_instrucciones, crear_instruccion(INST_STDIN, "0", "10")); // El 0 representa la dir logica, deberia ser distinto cuando este bien implementado
 }
 
 t_pcb* inicializar_pcb(int pid){

@@ -18,19 +18,21 @@ typedef struct
 } t_cpu;
 
 // cosas de IO
-typedef struct
-{
+typedef struct{
 	int fd;
 	t_tipo_io tipo;
 } t_io;
 
-typedef struct
-{
+typedef struct{
 	int tiempo_sleep;
 } t_evt_sleep;
 
-typedef struct
-{
+typedef struct{
+	int tamanio; // cantidad de bits a leer
+	int dir_logica; // TODO: Como implementar esto? 3er entrega
+}t_evt_stdin;
+
+typedef struct{
 	void* data_evt;
 	t_pcb* proceso;
 	bool syscall_finalizada;
@@ -70,8 +72,11 @@ extern t_list* lista_susp_ready;
 
 extern t_list* queues_algorithms;  // algoritmo que usa cada cola cuando es CMN
 
-// listas de cosas de syscalls
-extern t_list* lista_evt_sleep;
+// listas de eventos
+extern t_list* lista_evt_sleep;  
+extern t_list* lista_evt_stdin;  
+
+// lista mutex (implementado)
 extern t_list* lista_mutex;        // mutexs creados por los procesos (tiene cosas de tipo t_mutex adentro)
 
 // semaforos
@@ -79,9 +84,11 @@ extern sem_t s_nuevo_proceso_ready;
 extern sem_t s_nueva_cpu_libre;
 extern sem_t s_nuevo_proceso_new;
 extern sem_t s_evt_sleep;       // cuando hay una nueva solic de sleep
+extern sem_t s_evt_stdin;
 
 // mutexs
 extern pthread_mutex_t m_lista_evt_sleep;
+extern pthread_mutex_t m_lista_evt_stdin;
 extern pthread_mutex_t m_lista_new;
 extern pthread_mutex_t m_lista_ready;
 extern pthread_mutex_t m_lista_exec;
@@ -99,6 +106,7 @@ t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
 t_pcb* iniciar_pcb(int pid, int prioridad, t_tipo_estado estado);
 t_evt* iniciar_evt_sleep(int tiempo_sleep, t_pcb* proceso);
+t_evt* iniciar_evt_stdin(int tamanio, int dir_logica, t_pcb* proceso);
 
 // mover entre listas de procesos
 void blocked_a_susp_blocked(t_pcb* pid);
@@ -126,9 +134,9 @@ int iniciar_servidor_o_exit(char* puerto);
 t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str);
 pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo);
 void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
+void sumar_milisegundos(struct timespec* ts, int milisegundos);
 
 // liberar
 void liberar_cpu(t_cpu* cpu);     // liberar la cpu, osea que no tenga asignado ningun proceso (no le manda nada a la cpu, solo hace cpu->proceso=NULL)
-
 
 #endif /* BASE_SCH_H_ */

@@ -6,27 +6,33 @@ void log_obligatorio_cambio_de_estado(int pid, char* estado_anterior, char* esta
 void inicializar_variables_globales(t_config* config){
     inicializar_parametros_de_config(config);
 
-    // inicialziar listas
-	lista_io           = list_create();
-    lista_cpus         = list_create();
+    // inicializar listas de estados de procesos
     lista_new          = list_create();
     lista_exec         = list_create();
     lista_blocked      = list_create();
     lista_susp_blocked = list_create();
     lista_susp_ready   = list_create();
-    lista_evt_sleep    = list_create();
-    lista_mutex        = list_create();
     inicializar_lista_ready();
+
+    // inicializar listas de eventos
+    lista_evt_sleep    = list_create();
+    lista_evt_stdin    = list_create();
+
+    // inicializar listas de otras cosas 
+    lista_cpus         = list_create();
+	lista_io           = list_create();
+    lista_mutex        = list_create();
 
     // inicializar semaforos
     sem_init(&s_nueva_cpu_libre, 0, 0);
     sem_init(&s_nuevo_proceso_ready, 0, 0);
     sem_init(&s_nuevo_proceso_new, 0, 0);
     sem_init(&s_evt_sleep, 0, 0);
+    sem_init(&s_evt_stdin, 0, 0);
 
     // inicializar mutexes
     pthread_mutex_init(&m_lista_evt_sleep, NULL);
-    pthread_mutex_init(&m_lista_evt_sleep, NULL);
+    pthread_mutex_init(&m_lista_evt_stdin, NULL);
     pthread_mutex_init(&m_lista_new, NULL);
     pthread_mutex_init(&m_lista_ready, NULL);
     pthread_mutex_init(&m_lista_exec, NULL);
@@ -34,6 +40,7 @@ void inicializar_variables_globales(t_config* config){
     pthread_mutex_init(&m_lista_susp_blocked, NULL);
     pthread_mutex_init(&m_lista_susp_ready, NULL);
     pthread_mutex_init(&m_lista_mutex, NULL);
+    pthread_mutex_init(&m_lista_cpus, NULL);
     
     //otras cosas
     proximo_pid = 0;
@@ -128,6 +135,18 @@ t_evt* iniciar_evt_sleep(int tiempo_sleep, t_pcb* proceso){
     t_evt_sleep* evt_sleep = malloc(sizeof(t_evt_sleep));
     evt_sleep->tiempo_sleep = tiempo_sleep;
     evt->data_evt = evt_sleep;
+    return evt;
+}
+t_evt* iniciar_evt_stdin(int tamanio, int dir_logica, t_pcb* proceso){
+    t_evt* evt = malloc(sizeof(t_evt));
+    evt->proceso = proceso;
+    evt->syscall_finalizada = false;
+    pthread_cond_init(&evt->cond, NULL);
+    pthread_mutex_init(&evt->mutex, NULL);
+    t_evt_stdin* evt_stdin = malloc(sizeof(*evt_stdin));
+    evt_stdin->tamanio = tamanio;
+    evt_stdin->dir_logica = dir_logica;
+    evt->data_evt = evt_stdin;
     return evt;
 }
 
@@ -393,6 +412,18 @@ void enviar_paquete_a_todas_las_cpus(t_paquete* paquete){
         log_info(logger,"%d", cpu_fd);
         enviar_paquete(paquete, cpu_fd);
         log_info(logger, "Enviando info a cpu de stick");
+    }
+}
+
+void sumar_milisegundos(struct timespec* ts, int milisegundos)
+{
+    ts->tv_sec += milisegundos / 1000;
+    ts->tv_nsec += (milisegundos % 1000) * 1000000;
+
+    if (ts->tv_nsec >= 1000000000)
+    {
+        ts->tv_sec++;
+        ts->tv_nsec -= 1000000000;
     }
 }
 

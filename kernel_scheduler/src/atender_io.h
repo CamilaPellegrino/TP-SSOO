@@ -5,5 +5,5 @@
 
 void* atender_io(t_io* io);
 void atender_io_sleep(t_io* io);
-
+void atender_io_stdin(t_io* io);
 #endif /* ATENDER_IO_H_ */
