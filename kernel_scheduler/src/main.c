@@ -144,6 +144,13 @@ void* atender_cpu(t_cpu* cpu){
                 int tamanio = *(int*)list_get(lista_paquete, 1);
                 atender_cpu_syscall_stdout(tamanio, dir_logica, cpu);
                 break;
+            }case CPU_SCH__INIT_PROC:{
+                log_info(logger, "## (<%d>) - Solicito syscall: <INIT_PROC>", cpu->proceso->pid);
+                t_list* lista_paquete = recibir_paquete(cpu_fd);
+                char* instrucciones = list_get(lista_paquete, 0);
+                int prioridad = *(int*)list_get(lista_paquete, 1);
+                t_pcb* pcb_pid_0 = nuevo_proc(prioridad, instrucciones);
+                break;
             }case CPU_SCH__EXIT:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <EXIT>", cpu->proceso->pid);
                 t_pcb* proceso_exit = cpu->proceso;

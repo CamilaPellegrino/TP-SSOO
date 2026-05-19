@@ -19,6 +19,7 @@ void ejecutar_m_unlock(t_instruccion* instr);
 void ejecutar_exit(t_instruccion* instr);
 void esperar_a_poder_ejecutar(); 
 void ejecutar_exit(t_instruccion* instr);
+void ejecutar_init_proc(t_instruccion* instr);
 // variables globales
 t_log* logger;
 t_list* lista_instrucciones; // lista hardcodeada de instruciones para testear sch
@@ -228,6 +229,9 @@ void* ejecutar(){
             case INST_EXIT:
                 ejecutar_exit(prox_instruccion);
                 break;
+            case INST_INIT_PROC:
+                ejecutar_init_proc(prox_instruccion);
+                break;
             default:
                 log_warning(logger, "Instruccion no implementada, tipo %d", prox_instruccion->tipo);
                 break;
@@ -244,6 +248,16 @@ void esperar_a_poder_ejecutar(){
     }
     log_debug(logger, "saliendo del while, execute true");
     pthread_mutex_unlock(&m_ejecutar);
+}
+
+void ejecutar_init_proc(t_instruccion* instr){
+    log_debug(logger, "Ejecutando INIT_PROC");
+    detener_ejecucion();
+    t_paquete* paquete = crear_paquete(CPU_SCH__INIT_PROC);
+    agregar_string_a_paquete(paquete, instr->param1);
+    int prioridad = atoi(instr->param2);
+    agregar_a_paquete(paquete, &prioridad, sizeof(prioridad));
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
 }
 
 void ejecutar_exit(t_instruccion* instr){
@@ -332,8 +346,9 @@ void inicializar_variables(){
     // list_add(lista_instrucciones, crear_instruccion(INST_SLEEP, "3500", NULL));
     // list_add(lista_instrucciones, crear_instruccion(INST_STDIN, "0", "10")); // El 0 representa la dir logica, deberia ser distinto cuando este bien implementado
     // list_add(lista_instrucciones, crear_instruccion(INST_STDOUT, "0", "10")); // El 0 representa la dir logica, deberia ser distinto cuando este bien implementado
-    list_add(lista_instrucciones, crear_instruccion(INST_MUTEX_CREATE, "MUTEX_1", NULL)); 
-    list_add(lista_instrucciones, crear_instruccion(INST_MUTEX_LOCK, "MUTEX_1", NULL)); 
+    // list_add(lista_instrucciones, crear_instruccion(INST_MUTEX_CREATE, "MUTEX_1", NULL)); 
+    // list_add(lista_instrucciones, crear_instruccion(INST_MUTEX_LOCK, "MUTEX_1", NULL)); 
+    list_add(lista_instrucciones, crear_instruccion(INST_INIT_PROC, "example.txt", "0")); 
     list_add(lista_instrucciones, crear_instruccion(INST_EXIT, NULL, NULL)); 
 }
 
