@@ -12,6 +12,7 @@ t_instruccion* crear_instruccion(t_tipo_instruccion tipo, char* param1, char* pa
 t_instruccion* proxima_instruccion();
 void ejecutar_sleep(t_instruccion* instr);
 void ejecutar_stdin(t_instruccion* instr);
+void ejecutar_stdout(t_instruccion* instr);
 void ejecutar_m_create(t_instruccion* instr);
 void ejecutar_m_lock(t_instruccion* instr);
 void ejecutar_m_unlock(t_instruccion* instr);
@@ -220,6 +221,9 @@ void* ejecutar(){
             case INST_STDIN:
                 ejecutar_stdin(prox_instruccion);
                 break;
+            case INST_STDOUT:
+                ejecutar_stdout(prox_instruccion);
+                break;
             default:
                 log_warning(logger, "Instruccion no implementada, tipo %d", prox_instruccion->tipo);
                 break;
@@ -263,6 +267,16 @@ void ejecutar_m_create(t_instruccion* instr){
     detener_ejecucion(); // cpu tiene que esperar a que esta syscall se termine (es instantaneo) para seguir ejecutando
 }
 
+void ejecutar_stdout(t_instruccion* instr){
+    int dir_logica = atoi(instr->param1);
+    int tamanio = atoi(instr->param2);
+    t_paquete* paquete = crear_paquete(CPU_SCH__STDOUT);
+    agregar_a_paquete(paquete, &dir_logica, sizeof(dir_logica));
+    agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+    detener_ejecucion(); // esta es bloqueante, obligatoriamente detiene la ejecucion hasta que scheduler le mande el proximo pid
+}
+
 void ejecutar_stdin(t_instruccion* instr){
     int dir_logica = atoi(instr->param1); // TODO: esto tiene q ser distinto cuando le pida a km las cosas, se deberia poder guardar en un registro, ej "AX"
     int tamanio = atoi(instr->param2);
@@ -302,7 +316,8 @@ void inicializar_variables(){
     lista_instrucciones = list_create();
     // list_add(lista_instrucciones, crear_instruccion(INST_SLEEP, "2000", NULL));
     // list_add(lista_instrucciones, crear_instruccion(INST_SLEEP, "3500", NULL));
-    list_add(lista_instrucciones, crear_instruccion(INST_STDIN, "0", "10")); // El 0 representa la dir logica, deberia ser distinto cuando este bien implementado
+    // list_add(lista_instrucciones, crear_instruccion(INST_STDIN, "0", "10")); // El 0 representa la dir logica, deberia ser distinto cuando este bien implementado
+    list_add(lista_instrucciones, crear_instruccion(INST_STDOUT, "0", "10")); // El 0 representa la dir logica, deberia ser distinto cuando este bien implementado
 }
 
 t_pcb* inicializar_pcb(int pid){

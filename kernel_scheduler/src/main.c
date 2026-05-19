@@ -137,6 +137,13 @@ void* atender_cpu(t_cpu* cpu){
                 int tamanio = *(int*)list_get(lista_paquete, 1);
                 atender_cpu_syscall_stdin(tamanio, dir_logica, cpu);
                 break;
+            }case CPU_SCH__STDOUT:{
+                log_info(logger, "## (<%d>) - Solicito syscall: <STDOUT>", cpu->proceso->pid);
+                t_list* lista_paquete = recibir_paquete(cpu_fd);
+                int dir_logica = *(int*)list_get(lista_paquete, 0);
+                int tamanio = *(int*)list_get(lista_paquete, 1);
+                atender_cpu_syscall_stdout(tamanio, dir_logica, cpu);
+                break;
             }default:
                 log_warning(logger, "operacion desconocida en hilo que atiende a cpu id: %d, cod_op: %d", cpu_id, cod_op);
         }
@@ -175,13 +182,31 @@ void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu){
 
 }
 
+void atender_cpu_syscall_stdout(int tamanio, int dir_logica, t_cpu* cpu){
+    t_pcb* proceso = cpu->proceso;
+    exec_a_blocked(proceso);
+    liberar_cpu(cpu);
+    log_debug(logger, "tamanio a leer: %d, dir logica: %d", tamanio, dir_logica);
+    // crear evento
+    t_evt* evt = iniciar_evt_std_in_out(tamanio, dir_logica, proceso);
+    // crear el hilo de timeout para que dps del timeout se suspenda el proceso
+    evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout");
+    
+    // agregar evt a lista de evts
+    pthread_mutex_lock(&m_lista_evt_stdout);
+    list_add(lista_evt_stdout, evt);
+    pthread_mutex_unlock(&m_lista_evt_stdout);
+    sem_post(&s_evt_stdout);
+    log_debug(logger, "atender_cpu: sem_post(&s_evt_stdout)");
+}
+
 void atender_cpu_syscall_stdin(int tamanio, int dir_logica, t_cpu* cpu){ // TODO: Codigo muy parecido a atender_cpu_syscall_sleep, juntarlo
     t_pcb* proceso = cpu->proceso;
     exec_a_blocked(proceso);
     liberar_cpu(cpu);
     log_debug(logger, "tamanio a leer: %d, dir logica: %d", tamanio, dir_logica);
     // crear evento
-    t_evt* evt = iniciar_evt_stdin(tamanio, dir_logica, proceso);
+    t_evt* evt = iniciar_evt_std_in_out(tamanio, dir_logica, proceso);
     // crear el hilo de timeout para que dps del timeout se suspenda el proceso
     evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout");
     

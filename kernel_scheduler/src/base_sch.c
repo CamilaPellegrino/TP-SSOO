@@ -17,6 +17,7 @@ void inicializar_variables_globales(t_config* config){
     // inicializar listas de eventos
     lista_evt_sleep    = list_create();
     lista_evt_stdin    = list_create();
+    lista_evt_stdout   = list_create();
 
     // inicializar listas de otras cosas 
     lista_cpus         = list_create();
@@ -29,10 +30,13 @@ void inicializar_variables_globales(t_config* config){
     sem_init(&s_nuevo_proceso_new, 0, 0);
     sem_init(&s_evt_sleep, 0, 0);
     sem_init(&s_evt_stdin, 0, 0);
+    sem_init(&s_evt_stdout, 0, 0);
 
     // inicializar mutexes
     pthread_mutex_init(&m_lista_evt_sleep, NULL);
     pthread_mutex_init(&m_lista_evt_stdin, NULL);
+    pthread_mutex_init(&m_lista_evt_stdout, NULL);
+
     pthread_mutex_init(&m_lista_new, NULL);
     pthread_mutex_init(&m_lista_ready, NULL);
     pthread_mutex_init(&m_lista_exec, NULL);
@@ -137,16 +141,16 @@ t_evt* iniciar_evt_sleep(int tiempo_sleep, t_pcb* proceso){
     evt->data_evt = evt_sleep;
     return evt;
 }
-t_evt* iniciar_evt_stdin(int tamanio, int dir_logica, t_pcb* proceso){
+t_evt* iniciar_evt_std_in_out(int tamanio, int dir_logica, t_pcb* proceso){
     t_evt* evt = malloc(sizeof(t_evt));
     evt->proceso = proceso;
     evt->syscall_finalizada = false;
     pthread_cond_init(&evt->cond, NULL);
     pthread_mutex_init(&evt->mutex, NULL);
-    t_evt_stdin* evt_stdin = malloc(sizeof(*evt_stdin));
-    evt_stdin->tamanio = tamanio;
-    evt_stdin->dir_logica = dir_logica;
-    evt->data_evt = evt_stdin;
+    t_evt_std_in_out* evt_std_in_out = malloc(sizeof(*evt_std_in_out));
+    evt_std_in_out->tamanio = tamanio;
+    evt_std_in_out->dir_logica = dir_logica;
+    evt->data_evt = evt_std_in_out;
     return evt;
 }
 
@@ -212,7 +216,6 @@ void ready_a_blocked(t_pcb* proceso){
 }
 
 void blocked_a_ready(t_pcb* proceso){
-
     pthread_mutex_lock(&m_lista_blocked);
     bool eliminado = eliminar_proceso_de_lista(lista_blocked, proceso, "lista_blocked");
     pthread_mutex_unlock(&m_lista_blocked);
@@ -368,7 +371,6 @@ void desbloquear_proceso(t_pcb* proceso){
 void liberar_cpu(t_cpu* cpu){
     log_debug(logger, "liberando cpu de id %d", cpu->id);
     cpu->proceso = NULL;
-    log_debug(logger, "haciendo sem_post de cpus libres");
     sem_post(&s_nueva_cpu_libre);
 }
 

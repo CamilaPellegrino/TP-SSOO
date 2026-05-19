@@ -30,7 +30,7 @@ typedef struct{
 typedef struct{
 	int tamanio; // cantidad de bits a leer
 	int dir_logica; // TODO: Como implementar esto? 3er entrega
-}t_evt_stdin;
+}t_evt_std_in_out;
 
 typedef struct{
 	void* data_evt;
@@ -39,7 +39,6 @@ typedef struct{
 	pthread_mutex_t mutex;
     pthread_cond_t cond;
 	pthread_t hilo_timeout;
-
 } t_evt;
 typedef enum{
     CMN,
@@ -75,6 +74,7 @@ extern t_list* queues_algorithms;  // algoritmo que usa cada cola cuando es CMN
 // listas de eventos
 extern t_list* lista_evt_sleep;  
 extern t_list* lista_evt_stdin;  
+extern t_list* lista_evt_stdout;  
 
 // lista mutex (implementado)
 extern t_list* lista_mutex;        // mutexs creados por los procesos (tiene cosas de tipo t_mutex adentro)
@@ -85,10 +85,12 @@ extern sem_t s_nueva_cpu_libre;
 extern sem_t s_nuevo_proceso_new;
 extern sem_t s_evt_sleep;       // cuando hay una nueva solic de sleep
 extern sem_t s_evt_stdin;
+extern sem_t s_evt_stdout;
 
 // mutexs
 extern pthread_mutex_t m_lista_evt_sleep;
 extern pthread_mutex_t m_lista_evt_stdin;
+extern pthread_mutex_t m_lista_evt_stdout;
 extern pthread_mutex_t m_lista_new;
 extern pthread_mutex_t m_lista_ready;
 extern pthread_mutex_t m_lista_exec;
@@ -106,7 +108,7 @@ t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
 t_pcb* iniciar_pcb(int pid, int prioridad, t_tipo_estado estado);
 t_evt* iniciar_evt_sleep(int tiempo_sleep, t_pcb* proceso);
-t_evt* iniciar_evt_stdin(int tamanio, int dir_logica, t_pcb* proceso);
+t_evt* iniciar_evt_std_in_out(int tamanio, int dir_logica, t_pcb* proceso);
 
 // mover entre listas de procesos
 void blocked_a_susp_blocked(t_pcb* pid);

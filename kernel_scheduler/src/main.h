@@ -28,6 +28,7 @@ int suspension_timeout;
 // listas de cosas de syscalls
 t_list* lista_evt_sleep;
 t_list* lista_evt_stdin;
+t_list* lista_evt_stdout;
 t_list* lista_mutex;
 
 // semaforos
@@ -37,10 +38,12 @@ sem_t s_nueva_cpu_libre;
 sem_t s_planificar_corto;
 sem_t s_evt_sleep;
 sem_t s_evt_stdin;
+sem_t s_evt_stdout;
 
 // mutexs
 pthread_mutex_t m_lista_evt_sleep;   // mutex para la lista de evts tipo sleep
 pthread_mutex_t m_lista_evt_stdin;
+pthread_mutex_t m_lista_evt_stdout;
 pthread_mutex_t m_lista_new;
 pthread_mutex_t m_lista_ready;
 pthread_mutex_t m_lista_exec;
@@ -58,6 +61,7 @@ void* atender_cliente(void *arg);
 void* atender_cpu(t_cpu* cpu);
 void atender_cpu_syscall_sleep(int tiempo_sleep, t_cpu* cpu);
 void atender_cpu_syscall_stdin(int tamanio, int dir_logica, t_cpu* cpu);
+void atender_cpu_syscall_stdout(int tamanio, int dir_logica, t_cpu* cpu);
 void atender_cpu_syscall_mutex_create(char* nombre_mutex, t_cpu* cpu);
 void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu);
 void atender_cpu_syscall_mutex_unlock(char* nombre_mutex, t_cpu* cpu);
