@@ -18,26 +18,27 @@ typedef struct
 } t_cpu;
 
 // cosas de IO
-typedef struct
-{
+typedef struct{
 	int fd;
 	t_tipo_io tipo;
 } t_io;
 
-typedef struct
-{
+typedef struct{
 	int tiempo_sleep;
 } t_evt_sleep;
 
-typedef struct
-{
+typedef struct{
+	int tamanio; // cantidad de bits a leer
+	int dir_logica; // TODO: Como implementar esto? 3er entrega
+}t_evt_std_in_out;
+
+typedef struct{
 	void* data_evt;
 	t_pcb* proceso;
 	bool syscall_finalizada;
 	pthread_mutex_t mutex;
     pthread_cond_t cond;
 	pthread_t hilo_timeout;
-
 } t_evt;
 typedef enum{
     CMN,
@@ -49,7 +50,7 @@ typedef enum{
 typedef struct{
     char* nombre;
     int mutex_id;
-    int valor;
+    t_pcb* duenio;
     t_list* procesos_en_espera; // procesos que esperan por el mutex, en orden
     pthread_mutex_t lock;
 } t_mutex;
@@ -67,11 +68,16 @@ extern t_list* lista_exec;         // lista de procesos en exec
 extern t_list* lista_blocked;      // procesos en blocked
 extern t_list* lista_susp_blocked;
 extern t_list* lista_susp_ready;
+extern t_list* lista_exit;
 
 extern t_list* queues_algorithms;  // algoritmo que usa cada cola cuando es CMN
 
-// listas de cosas de syscalls
-extern t_list* lista_evt_sleep;
+// listas de eventos
+extern t_list* lista_evt_sleep;  
+extern t_list* lista_evt_stdin;  
+extern t_list* lista_evt_stdout;  
+
+// lista mutex (implementado)
 extern t_list* lista_mutex;        // mutexs creados por los procesos (tiene cosas de tipo t_mutex adentro)
 
 // semaforos
@@ -79,17 +85,27 @@ extern sem_t s_nuevo_proceso_ready;
 extern sem_t s_nueva_cpu_libre;
 extern sem_t s_nuevo_proceso_new;
 extern sem_t s_evt_sleep;       // cuando hay una nueva solic de sleep
+extern sem_t s_evt_stdin;
+extern sem_t s_evt_stdout;
 
 // mutexs
 extern pthread_mutex_t m_lista_evt_sleep;
+extern pthread_mutex_t m_lista_evt_stdin;
+extern pthread_mutex_t m_lista_evt_stdout;
 extern pthread_mutex_t m_lista_new;
 extern pthread_mutex_t m_lista_ready;
 extern pthread_mutex_t m_lista_exec;
 extern pthread_mutex_t m_lista_blocked;
 extern pthread_mutex_t m_lista_susp_blocked;
 extern pthread_mutex_t m_lista_susp_ready;
+extern pthread_mutex_t m_lista_exit;
 extern pthread_mutex_t m_lista_cpus;
 extern pthread_mutex_t m_lista_mutex;
+
+// sockets
+extern int conexion_kernel_memory;
+
+
 
 // funciones para inicializar cosas
 void inicializar_variables_globales(t_config* config);
@@ -99,6 +115,10 @@ t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
 t_pcb* iniciar_pcb(int pid, int prioridad, t_tipo_estado estado);
 t_evt* iniciar_evt_sleep(int tiempo_sleep, t_pcb* proceso);
+t_evt* iniciar_evt_std_in_out(int tamanio, int dir_logica, t_pcb* proceso);
+
+// funciones para destroy
+void destroy_pcb(t_pcb* pcb);
 
 // mover entre listas de procesos
 void blocked_a_susp_blocked(t_pcb* pid);
@@ -110,7 +130,7 @@ void blocked_a_ready(t_pcb* proceso);
 void exec_a_blocked(t_pcb* pid);
 void exec_a_ready(t_pcb* pid);
 void new_a_ready(t_pcb* pid);
-
+void exec_a_exit(t_pcb* proceso);
 void agregar_a_ready(t_pcb* proceso);
 bool eliminar_de_ready(t_pcb* proceso);
 void agregar_a_ready_CMN(t_pcb* proceso);
@@ -126,9 +146,10 @@ int iniciar_servidor_o_exit(char* puerto);
 t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str);
 pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo);
 void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
-
+void sumar_milisegundos(struct timespec* ts, int milisegundos);
+void loguear_tamanio_listas_de_estado();
 // liberar
 void liberar_cpu(t_cpu* cpu);     // liberar la cpu, osea que no tenga asignado ningun proceso (no le manda nada a la cpu, solo hace cpu->proceso=NULL)
-
+void liberar_pcb_de_exit(int pid);
 
 #endif /* BASE_SCH_H_ */

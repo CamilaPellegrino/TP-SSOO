@@ -29,7 +29,9 @@ void* planificador_corto_plazo(){
         t_paquete* paquete_asignar_proceso = crear_paquete(SCH_CPU__PID);         
         agregar_a_paquete(paquete_asignar_proceso, &pid, sizeof(pid));         
         enviar_paquete(paquete_asignar_proceso, cpu_fd);         
-        log_debug(logger, "planificador_corto_plazo: Envie pid %d a cpu de fd %d", pid, cpu_fd);         
+        log_debug(logger, "planificador_corto_plazo: Envie pid %d a cpu de fd %d", pid, cpu_fd); 
+	    log_debug(logger, "ENVIO OP=%d SIZE=%d", paquete_asignar_proceso->codigo_operacion, paquete_asignar_proceso->buffer->size);
+
         ready_a_exec(prox_proceso);
     }
     return NULL;
@@ -49,6 +51,14 @@ void * planificador_largo_plazo(){
     }
 }
 
+void manejar_proceso_exit(t_pcb* proceso){
+    exec_a_exit(proceso);
+    loguear_tamanio_listas_de_estado();
+    // t_paquete* paquete_fin_proc = crear_paquete(SCH_KM__EXIT);
+    // agregar_a_paquete(paquete_fin_proc, &proceso->pid, sizeof(proceso->pid));
+    // enviar_paquete_y_liberarlo(paquete_fin_proc, conexion_kernel_memory); // TODO: enviar el paquete a km y que km avise cuando libero todo 
+}
+
 t_cpu* proxima_cpu()
 { // no saca la cpu de la lista, solamente devuelve el puntero ala cpu
     t_cpu* ret = NULL;
@@ -62,7 +72,6 @@ t_cpu* proxima_cpu()
 
     return ret;
 }
-
 
 // devuelve el pcb dep proximo proceso a ejecutar si el algoritmo es CMN
 t_pcb* planificar_CMN(){
@@ -92,8 +101,7 @@ t_pcb* planificar_RR_y_FIFO(){
     return proceso;
 }
 
-t_pcb* proximo_proceso()
-{ // no elimina el proceso de la lista, solamente devuelve el puntero al proxim oque hay que ejecutar
+t_pcb* proximo_proceso(){ // no elimina el proceso de la lista, solamente devuelve el puntero al proxim oque hay que ejecutar
     switch(algoritmo){
         case CMN: {
             return planificar_CMN();
@@ -108,13 +116,12 @@ t_pcb* proximo_proceso()
     }
 }
 
-
 void* hilo_timeout(void* arg){
     t_evt* evt = (t_evt*)arg;
     t_pcb* proceso = evt->proceso;
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
-    ts.tv_sec += 5; // TODO: Reemplazar esto por lo que reciba en la config (convertir a segundos)
+    sumar_milisegundos(&ts, suspension_timeout);
     int rc = 0;
 
     pthread_mutex_lock(&evt->mutex);
@@ -128,7 +135,7 @@ void* hilo_timeout(void* arg){
         log_debug(logger, "syscall no finalizo a tiempo, suspendiendo");
         blocked_a_susp_blocked(proceso);
     }
-    log_debug(logger, "Hilo timeout finalizando");
+    log_debug(logger, "hilo_timeout: finalizando");
     
     pthread_mutex_unlock(&evt->mutex);
     return NULL;

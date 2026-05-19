@@ -11,11 +11,15 @@ t_pcb* inicializar_pcb(int pid);
 t_instruccion* crear_instruccion(t_tipo_instruccion tipo, char* param1, char* param2);
 t_instruccion* proxima_instruccion();
 void ejecutar_sleep(t_instruccion* instr);
+void ejecutar_stdin(t_instruccion* instr);
+void ejecutar_stdout(t_instruccion* instr);
 void ejecutar_m_create(t_instruccion* instr);
 void ejecutar_m_lock(t_instruccion* instr);
 void ejecutar_m_unlock(t_instruccion* instr);
-void esperar_a_poder_ejecutar();
-
+void ejecutar_exit(t_instruccion* instr);
+void esperar_a_poder_ejecutar(); 
+void ejecutar_exit(t_instruccion* instr);
+void ejecutar_init_proc(t_instruccion* instr);
 // variables globales
 t_log* logger;
 t_list* lista_instrucciones; // lista hardcodeada de instruciones para testear sch
@@ -112,7 +116,7 @@ int main(int argc, char* argv[]){
 
     // queda escuchando mensajes que envie el scheduler
     while (1){
-        op_code cod_op = recibir_operacion(conexion_kernel_scheduler);
+        op_code cod_op = recibir_operacion(conexion_kernel_scheduler);log_debug(logger, "RECIBI OP=%d", cod_op);
         if(cod_op == -1){
             log_error(logger, "Error: se desconecto scheduler"); 
             break; 
@@ -216,6 +220,18 @@ void* ejecutar(){
             case INST_MUTEX_UNLOCK:
                 ejecutar_m_unlock(prox_instruccion);
                 break;
+            case INST_STDIN:
+                ejecutar_stdin(prox_instruccion);
+                break;
+            case INST_STDOUT:
+                ejecutar_stdout(prox_instruccion);
+                break;
+            case INST_EXIT:
+                ejecutar_exit(prox_instruccion);
+                break;
+            case INST_INIT_PROC:
+                ejecutar_init_proc(prox_instruccion);
+                break;
             default:
                 log_warning(logger, "Instruccion no implementada, tipo %d", prox_instruccion->tipo);
                 break;
@@ -228,49 +244,88 @@ void esperar_a_poder_ejecutar(){
     pthread_mutex_lock(&m_ejecutar);
     while(!execute){
         pthread_cond_wait(&cond_ejecutar, &m_ejecutar);
+        log_debug(logger, "espserando a poder ejecutar, execute = %d", execute);
     }
+    log_debug(logger, "saliendo del while, execute true");
     pthread_mutex_unlock(&m_ejecutar);
 }
 
+void ejecutar_init_proc(t_instruccion* instr){
+    log_debug(logger, "Ejecutando INIT_PROC");
+    detener_ejecucion();
+    t_paquete* paquete = crear_paquete(CPU_SCH__INIT_PROC);
+    agregar_string_a_paquete(paquete, instr->param1);
+    int prioridad = atoi(instr->param2);
+    agregar_a_paquete(paquete, &prioridad, sizeof(prioridad));
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+}
+
+void ejecutar_exit(t_instruccion* instr){
+    log_debug(logger, "Ejecutando EXIT");
+    detener_ejecucion();
+    enviar_operacion(conexion_kernel_scheduler, CPU_SCH__EXIT);
+}
+
 void ejecutar_m_unlock(t_instruccion* instr){
+    detener_ejecucion(); // cpu tiene que esperar a que esta syscall se termine (puede ser instantaneo, o no, depende) para seguir ejecutando
     char* nombre = instr->param1;
     log_debug(logger, "Ejecutando MUTEX_UNLOCK %s", nombre);
     t_paquete* paquete = crear_paquete(CPU_SCH__MUTEX_UNLOCK);
     agregar_string_a_paquete(paquete, nombre);
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
-    detener_ejecucion(); // cpu tiene que esperar a que esta syscall se termine (puede ser instantaneo, o no, depende) para seguir ejecutando
 }
 
 void ejecutar_m_lock(t_instruccion* instr){
+    detener_ejecucion(); // cpu tiene que esperar a que esta syscall se termine (puede ser instantaneo, o no, depende) para seguir ejecutando
     char* nombre = instr->param1;
     log_debug(logger, "Ejecutando MUTEX_LOCK %s", nombre);
     t_paquete* paquete = crear_paquete(CPU_SCH__MUTEX_LOCK);
     agregar_string_a_paquete(paquete, nombre);
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
-    detener_ejecucion(); // cpu tiene que esperar a que esta syscall se termine (puede ser instantaneo, o no, depende) para seguir ejecutando
 }
 
 void ejecutar_m_create(t_instruccion* instr){
+    detener_ejecucion(); // cpu tiene que esperar a que esta syscall se termine (es instantaneo) para seguir ejecutando
     char* nombre = instr->param1;
     log_debug(logger, "Ejecutando MUTEX_CREATE %s", nombre);
     t_paquete* paquete = crear_paquete(CPU_SCH__MUTEX_CREATE);
     agregar_string_a_paquete(paquete, nombre);
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
-    detener_ejecucion(); // cpu tiene que esperar a que esta syscall se termine (es instantaneo) para seguir ejecutando
+}
+
+void ejecutar_stdout(t_instruccion* instr){
+    detener_ejecucion(); // esta es bloqueante, obligatoriamente detiene la ejecucion hasta que scheduler le mande el proximo pid
+    int dir_logica = atoi(instr->param1);
+    int tamanio = atoi(instr->param2);
+    t_paquete* paquete = crear_paquete(CPU_SCH__STDOUT);
+    agregar_a_paquete(paquete, &dir_logica, sizeof(dir_logica));
+    agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+}
+
+void ejecutar_stdin(t_instruccion* instr){
+    detener_ejecucion(); // esta es bloqueante, obligatoriamente detiene la ejecucion hasta que scheduler le mande el proximo pid
+    int dir_logica = atoi(instr->param1); // TODO: esto tiene q ser distinto cuando le pida a km las cosas, se deberia poder guardar en un registro, ej "AX"
+    int tamanio = atoi(instr->param2);
+    t_paquete* paquete = crear_paquete(CPU_SCH__STDIN);
+    agregar_a_paquete(paquete, &dir_logica, sizeof(dir_logica));
+    agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
 }
 
 void ejecutar_sleep(t_instruccion* instr){
+    detener_ejecucion(); // esta es bloqueante, obligatoriamente detiene la ejecucion hasta que scheduler le mande el proximo pid
     int tiempo_sleep = atoi(instr->param1); // solo puede recibir un numero
     log_debug(logger, "Ejecutando SLEEP %d", tiempo_sleep);
     t_paquete* paquete = crear_paquete(CPU_SCH__SLEEP);
     agregar_a_paquete(paquete, &tiempo_sleep, sizeof(tiempo_sleep));
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
-    detener_ejecucion(); // esta es bloqueante, obligatoriamente detiene la ejecucion hasta que scheduler le mande el proximo pid
 }
 
 void detener_ejecucion(){
     pthread_mutex_lock(&m_ejecutar);
     execute = false;
+    log_debug(logger, "detener");
     pthread_mutex_unlock(&m_ejecutar);
 }
 
@@ -278,6 +333,7 @@ void reanudar_ejecucion(){
     pthread_mutex_lock(&m_ejecutar);
     execute = true;
     pthread_cond_signal(&cond_ejecutar);
+    log_debug(logger, "Reanudar");
     pthread_mutex_unlock(&m_ejecutar);
 }
 
@@ -286,8 +342,14 @@ void inicializar_variables(){
     pid_pendiente = -1;
     lista_sticks = list_create();
     lista_instrucciones = list_create();
-    list_add(lista_instrucciones, crear_instruccion(INST_SLEEP, "2000", NULL));
-    list_add(lista_instrucciones, crear_instruccion(INST_SLEEP, "3500", NULL));
+    // list_add(lista_instrucciones, crear_instruccion(INST_SLEEP, "2000", NULL));
+    // list_add(lista_instrucciones, crear_instruccion(INST_SLEEP, "3500", NULL));
+    // list_add(lista_instrucciones, crear_instruccion(INST_STDIN, "0", "10")); // El 0 representa la dir logica, deberia ser distinto cuando este bien implementado
+    // list_add(lista_instrucciones, crear_instruccion(INST_STDOUT, "0", "10")); // El 0 representa la dir logica, deberia ser distinto cuando este bien implementado
+    // list_add(lista_instrucciones, crear_instruccion(INST_MUTEX_CREATE, "MUTEX_1", NULL)); 
+    // list_add(lista_instrucciones, crear_instruccion(INST_MUTEX_LOCK, "MUTEX_1", NULL)); 
+    list_add(lista_instrucciones, crear_instruccion(INST_INIT_PROC, "example.txt", "0")); 
+    list_add(lista_instrucciones, crear_instruccion(INST_EXIT, NULL, NULL)); 
 }
 
 t_pcb* inicializar_pcb(int pid){
