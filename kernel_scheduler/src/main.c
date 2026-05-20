@@ -179,12 +179,16 @@ void atender_cpu_syscall_mutex_unlock(char* nombre_mutex, t_cpu* cpu){
 void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu){
     t_mutex* mutex = get_mutex(nombre_mutex);
     if(mutex == NULL){
+        log_error(logger, "NotFoundException: Mutex de nombre <%s> no declarado", nombre_mutex);
+        enviar_operacion(cpu->fd, SCH_CPU__DETENER_EJECUCION);
+        exec_a_exit(cpu->proceso);
+        liberar_cpu(cpu);
+        return;
         // TODO: no existe un mutex con ese nombre en lista_mutex, devolver a CPU codigo de error
     }
     t_pcb* proceso = cpu->proceso;
     bool reservado = m_wait(mutex, proceso);
     if(reservado){
-        log_info(logger, "## (<%d>) Toma el Mutex <%s>", proceso->pid, nombre_mutex);
         log_debug(logger, "atender_cpu_syscall_mutex_lock: mutex %s reservado", nombre_mutex);
         enviar_operacion(cpu->fd, SCH_CPU__REANUDAR_EJECUCION);
     }else{

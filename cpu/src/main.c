@@ -121,6 +121,7 @@ int main(int argc, char* argv[]){
                 pid_pendiente = *nuevo_pid;
                 reanudar_ejecucion();
                 pthread_mutex_unlock(&m_pid_pendiente);
+                list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
             }
             case SCH_CPU__DETENER_EJECUCION:{ // ej cuando hace un MUTEX_LOCK y se bloquea, o cuando se desaloja
@@ -267,6 +268,7 @@ void decode(char *instruccion, t_pcb *pcb,  t_instruccion_decodificada * instruc
         return;
     }
     char ** partes = string_split(instruccion, " ");
+    log_debug(logger, "instruccion: %s", instruccion);
     if(string_equals_ignore_case(partes[0], "SET")){
         instruccion_decodificada->tipo = I_SET;
         especificacion_registro *parametro_aux;
@@ -346,20 +348,25 @@ void decode(char *instruccion, t_pcb *pcb,  t_instruccion_decodificada * instruc
     else if(string_equals_ignore_case(partes[0], "MUTEX_LOCK")){
         instruccion_decodificada->tipo = I_MUTEX_LOCK;
         log_info(logger, "nombre mutex: %s", partes[1]);
-        list_add(instruccion_decodificada->registros, partes[1]); // nombre
+        char* nombre_mutex = strdup(partes[1]);
+        list_add(instruccion_decodificada->registros, nombre_mutex); // nombre
+        log_debug(logger, "instruccion, param 1: %s, en instruc_decod: %s", partes[1], list_get(instruccion_decodificada->registros, 0));
         string_array_destroy(partes);
         return;
     }
     else if(string_equals_ignore_case(partes[0], "MUTEX_UNLOCK")){
         instruccion_decodificada->tipo = I_MUTEX_UNLOCK;
-        list_add(instruccion_decodificada->registros, partes[1]); // nombre
+        char* nombre_mutex = strdup(partes[1]);
+        list_add(instruccion_decodificada->registros, nombre_mutex); // nombre
         string_array_destroy(partes);
         return;
     }
     else if(string_equals_ignore_case(partes[0], "MUTEX_CREATE")){
         instruccion_decodificada->tipo = I_MUTEX_CREATE;
-        list_add(instruccion_decodificada->registros, partes[1]); // nombre
+        char* nombre_mutex = strdup(partes[1]);
+        list_add(instruccion_decodificada->registros, nombre_mutex); // nombre
         string_array_destroy(partes);
+        log_debug(logger, "parm: %s", list_get(instruccion_decodificada->registros, 0));
         return;
     }
     string_array_destroy(partes);
@@ -479,6 +486,7 @@ void execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
             log_warning(logger, "Instruccion no implementada, tipo %d", instruccion->tipo);
             break;
     }
+    list_destroy_and_destroy_elements(i->registros, free);
 }
 
 void esperar_a_poder_ejecutar(){
