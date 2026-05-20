@@ -347,10 +347,8 @@ void decode(char *instruccion, t_pcb *pcb,  t_instruccion_decodificada * instruc
     }
     else if(string_equals_ignore_case(partes[0], "MUTEX_LOCK")){
         instruccion_decodificada->tipo = I_MUTEX_LOCK;
-        log_info(logger, "nombre mutex: %s", partes[1]);
         char* nombre_mutex = strdup(partes[1]);
         list_add(instruccion_decodificada->registros, nombre_mutex); // nombre
-        log_debug(logger, "instruccion, param 1: %s, en instruc_decod: %s", partes[1], list_get(instruccion_decodificada->registros, 0));
         string_array_destroy(partes);
         return;
     }
@@ -366,7 +364,6 @@ void decode(char *instruccion, t_pcb *pcb,  t_instruccion_decodificada * instruc
         char* nombre_mutex = strdup(partes[1]);
         list_add(instruccion_decodificada->registros, nombre_mutex); // nombre
         string_array_destroy(partes);
-        log_debug(logger, "parm: %s", list_get(instruccion_decodificada->registros, 0));
         return;
     }
     string_array_destroy(partes);
@@ -486,7 +483,7 @@ void execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
             log_warning(logger, "Instruccion no implementada, tipo %d", instruccion->tipo);
             break;
     }
-    list_destroy_and_destroy_elements(i->registros, free);
+    list_destroy_and_destroy_elements(instruccion->registros, free);
 }
 
 void esperar_a_poder_ejecutar(){
