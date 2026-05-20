@@ -184,7 +184,6 @@ void* ejecutar(){
             // enviar el pcb actual a km para que lo actualice
             // ...
             // reemplazar pcb actual por el pendiente (recibirlo de km)
-            // ...
             pcb = pedir_contexto(pid_pendiente);
             log_debug(logger, "ejecutar: pidiendo nuevo pcb de pid %d a km y cargandolo", pid_pendiente);
             pid_pendiente = -1;
@@ -229,11 +228,9 @@ void ciclo_instruccion(t_pcb *pcb){
         if(pcb->registros.pc == pc_antiguo)
             pcb->registros.pc++;
 
-        list_destroy(instruccion_decodificada->registros);
+        list_destroy_and_destroy_elements(instruccion_decodificada->registros, free);
         free(instruccion_decodificada);
         free(instruccion);
-        //list_destroy_and_destroy_elements(instruccion_decodificada->registros, registro_destroy);
-        //free(i_decodificada);
 }
 
 char* fetch(t_pcb *pcb){
@@ -412,18 +409,15 @@ t_pcb* pedir_contexto(int pid){
 }
 
 void execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
-
     switch (instruccion->tipo){
         case I_NOOP:
             break;
         case I_SET://Asigna al registro el valor pasado como parámetro. SET ax 5
             especificacion_registro* reg =list_get(instruccion->registros,0);
             int *input  =list_get(instruccion->registros,1);
-            log_info(logger, "antes de set, valor: %p",reg->ptro_reg);
+            log_info(logger, "antes de set, valor: %u",reg->ptro_reg);
             escribir_registro(reg, *input);
-            log_info(logger, "despues de set, valor: %p",reg->ptro_reg);
-            free(reg);
-            free(input);
+            log_info(logger, "despues de set, valor: %u",reg->ptro_reg);
             break;
         case I_SUM:
             log_info(logger, "Ejecutando instruccion JNZ");
@@ -431,8 +425,6 @@ void execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
             especificacion_registro *origen = list_get(instruccion->registros,1);
             uint32_t suma =leer_registro(destino)+leer_registro(origen);
             escribir_registro(destino, suma);
-            free(origen);
-            free(destino);
             break;
         case I_SUB:
             log_info(logger, "Ejecutando instruccion SUB");
@@ -440,8 +432,6 @@ void execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
             especificacion_registro *sustraendo = list_get(instruccion->registros,1);
             uint32_t resta =leer_registro(minuendo)-leer_registro(sustraendo);
             escribir_registro(minuendo, resta);
-            free(minuendo);
-            free(sustraendo);
             log_info(logger, "hice sub");
             break;
         case I_JNZ:
@@ -452,8 +442,6 @@ void execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
             if(leer_registro(reg_) != 0)
                 pcb->registros.pc = *nuevo_pc;
             log_info(logger, "pc %i", pcb->registros.pc);
-            free(reg_);
-            free(nuevo_pc);
             break;
         case I_SLEEP:
             ejecutar_sleep(instruccion);
@@ -483,7 +471,6 @@ void execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
             log_warning(logger, "Instruccion no implementada, tipo %d", instruccion->tipo);
             break;
     }
-    list_destroy_and_destroy_elements(instruccion->registros, free);
 }
 
 void esperar_a_poder_ejecutar(){

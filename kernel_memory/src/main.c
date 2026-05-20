@@ -19,19 +19,19 @@ t_list *lista_cpus;
 int sch_fd; 
 
 t_pcb pcb_prueba = {
-    .pid=1,
+    .pid=0,
 	.ppid=0,
 	.priodidad=0,
 	.estado=0,
 	// registros de estado
 	.pc=0,
-	.ax=1,
-	.bx=2,
-	.cx=3,
-	.dx=4,
+	.ax=0,
+	.bx=0,
+	.cx=0,
+	.dx=0,
 	.eax=0,
 	.ebx=0,
-	.ecx=28,
+	.ecx=0,
 	.edx=0,
 	.si=0,
 	.di=0
@@ -211,11 +211,11 @@ void atender_cpu(t_cpu* cpu){
                 "SUB AX BX",
                 "SUM AX CX",
                 "SUB AX BX",
-                // "MUTEX_CREATE MUTEX_1",
-                // "MUTEX_LOCK MUTEX_1",
+                "MUTEX_CREATE MUTEX_1",
+                "MUTEX_LOCK MUTEX_1",
                 "SET AX 5",
-                "SLEEP AX",
-                "STDIN AX BX",
+                "SLEEP 1000",
+                // "STDIN AX BX",
                 // "MUTEX_UNLOCK MUTEX_1",
                 "EXIT"
                 };
@@ -224,8 +224,8 @@ void atender_cpu(t_cpu* cpu){
                 int pid = *(int*) list_get(lista, i++);
                 uint32_t pc = *(uint32_t*) list_get(lista, i++);
                 log_info(logger, "FETCH recibido PID: %d PC: %u", pid, pc);
-
                 char* instruccion = instrucciones[pc];
+                pcb_prueba.pc = pc+1;
 
                 t_paquete* paquete = crear_paquete(KM_CPU__INSTRUCCION);
 
