@@ -34,7 +34,7 @@ int conexion_kernel_scheduler;
 int conexion_kernel_memory;
 
 ///////////////////Funciones ALAN///////////////////
-t_pcb* pedir_contexto(int pid);
+void pedir_contexto(int pid, t_pcb* pcb);
 void ciclo_instruccion(t_pcb *pcb);
 char* fetch(t_pcb *pcb);
 void decode(char *instruccion, t_pcb* pcb,  t_instruccion_decodificada * instruccion_decodificada);
@@ -107,7 +107,8 @@ int main(int argc, char* argv[]){
 
     // queda escuchando mensajes que envie el scheduler
     while (1){
-        op_code cod_op = recibir_operacion(conexion_kernel_scheduler);log_debug(logger, "RECIBI OP=%d", cod_op);
+        op_code cod_op = recibir_operacion(conexion_kernel_scheduler);
+        log_debug(logger, "RECIBI OP=%d", cod_op);
         if(cod_op == -1){
             log_error(logger, "Error: se desconecto scheduler"); 
             break; 
@@ -173,7 +174,7 @@ int main(int argc, char* argv[]){
 
 void* ejecutar(){
     t_instruccion_decodificada* prox_instruccion;
-    t_pcb* pcb;
+    t_pcb* pcb = malloc(sizeof(t_pcb));
     while(1){
         log_debug(logger, "ejecutar: esperando a poder ejecutar");
         esperar_a_poder_ejecutar(); 
@@ -184,7 +185,8 @@ void* ejecutar(){
             // enviar el pcb actual a km para que lo actualice
             // ...
             // reemplazar pcb actual por el pendiente (recibirlo de km)
-            pcb = pedir_contexto(pid_pendiente);
+            log_debug(logger, "prox pid: %d", pid_pendiente);
+            pedir_contexto(pid_pendiente, pcb);
             log_debug(logger, "ejecutar: pidiendo nuevo pcb de pid %d a km y cargandolo", pid_pendiente);
             pid_pendiente = -1;
         }
@@ -366,7 +368,7 @@ void decode(char *instruccion, t_pcb *pcb,  t_instruccion_decodificada * instruc
     string_array_destroy(partes);
     return;
 }
-t_pcb* pedir_contexto(int pid){
+void pedir_contexto(int pid, t_pcb* pcb){
    // enviar_operacion(conexion_kernel_memory, CPU_KM__PCONTEXTO);
     t_paquete *paquete = crear_paquete(CPU_KM__PCONTEXTO);
 
@@ -383,7 +385,6 @@ t_pcb* pedir_contexto(int pid){
 
     t_list* lista_contexto = recibir_paquete(conexion_kernel_memory);
 
-    t_pcb *pcb = malloc(sizeof(t_pcb));
     int i = 0;
     pcb->pid = *(int*) list_get(lista_contexto, i++);
     pcb->ppid = *(int*)list_get(lista_contexto, i++);
@@ -399,13 +400,8 @@ t_pcb* pedir_contexto(int pid){
     pcb->registros.si = *(uint32_t*) list_get(lista_contexto, i++);
     pcb->registros.di = *(uint32_t*) list_get(lista_contexto, i++);
 
-
-    list_destroy_and_destroy_elements(
-        lista_contexto,
-        free
-    );
-
-    return pcb;
+    log_debug(logger, "asignado");
+    list_destroy_and_destroy_elements(lista_contexto, free);
 }
 
 void execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
