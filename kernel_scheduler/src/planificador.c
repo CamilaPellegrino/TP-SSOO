@@ -33,6 +33,8 @@ void* planificador_corto_plazo(){
 	    log_debug(logger, "ENVIO OP=%d SIZE=%d", paquete_asignar_proceso->codigo_operacion, paquete_asignar_proceso->buffer->size);
 
         ready_a_exec(prox_proceso);
+        log_debug(logger, "creando hilo_fin_quantum para proc %d", pid);
+        crear_hilo_o_exit(hilo_fin_quantum, prox_cpu, "hilo_fin_quantum");
     }
     return NULL;
 }
@@ -138,5 +140,35 @@ void* hilo_timeout(void* arg){
     log_debug(logger, "hilo_timeout: finalizando");
     
     pthread_mutex_unlock(&evt->mutex);
+    return NULL;
+}
+
+void* hilo_fin_quantum(void* arg){
+    t_cpu* cpu = (t_cpu*) arg;
+    t_pcb* proceso = cpu->proceso;
+    t_data_cond* data_cond = &proceso->data_cond;
+
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    sumar_milisegundos(&ts, quantum);
+    int rc = 0;
+
+    pthread_mutex_lock(&data_cond->mutex_cond);
+    while(!data_cond->cond_val && rc == 0){
+        rc = pthread_cond_timedwait(&data_cond->cond, &data_cond->mutex_cond, &ts);
+    }
+
+    // timeout vencido o syscall finalizada
+    log_debug(logger, "quantum vencido o proceso bloqueado antes del quantum");
+    if(!data_cond->cond_val && proceso->estado == EJECUTANDO){
+        log_debug(logger, "proceso no finalizo a tiempo, bloqueando por quantum");
+        exec_a_ready(proceso);
+        liberar_cpu(cpu);
+        enviar_operacion(cpu->fd, SCH_CPU__DETENER_EJECUCION);
+    }
+    data_cond->cond_val = false;
+    pthread_mutex_unlock(&data_cond->mutex_cond);
+    log_debug(logger, "hilo_fin_quantum: finalizando");
+
     return NULL;
 }

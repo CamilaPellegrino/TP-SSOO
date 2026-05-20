@@ -25,6 +25,7 @@ t_planificacion algoritmo;
 t_list* queues_algorithms;  
 int proximo_pid;
 int suspension_timeout;
+int quantum;
 
 // listas de cosas de syscalls
 t_list* lista_evt_sleep;

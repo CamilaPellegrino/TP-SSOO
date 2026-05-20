@@ -5,10 +5,18 @@
 #include <semaphore.h>
 #include <pthread.h>
 
+typedef struct
+{
+	pthread_cond_t cond;
+	pthread_mutex_t mutex_cond;
+	bool cond_val;
+} t_data_cond;
+
 typedef struct{
     int pid;
     int prioridad;
 	t_tipo_estado estado;
+	t_data_cond data_cond;
 } t_pcb;
 typedef struct
 {
@@ -16,6 +24,7 @@ typedef struct
 	int id;
 	t_pcb* proceso; // proceso que esta ejecutando (NULL si no esta ejecutando nada)
 } t_cpu;
+
 
 // cosas de IO
 typedef struct{
@@ -60,6 +69,8 @@ extern t_log* logger;
 extern t_planificacion algoritmo;  // CMN, FIFO o RR
 extern int proximo_pid;
 extern int suspension_timeout;
+extern int quantum;
+
 extern t_list* lista_cpus;
 extern t_list* lista_io;
 extern t_list* lista_new;
@@ -125,7 +136,6 @@ void blocked_a_susp_blocked(t_pcb* pid);
 void susp_blocked_a_susp_ready(t_pcb* pid);
 void susp_ready_a_ready(t_pcb* pid);
 void ready_a_exec(t_pcb* pid);
-void ready_a_blocked(t_pcb* proceso);
 void blocked_a_ready(t_pcb* proceso);
 void exec_a_blocked(t_pcb* pid);
 void exec_a_ready(t_pcb* pid);

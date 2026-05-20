@@ -64,7 +64,7 @@ void inicializar_parametros_de_config(t_config* config){
     char** queues_str = config_get_array_value(config, "QUEUES_ALGORITHMS");
     queues_algorithms = queues_algorithms_a_t_list(queues_str);
     string_array_destroy(queues_str); 
-    // rr_quantum = config_get_int_value(config, "RR_QUANTUM"); // esto mas adelante
+    quantum = config_get_int_value(config, "RR_QUANTUM"); 
 }
 
 t_list* queues_algorithms_a_t_list(char** queues_algorithms_str){
@@ -211,16 +211,6 @@ void ready_a_exec(t_pcb* proceso){
     log_obligatorio_cambio_de_estado(proceso->pid, "READY", "EXEC");
 }
 
-void ready_a_blocked(t_pcb* proceso){
-    bool eliminado = eliminar_de_ready(proceso);
-    if(eliminado){
-        pthread_mutex_lock(&m_lista_blocked);
-        agregar_proceso_a_lista(lista_blocked, proceso, BLOQUEADO);
-        pthread_mutex_unlock(&m_lista_blocked);
-    }
-    log_obligatorio_cambio_de_estado(proceso->pid, "READY", "BLOCKED");
-}
-
 void blocked_a_ready(t_pcb* proceso){
     pthread_mutex_lock(&m_lista_blocked);
     bool eliminado = eliminar_proceso_de_lista(lista_blocked, proceso, "lista_blocked");
@@ -245,6 +235,14 @@ void exec_a_blocked(t_pcb* proceso){
     log_obligatorio_cambio_de_estado(proceso->pid, "EXEC", "BLOCKED");
 }
 
+void exec_a_blocked_cond_signal(t_pcb* proceso){
+    pthread_mutex_lock(&proceso->data_cond.mutex_cond);
+    proceso->data_cond.cond_val = true;
+    pthread_cond_signal(&proceso->data_cond.cond);
+    pthread_mutex_unlock(&proceso->data_cond.mutex_cond);
+    exec_a_blocked(proceso);
+}
+
 void exec_a_ready(t_pcb* proceso){
 
     pthread_mutex_lock(&m_lista_exec);
@@ -255,6 +253,14 @@ void exec_a_ready(t_pcb* proceso){
         agregar_a_ready(proceso);
     }
     log_obligatorio_cambio_de_estado(proceso->pid, "EXEC", "READY");
+}
+
+void exec_a_ready_cond_signal(t_pcb* proceso){
+    pthread_mutex_lock(&proceso->data_cond.mutex_cond);
+    proceso->data_cond.cond_val = true;
+    pthread_cond_signal(&proceso->data_cond.cond);
+    pthread_mutex_unlock(&proceso->data_cond.mutex_cond);
+    exec_a_ready(proceso);
 }
 
 void new_a_ready(t_pcb* proceso){
@@ -280,7 +286,6 @@ void exec_a_exit(t_pcb* proceso){
     }
     log_obligatorio_cambio_de_estado(proceso->pid, "EXEC", "EXIT");
 }
-
 
 void proceso_a_new(t_pcb* proceso){
     pthread_mutex_lock(&m_lista_new);
@@ -329,6 +334,7 @@ bool eliminar_de_ready(t_pcb* proceso){
 
     return eliminado;
 }
+
 bool eliminar_de_ready_CMN(t_pcb* proceso){
     pthread_mutex_lock(&m_lista_ready);
     t_list* cola = list_get(lista_ready, proceso->prioridad);

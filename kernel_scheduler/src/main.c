@@ -197,14 +197,14 @@ void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu){
         // detener ejecucion de cpu
         enviar_operacion(cpu->fd, SCH_CPU__DETENER_EJECUCION);
         // bloquear proceso
-        ready_a_blocked(proceso);
+        exec_a_blocked_cond_signal(proceso);
     }
 
 }
 
 void atender_cpu_syscall_stdout(int tamanio, int dir_logica, t_cpu* cpu){
     t_pcb* proceso = cpu->proceso;
-    exec_a_blocked(proceso);
+    exec_a_blocked_cond_signal(proceso);
     liberar_cpu(cpu);
     log_debug(logger, "tamanio a leer: %d, dir logica: %d", tamanio, dir_logica);
     // crear evento
@@ -222,7 +222,7 @@ void atender_cpu_syscall_stdout(int tamanio, int dir_logica, t_cpu* cpu){
 
 void atender_cpu_syscall_stdin(int tamanio, int dir_logica, t_cpu* cpu){ // TODO: Codigo muy parecido a atender_cpu_syscall_sleep, juntarlo
     t_pcb* proceso = cpu->proceso;
-    exec_a_blocked(proceso);
+    exec_a_blocked_cond_signal(proceso);
     liberar_cpu(cpu);
     log_debug(logger, "tamanio a leer: %d, dir logica: %d", tamanio, dir_logica);
     // crear evento
@@ -240,7 +240,7 @@ void atender_cpu_syscall_stdin(int tamanio, int dir_logica, t_cpu* cpu){ // TODO
 
 void atender_cpu_syscall_sleep(int tiempo_sleep, t_cpu* cpu){
     t_pcb* proceso = cpu->proceso;
-    exec_a_blocked(proceso);
+    exec_a_blocked_cond_signal(proceso);
     liberar_cpu(cpu);
     log_debug(logger, "tiempo: %d", tiempo_sleep);
     
