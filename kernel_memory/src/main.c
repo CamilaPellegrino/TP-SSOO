@@ -18,6 +18,25 @@ t_list *lista_cpus;
 
 int sch_fd; 
 
+t_pcb pcb_prueba = {
+    .pid=1,
+	.ppid=0,
+	.priodidad=0,
+	.estado=0,
+	// registros de estado
+	.pc=0,
+	.ax=1,
+	.bx=2,
+	.cx=3,
+	.dx=4,
+	.eax=0,
+	.ebx=0,
+	.ecx=28,
+	.edx=0,
+	.si=0,
+	.di=0
+};
+
 /*void inicializar_nueva_cpu(t_list *lista_sticks, int cpu_id){ 
     // crear una nueva estructura para la cpu  // agregarla a la lista de cpus
 } hola,  no los escucho xd, se me escucha? nope! q mal
@@ -137,32 +156,95 @@ void atender_cpu(t_cpu* cpu){
             log_warning(logger, "se desconecto CPU");
             break;
         }
-    switch(cod_op) {
-                case KM_GET_INSTRUCTION: {
-                    t_list* paquete = recibir_paquete(cpu_fd);
-                    uint32_t pid = *(uint32_t*)list_get(paquete, 0);
-                    uint32_t pc = *(uint32_t*)list_get(paquete, 1);
-                    
-                    // MOCK: Enviar instrucción genérica para que CPU avance 
-                    char* instruccion = "SET AX 1"; 
-                    log_info(logger, "## PID: %u - Obtener instrucción: %u - Instrucción: %s", pid, pc, instruccion);
-                    
-                    enviar_mensaje(instruccion, cpu_fd, HANDSHAKE);
-                    list_destroy_and_destroy_elements(paquete, free);
-                    break;
-                }
-                case KM_READ:
-                case KM_WRITE:{
-                    // MOCK: Responder OK sin implementar lógica real [3]
-                    enviar_mensaje("OK", cpu_fd, KM_CPU__RESPUESTA);
-                    log_info(logger, "Respuesta MOCK: OK");
-                    break;
-                }
-                default:{
-                    log_warning(logger,"atender_cpu: op desconocida, op=%d", cod_op);
-                }
-
+        switch(cod_op) {
+            case KM_GET_INSTRUCTION: {
+                t_list* paquete = recibir_paquete(cpu_fd);
+                uint32_t pid = *(uint32_t*)list_get(paquete, 0);
+                uint32_t pc = *(uint32_t*)list_get(paquete, 1);
+                
+                // MOCK: Enviar instrucción genérica para que CPU avance 
+                char* instruccion = "SET AX 1"; 
+                log_info(logger, "## PID: %u - Obtener instrucción: %u - Instrucción: %s", pid, pc, instruccion);
+                
+                enviar_mensaje(instruccion, cpu_fd, HANDSHAKE);
+                list_destroy_and_destroy_elements(paquete, free);
+                break;
             }
+            case KM_READ:
+            case CPU_KM__PCONTEXTO:
+                //tiene que recibir pid, puede mandar todo el pcb
+                t_list *lista = recibir_paquete(cpu_fd);
+                int *pid = list_get(lista, 0);
+            
+                log_info(logger, "pid %i", *pid);
+                t_paquete *paquete = crear_paquete(KM_CPU__RTA_CONTEXTO);
+
+                agregar_a_paquete(paquete,&(pcb_prueba.pid),sizeof(int));
+                agregar_a_paquete(paquete,&(pcb_prueba.ppid),sizeof(int));
+                agregar_a_paquete(paquete,&(pcb_prueba.pc),sizeof(uint32_t));
+                agregar_a_paquete(paquete,&(pcb_prueba.ax),sizeof(uint8_t));
+                agregar_a_paquete(paquete,&(pcb_prueba.bx),sizeof(uint8_t));
+                agregar_a_paquete(paquete,&(pcb_prueba.cx),sizeof(uint8_t));
+                agregar_a_paquete(paquete,&(pcb_prueba.dx),sizeof(uint8_t));
+                agregar_a_paquete(paquete,&(pcb_prueba.eax),sizeof(uint32_t));
+                agregar_a_paquete(paquete,&(pcb_prueba.ebx),sizeof(uint32_t));
+                agregar_a_paquete(paquete,&(pcb_prueba.ecx),sizeof(uint32_t));
+                agregar_a_paquete(paquete,&(pcb_prueba.edx),sizeof(uint32_t));
+                agregar_a_paquete(paquete,&(pcb_prueba.si),sizeof(uint32_t));
+                agregar_a_paquete(paquete,&(pcb_prueba.di), sizeof(uint32_t));
+
+                enviar_paquete_y_liberarlo(paquete, cpu_fd);
+
+                list_destroy_and_destroy_elements(
+                    lista,
+                    free
+                );
+            break;
+            case CPU_KM__FETCH: {
+                char* instrucciones[] = {
+                "SET AX 5",
+                "SET BX 2",
+                "SUM AX BX",
+                "SUB AX BX",
+                "JNZ AX 7",
+                "SUM AX BX",
+                "SUB AX BX",
+                "SUM AX CX",
+                "SUB AX BX",
+                // "MUTEX_CREATE MUTEX_1",
+                // "MUTEX_LOCK MUTEX_1",
+                "SET AX 5",
+                "SLEEP AX",
+                "STDIN AX BX",
+                // "MUTEX_UNLOCK MUTEX_1",
+                "EXIT"
+                };
+                t_list* lista = recibir_paquete(cpu_fd);
+                int i = 0;
+                int pid = *(int*) list_get(lista, i++);
+                uint32_t pc = *(uint32_t*) list_get(lista, i++);
+                log_info(logger, "FETCH recibido PID: %d PC: %u", pid, pc);
+
+                char* instruccion = instrucciones[pc];
+
+                t_paquete* paquete = crear_paquete(KM_CPU__INSTRUCCION);
+
+                agregar_string_a_paquete( paquete, instruccion);
+                enviar_paquete_y_liberarlo( paquete, cpu_fd);
+                list_destroy_and_destroy_elements( lista, free);
+                break;
+            }
+            case KM_WRITE:{
+                // MOCK: Responder OK sin implementar lógica real [3]
+                enviar_mensaje("OK", cpu_fd, KM_CPU__RESPUESTA);
+                log_info(logger, "Respuesta MOCK: OK");
+                break;
+            }
+            default:{
+                log_warning(logger,"atender_cpu: op desconocida, op=%d", cod_op);
+            }
+
+        }
     }
     close(cpu_fd);
     log_info(logger, "cerrando hilo de CPU");

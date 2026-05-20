@@ -122,6 +122,7 @@ void* atender_cpu(t_cpu* cpu){
                 log_info(logger, "## (<%d>) - Solicito syscall: <MUTEX_LOCK>", cpu->proceso->pid);
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 char* nombre_mutex = (char*)list_get(lista_paquete, 0);
+                log_debug(logger, "n: %s", nombre_mutex);
                 atender_cpu_syscall_mutex_lock(nombre_mutex, cpu);
                 break;
             }case CPU_SCH__MUTEX_UNLOCK:{

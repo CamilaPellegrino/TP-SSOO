@@ -278,7 +278,7 @@ void exec_a_exit(t_pcb* proceso){
         agregar_proceso_a_lista(lista_exit, proceso, FINALIZADO);
         pthread_mutex_unlock(&m_lista_exit);
     }
-    log_obligatorio_cambio_de_estado(proceso->pid, "EXEC", "BLOCKED");
+    log_obligatorio_cambio_de_estado(proceso->pid, "EXEC", "EXIT");
 }
 
 
