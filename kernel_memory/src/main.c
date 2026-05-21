@@ -7,9 +7,11 @@ void atender_scheduler(int sch_fd);
 void atender_stick(int sch_fd, int *tamanio);
 void atender_swap(int swap_fd);
 void atender_cpu(t_cpu* cpu);
-// void enviar_nuevo_stick_a_cpus(t_stick *nuevo_stick);
-// void enviar_nuevo_stick_a_cpu(t_stick* nuevo_stick, int cpu_fd);
 void enviar_nuevo_stick_a_scheduler(t_stick* nuevo_stick, int sch_fd);
+
+void recibir_pcb_actualizado(t_list* valores, t_pcb* pcb);
+void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p);
+
 // variables globales
 
 t_log *logger;
@@ -19,27 +21,25 @@ t_list *lista_cpus;
 int sch_fd; 
 
 t_pcb pcb_prueba = {
-    .pid=0,
-	.ppid=0,
-	.priodidad=0,
-	.estado=0,
-	// registros de estado
-	.pc=0,
-	.ax=0,
-	.bx=0,
-	.cx=0,
-	.dx=0,
-	.eax=0,
-	.ebx=0,
-	.ecx=0,
-	.edx=0,
-	.si=0,
-	.di=0
+    .pid = 0,
+    .ppid = 0,
+    .priodidad = 0,
+    .registros = {
+        .pc = 0,
+        .ax = 0,
+        .bx = 0,
+        .cx = 0,
+        .dx = 0,
+        .eax = 0,
+        .ebx = 0,
+        .ecx = 0,
+        .edx = 0,
+        .si = 0,
+        .di = 0
+    }
 };
 
-
 int main(int argc, char* argv[]) { //KERNEL MEMORY
-    // ejemplo para ejecutar: ./bin/kernel_memory ./kernel_memory.config
     if(argc < 2){ 
         printf("Se esperaban mas parametros. Ejemplo: ./bin/kernel_memory ./kernel_memory.config");
         exit(EXIT_FAILURE);
@@ -145,8 +145,8 @@ void* atender_cliente(void *arg){
 void atender_cpu(t_cpu* cpu){
     int cpu_fd = cpu->fd;
     int cpu_id = cpu->id;
+    log_info(logger, "## CPU <%d> Conectada", cpu_id);
     while(1){
-        log_info(logger, "## CPU <%d> Conectada", cpu_id);
         op_code cod_op = recibir_operacion(cpu_fd);
         
         if(cod_op == -1){
@@ -173,22 +173,9 @@ void atender_cpu(t_cpu* cpu){
                 t_list *lista = recibir_paquete(cpu_fd);
                 int *pid = list_get(lista, 0);
             
-                log_info(logger, "pid %i", *pid);
+                log_info(logger, "Enviando contexto de proceso <%d> a cpu <%d>", *pid, cpu_id);
                 t_paquete *paquete = crear_paquete(KM_CPU__RTA_CONTEXTO);
-
-                agregar_a_paquete(paquete,&(pcb_prueba.pid),sizeof(int));
-                agregar_a_paquete(paquete,&(pcb_prueba.ppid),sizeof(int));
-                agregar_a_paquete(paquete,&(pcb_prueba.pc),sizeof(uint32_t));
-                agregar_a_paquete(paquete,&(pcb_prueba.ax),sizeof(uint8_t));
-                agregar_a_paquete(paquete,&(pcb_prueba.bx),sizeof(uint8_t));
-                agregar_a_paquete(paquete,&(pcb_prueba.cx),sizeof(uint8_t));
-                agregar_a_paquete(paquete,&(pcb_prueba.dx),sizeof(uint8_t));
-                agregar_a_paquete(paquete,&(pcb_prueba.eax),sizeof(uint32_t));
-                agregar_a_paquete(paquete,&(pcb_prueba.ebx),sizeof(uint32_t));
-                agregar_a_paquete(paquete,&(pcb_prueba.ecx),sizeof(uint32_t));
-                agregar_a_paquete(paquete,&(pcb_prueba.edx),sizeof(uint32_t));
-                agregar_a_paquete(paquete,&(pcb_prueba.si),sizeof(uint32_t));
-                agregar_a_paquete(paquete,&(pcb_prueba.di), sizeof(uint32_t));
+                agregar_pcb_al_paquete(&pcb_prueba, paquete);
 
                 enviar_paquete_y_liberarlo(paquete, cpu_fd);
 
@@ -199,20 +186,22 @@ void atender_cpu(t_cpu* cpu){
             break;
             case CPU_KM__FETCH: {
                 char* instrucciones[] = {
-                "SET AX 5",
-                "SET BX 2",
-                "SUM AX BX",
-                "SUB AX BX",
-                "JNZ AX 7",
-                "SUM AX BX",
-                "SUB AX BX",
-                "SUM AX CX",
-                "SUB AX BX",
+                // "SET AX 5",
+                // "SET BX 2",
+                // "SUM AX BX",
+                // "SUB AX BX",
+                // "JNZ AX 7",
+                // "SUM AX BX",
+                // "SUB AX BX",
+                // "SUM AX CX",
+                // "SUB AX BX",
                 "MUTEX_CREATE MUTEX_1",
                 "MUTEX_LOCK MUTEX_1",
                 "SET AX 5",
+                "SET BX 2",
                 "SLEEP 1000",
                 "STDOUT AX BX",
+                "STDIN AX BX",
                 "MUTEX_UNLOCK MUTEX_1",
                 "EXIT"
                 };
@@ -222,8 +211,6 @@ void atender_cpu(t_cpu* cpu){
                 uint32_t pc = *(uint32_t*) list_get(lista, i++);
                 log_info(logger, "FETCH recibido PID: %d PC: %u", pid, pc);
                 char* instruccion = instrucciones[pc];
-                pcb_prueba.pc = pc+1;
-
                 t_paquete* paquete = crear_paquete(KM_CPU__INSTRUCCION);
 
                 agregar_string_a_paquete( paquete, instruccion);
@@ -238,7 +225,9 @@ void atender_cpu(t_cpu* cpu){
                 break;
             }
             case CPU_KM__ACTUALIZAR_PCB:
-                log_info(logger, "pcb actualizado"); // falta hacer esto
+                t_list* p = recibir_paquete(cpu_fd);
+                recibir_pcb_actualizado(p, &pcb_prueba);
+                log_info(logger, "pcb actualizado");
                 break;
             default:{
                 log_warning(logger,"atender_cpu: op desconocida, op=%d", cod_op);
@@ -248,6 +237,56 @@ void atender_cpu(t_cpu* cpu){
     }
     close(cpu_fd);
     log_info(logger, "cerrando hilo de CPU");
+}
+void recibir_pcb_actualizado(t_list* valores, t_pcb* pcb){
+    int i = 0;
+    // pcb
+    memcpy(&pcb->pid, list_get(valores, i++), sizeof(pcb->pid));
+    memcpy(&pcb->ppid, list_get(valores, i++), sizeof(pcb->ppid));
+    memcpy(&pcb->priodidad, list_get(valores, i++), sizeof(pcb->priodidad));
+    // registros
+    memcpy(&pcb->registros.pc, list_get(valores, i++), sizeof(pcb->registros.pc));
+
+    memcpy(&pcb->registros.ax, list_get(valores, i++), sizeof(pcb->registros.ax));
+    memcpy(&pcb->registros.bx, list_get(valores, i++), sizeof(pcb->registros.bx));
+    memcpy(&pcb->registros.cx, list_get(valores, i++), sizeof(pcb->registros.cx));
+    memcpy(&pcb->registros.dx, list_get(valores, i++), sizeof(pcb->registros.dx));
+
+    memcpy(&pcb->registros.eax, list_get(valores, i++), sizeof(pcb->registros.eax));
+    memcpy(&pcb->registros.ebx, list_get(valores, i++), sizeof(pcb->registros.ebx));
+    memcpy(&pcb->registros.ecx, list_get(valores, i++), sizeof(pcb->registros.ecx));
+    memcpy(&pcb->registros.edx, list_get(valores, i++), sizeof(pcb->registros.edx));
+
+    memcpy(&pcb->registros.si, list_get(valores, i++), sizeof(pcb->registros.si));
+    memcpy(&pcb->registros.di, list_get(valores, i++), sizeof(pcb->registros.di));
+
+    list_destroy_and_destroy_elements(valores, free);
+    log_info(logger, "me guardo el pc %d", pcb->registros.pc);
+    return;
+}
+
+void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p){
+    // datos del pcb
+    agregar_a_paquete(p, &pcb->pid, sizeof(pcb->pid));
+    agregar_a_paquete(p, &pcb->ppid, sizeof(pcb->ppid));
+    agregar_a_paquete(p, &pcb->priodidad, sizeof(pcb->priodidad));
+
+    // registros
+    agregar_a_paquete(p, &pcb->registros.pc, sizeof(pcb->registros.pc));
+
+    agregar_a_paquete(p, &pcb->registros.ax, sizeof(pcb->registros.ax));
+    agregar_a_paquete(p, &pcb->registros.bx, sizeof(pcb->registros.bx));
+    agregar_a_paquete(p, &pcb->registros.cx, sizeof(pcb->registros.cx));
+    agregar_a_paquete(p, &pcb->registros.dx, sizeof(pcb->registros.dx));
+
+    agregar_a_paquete(p, &pcb->registros.eax, sizeof(pcb->registros.eax));
+    agregar_a_paquete(p, &pcb->registros.ebx, sizeof(pcb->registros.ebx));
+    agregar_a_paquete(p, &pcb->registros.ecx, sizeof(pcb->registros.ecx));
+    agregar_a_paquete(p, &pcb->registros.edx, sizeof(pcb->registros.edx));
+
+    agregar_a_paquete(p, &pcb->registros.si, sizeof(pcb->registros.si));
+    agregar_a_paquete(p, &pcb->registros.di, sizeof(pcb->registros.di));
+    log_info(logger, "proximo pc para la cpu: %d", pcb->registros.pc);
 }
 
 void atender_swap(int swap_fd){
@@ -262,6 +301,7 @@ void atender_swap(int swap_fd){
     }
     log_info(logger, "cerrando hilo de swap");
 }
+
 void atender_scheduler(int sch_fd){
     log_info(logger, "## Kernel Scheduler Conectado - FD del socket: %d", sch_fd);
     while(1){
@@ -273,7 +313,6 @@ void atender_scheduler(int sch_fd){
             exit(EXIT_FAILURE);
         }
     }
-    log_info(logger, "cerrando hilo de sch");
     return;
 }
 

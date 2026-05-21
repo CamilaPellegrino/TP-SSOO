@@ -22,14 +22,7 @@ typedef struct
 	t_tipo_io tipo;
 } t_io;
 
-typedef struct
-{
-	// identificadores del proceso
-	int pid;
-	int ppid;
-	int priodidad;
-	t_tipo_estado estado;
-	// registros de estado
+typedef struct{
 	uint32_t pc;
 	uint8_t ax;
 	uint8_t bx;
@@ -41,7 +34,16 @@ typedef struct
 	uint32_t edx;
 	uint32_t si;
 	uint32_t di;
-	
+} t_registros;
+
+typedef struct
+{
+	// identificadores del proceso
+	int pid;
+	int ppid;
+	int priodidad; // le sacamos la prioridad? solo la necesita scheduler y ya la tiene
+	t_registros registros;
+
 } t_pcb;
 
 

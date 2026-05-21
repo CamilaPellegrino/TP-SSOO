@@ -7,6 +7,8 @@ void* ejecutar();
 void detener_ejecucion();
 void reanudar_ejecucion();
 void inicializar_variables();
+void enviar_pcb_actualizado_a_km(t_pcb* pcb);
+void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p);
 void ejecutar_sleep(t_instruccion_decodificada* instr);
 void ejecutar_stdin(t_instruccion_decodificada* instr);
 void ejecutar_stdout(t_instruccion_decodificada* instr);
@@ -29,6 +31,8 @@ pthread_mutex_t m_ejecutar;
 int pid_pendiente;
 pthread_mutex_t m_pid_pendiente;
 
+t_pcb* pcb;
+
 // otros
 int conexion_kernel_scheduler;
 int conexion_kernel_memory;
@@ -38,11 +42,11 @@ void pedir_contexto(int pid, t_pcb* pcb);
 void ciclo_instruccion(t_pcb *pcb);
 char* fetch(t_pcb *pcb);
 void decode(char *instruccion, t_pcb* pcb,  t_instruccion_decodificada * instruccion_decodificada);
-void execute(t_instruccion_decodificada *instruccion, t_pcb *pcb);
+bool execute(t_instruccion_decodificada *instruccion, t_pcb *pcb);
 especificacion_registro * obtener_registro(char* registro_crudo, t_pcb *pcb);
 void escribir_registro(especificacion_registro *reg, int valor);
 uint32_t leer_registro(especificacion_registro* reg);
-void ejecutar_syscall(t_instruccion_decodificada *syscall, t_pcb* pcb);
+// void ejecutar_syscall(t_instruccion_decodificada *syscall, t_pcb* pcb);
 //////////////////////////
 
 int main(int argc, char* argv[]){
@@ -127,6 +131,7 @@ int main(int argc, char* argv[]){
             }
             case SCH_CPU__DETENER_EJECUCION:{ // ej cuando hace un MUTEX_LOCK y se bloquea, o cuando se desaloja
                 log_debug(logger, "hilo principal: detener_ejecucion");
+                enviar_pcb_actualizado_a_km(pcb);
                 detener_ejecucion();
                 break;
             }
@@ -174,16 +179,12 @@ int main(int argc, char* argv[]){
 
 void* ejecutar(){
     t_instruccion_decodificada* prox_instruccion;
-    t_pcb* pcb = malloc(sizeof(t_pcb));
     while(1){
-        log_debug(logger, "ejecutar: esperando a poder ejecutar");
         esperar_a_poder_ejecutar(); 
-        log_debug(logger, "ejecutar: ejecutar vale true");
+        log_debug(logger, "ejecutar: Puedo seguir ejecutando");
         pthread_mutex_lock(&m_pid_pendiente);
 
         if(pid_pendiente >= 0){ // significa que tengo que cambiar de proceso
-            // enviar el pcb actual a km para que lo actualice
-            // ...
             // reemplazar pcb actual por el pendiente (recibirlo de km)
             log_debug(logger, "prox pid: %d", pid_pendiente);
             pedir_contexto(pid_pendiente, pcb);
@@ -191,21 +192,7 @@ void* ejecutar(){
             pid_pendiente = -1;
         }
         pthread_mutex_unlock(&m_pid_pendiente);
-        /*
-        log_debug(logger, "ejecutar: buscando prox instruccion");
-        prox_instruccion = proxima_instruccion();
-        if(prox_instruccion == NULL){ // puede pasar esto?
-            log_debug(logger, "en ejecutar: prox_instruccion valia NULL");
-            detener_ejecucion();
-            continue;
-        };
-        log_debug(logger, "ejecutar: proxima instruccion de tipo: %d, pc = %d", prox_instruccion->tipo, pc);
-        
-        pc++; // cuando haya un salto no se deberia aumentar pc
-        */
         ciclo_instruccion(pcb);
-
-        
     }
     return NULL;
 }
@@ -225,12 +212,14 @@ void ciclo_instruccion(t_pcb *pcb){
         log_info( logger, "Instruccion: %s", instruccion);
         int pc_antiguo = pcb->registros.pc;
         //execute
-        execute(instruccion_decodificada, pcb);
+        bool syscall_bloqueante = execute(instruccion_decodificada, pcb);
         
         if(pcb->registros.pc == pc_antiguo)
             pcb->registros.pc++;
 
-        log_debug(logger, "termino ejecucion de %s", instruccion);
+        if(syscall_bloqueante){
+            enviar_pcb_actualizado_a_km(pcb);
+        }
         list_destroy_and_destroy_elements(instruccion_decodificada->registros, free);
         free(instruccion_decodificada);
         free(instruccion);
@@ -373,43 +362,8 @@ void decode(char *instruccion, t_pcb *pcb,  t_instruccion_decodificada * instruc
     string_array_destroy(partes);
     return;
 }
-void pedir_contexto(int pid, t_pcb* pcb){
-   // enviar_operacion(conexion_kernel_memory, CPU_KM__PCONTEXTO);
-    t_paquete *paquete = crear_paquete(CPU_KM__PCONTEXTO);
 
-    agregar_a_paquete(paquete, &pid, sizeof(int));
-
-    enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
-    
-    op_code cod_op = recibir_operacion(conexion_kernel_memory);
-
-    if(cod_op != KM_CPU__RTA_CONTEXTO) {
-        printf("ERROR CONTEXTO\\n");
-        exit(EXIT_FAILURE);
-    }
-
-    t_list* lista_contexto = recibir_paquete(conexion_kernel_memory);
-
-    int i = 0;
-    pcb->pid = *(int*) list_get(lista_contexto, i++);
-    pcb->ppid = *(int*)list_get(lista_contexto, i++);
-    pcb->registros.pc = *(uint32_t*) list_get(lista_contexto, i++);
-    pcb->registros.ax = *(uint8_t*) list_get(lista_contexto, i++);
-    pcb->registros.bx = *(uint8_t*) list_get(lista_contexto, i++);
-    pcb->registros.cx = *(uint8_t*) list_get(lista_contexto, i++);
-    pcb->registros.dx = *(uint8_t*) list_get(lista_contexto, i++);
-    pcb->registros.eax = *(uint32_t*) list_get(lista_contexto, i++);
-    pcb->registros.ebx = *(uint32_t*) list_get(lista_contexto, i++);
-    pcb->registros.ecx = *(uint32_t*) list_get(lista_contexto, i++);
-    pcb->registros.edx = *(uint32_t*) list_get(lista_contexto, i++);
-    pcb->registros.si = *(uint32_t*) list_get(lista_contexto, i++);
-    pcb->registros.di = *(uint32_t*) list_get(lista_contexto, i++);
-
-    log_debug(logger, "asignado");
-    list_destroy_and_destroy_elements(lista_contexto, free);
-}
-
-void execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
+bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
     switch (instruccion->tipo){
         case I_NOOP:
             break;
@@ -446,25 +400,25 @@ void execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
             break;
         case I_SLEEP:
             ejecutar_sleep(instruccion);
-            break;
+            return true;
         case I_MUTEX_CREATE:
             ejecutar_m_create(instruccion);
             break;
         case I_MUTEX_LOCK:
             ejecutar_m_lock(instruccion);
-            break;
+            return true;
         case I_MUTEX_UNLOCK:
             ejecutar_m_unlock(instruccion);
             break;
         case I_STDIN:
             ejecutar_stdin(instruccion);
-            break;
+            return true;
         case I_STDOUT:
             ejecutar_stdout(instruccion);
-            break;
+            return true;
         case I_EXIT:
             ejecutar_exit(instruccion);
-            break;
+            return true;
         case I_INIT_PROC:
             ejecutar_init_proc(instruccion);
             break;
@@ -472,15 +426,84 @@ void execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
             log_warning(logger, "Instruccion no implementada, tipo %d", instruccion->tipo);
             break;
     }
+    return false;
+}
+
+
+void pedir_contexto(int pid, t_pcb* pcb){
+    t_paquete *paquete = crear_paquete(CPU_KM__PCONTEXTO);
+    agregar_a_paquete(paquete, &pid, sizeof(int));
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
+    
+    op_code cod_op = recibir_operacion(conexion_kernel_memory);
+
+    if(cod_op != KM_CPU__RTA_CONTEXTO) {
+        printf("ERROR CONTEXTO\n");
+        exit(EXIT_FAILURE);
+    }
+    log_debug(logger, "recibiendo pcb");
+    t_list* lista_contexto = recibir_paquete(conexion_kernel_memory);
+
+    int i = 0;
+    pcb->pid = *(int*) list_get(lista_contexto, i++);
+    pcb->ppid = *(int*)list_get(lista_contexto, i++);
+    pcb->priodidad = *(int*)list_get(lista_contexto, i++);
+
+    pcb->registros.pc = *(uint32_t*) list_get(lista_contexto, i++);
+
+    pcb->registros.ax = *(uint8_t*) list_get(lista_contexto, i++);
+    pcb->registros.bx = *(uint8_t*) list_get(lista_contexto, i++);
+    pcb->registros.cx = *(uint8_t*) list_get(lista_contexto, i++);
+    pcb->registros.dx = *(uint8_t*) list_get(lista_contexto, i++);
+
+    pcb->registros.eax = *(uint32_t*) list_get(lista_contexto, i++);
+    pcb->registros.ebx = *(uint32_t*) list_get(lista_contexto, i++);
+    pcb->registros.ecx = *(uint32_t*) list_get(lista_contexto, i++);
+    pcb->registros.edx = *(uint32_t*) list_get(lista_contexto, i++);
+
+    pcb->registros.si = *(uint32_t*) list_get(lista_contexto, i++);
+    pcb->registros.di = *(uint32_t*) list_get(lista_contexto, i++);
+
+    log_debug(logger, "ya cargue el nuevo pcb");
+    list_destroy_and_destroy_elements(lista_contexto, free);
+}
+
+void enviar_pcb_actualizado_a_km(t_pcb* pcb){
+    t_paquete* p = crear_paquete(CPU_KM__ACTUALIZAR_PCB);
+    agregar_pcb_al_paquete(pcb, p);
+
+    enviar_paquete_y_liberarlo(p, conexion_kernel_memory);
+}
+
+void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p){
+    // datos del pcb
+    agregar_a_paquete(p, &pcb->pid, sizeof(pcb->pid));
+    agregar_a_paquete(p, &pcb->ppid, sizeof(pcb->ppid));
+    agregar_a_paquete(p, &pcb->priodidad, sizeof(pcb->priodidad));
+
+    // registros
+    agregar_a_paquete(p, &pcb->registros.pc, sizeof(pcb->registros.pc));
+
+    agregar_a_paquete(p, &pcb->registros.ax, sizeof(pcb->registros.ax));
+    agregar_a_paquete(p, &pcb->registros.bx, sizeof(pcb->registros.bx));
+    agregar_a_paquete(p, &pcb->registros.cx, sizeof(pcb->registros.cx));
+    agregar_a_paquete(p, &pcb->registros.dx, sizeof(pcb->registros.dx));
+
+    agregar_a_paquete(p, &pcb->registros.eax, sizeof(pcb->registros.eax));
+    agregar_a_paquete(p, &pcb->registros.ebx, sizeof(pcb->registros.ebx));
+    agregar_a_paquete(p, &pcb->registros.ecx, sizeof(pcb->registros.ecx));
+    agregar_a_paquete(p, &pcb->registros.edx, sizeof(pcb->registros.edx));
+
+    agregar_a_paquete(p, &pcb->registros.si, sizeof(pcb->registros.si));
+    agregar_a_paquete(p, &pcb->registros.di, sizeof(pcb->registros.di));
+
 }
 
 void esperar_a_poder_ejecutar(){
     pthread_mutex_lock(&m_ejecutar);
     while(!v_ejecutar){
         pthread_cond_wait(&cond_ejecutar, &m_ejecutar);
-        log_debug(logger, "espserando a poder v_ejecutar, v_ejecutar = %d", v_ejecutar);
     }
-    log_debug(logger, "saliendo del while, v_ejecutar true");
     pthread_mutex_unlock(&m_ejecutar);
 }
 
@@ -565,10 +588,13 @@ void ejecutar_sleep(t_instruccion_decodificada* instruccion){
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
 }
 
+// otras 
 void detener_ejecucion(){
     pthread_mutex_lock(&m_ejecutar);
+
     v_ejecutar = false;
-    log_debug(logger, "detener");
+    log_debug(logger, "detener: ejecucion frenada");
+
     pthread_mutex_unlock(&m_ejecutar);
 }
 
@@ -584,6 +610,7 @@ void inicializar_variables(){
     v_ejecutar = false;
     pid_pendiente = -1;
     lista_sticks = list_create();
+    pcb = malloc(sizeof(t_pcb));
 }
 
 especificacion_registro* obtener_registro(char* registro_crudo, t_pcb *pcb){

@@ -42,14 +42,15 @@ typedef struct
 	// identificadores del proceso
 	int pid;
 	int ppid;
-	int priodidad;
-	//t_tipo_estado estado;
+	int priodidad; // le sacamos la prioridad? solo la necesita scheduler y ya la tiene
 	t_registros registros;
+
 } t_pcb;
 typedef struct{
 	void *ptro_reg;
 	int tamanio;
 } especificacion_registro;
+
 typedef enum {
     I_NOOP,
     I_SET,
@@ -71,15 +72,7 @@ typedef enum {
     I_INIT_PROC,    // sys  no bloqueante
     I_EXIT          // sys  no bloqueante
 } instrucciones;
-/*
-typedef struct {
 
-	uint32_t operando1;
-	uint32_t operando2;
-	uint32_t operando3;
-
-} t_instruccion;
-*/
 typedef struct {
     instrucciones tipo;
 

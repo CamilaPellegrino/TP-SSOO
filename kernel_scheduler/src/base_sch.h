@@ -140,6 +140,8 @@ void blocked_a_ready(t_pcb* proceso);
 void exec_a_blocked(t_pcb* pid);
 void exec_a_ready(t_pcb* pid);
 void new_a_ready(t_pcb* pid);
+void exec_a_blocked_cond_signal(t_pcb* proceso);
+void exec_a_ready_cond_signal(t_pcb* proceso);
 void exec_a_exit(t_pcb* proceso);
 void agregar_a_ready(t_pcb* proceso);
 bool eliminar_de_ready(t_pcb* proceso);
