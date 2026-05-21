@@ -158,6 +158,8 @@ pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hil
 void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
 void sumar_milisegundos(struct timespec* ts, int milisegundos);
 void loguear_tamanio_listas_de_estado();
+t_planificacion algoritmo_de_proceso(t_pcb*);
+
 // liberar
 void liberar_cpu(t_cpu* cpu);     // liberar la cpu, osea que no tenga asignado ningun proceso (no le manda nada a la cpu, solo hace cpu->proceso=NULL)
 void liberar_pcb_de_exit(int pid);

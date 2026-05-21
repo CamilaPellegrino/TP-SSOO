@@ -230,6 +230,7 @@ void ciclo_instruccion(t_pcb *pcb){
         if(pcb->registros.pc == pc_antiguo)
             pcb->registros.pc++;
 
+        log_debug(logger, "termino ejecucion de %s", instruccion);
         list_destroy_and_destroy_elements(instruccion_decodificada->registros, free);
         free(instruccion_decodificada);
         free(instruccion);
@@ -332,15 +333,19 @@ void decode(char *instruccion, t_pcb *pcb,  t_instruccion_decodificada * instruc
     }    
     else if(string_equals_ignore_case(partes[0], "STDIN")){
         instruccion_decodificada->tipo = I_STDIN;
-        list_add(instruccion_decodificada->registros, partes[1]); // dir logica
-        list_add(instruccion_decodificada->registros, partes[2]); // tamanio
+        especificacion_registro* param1 = obtener_registro(partes[1], pcb);
+        especificacion_registro* param2 = obtener_registro(partes[2], pcb);
+        list_add(instruccion_decodificada->registros, param1); // dir logica
+        list_add(instruccion_decodificada->registros, param2); // tamanio
         string_array_destroy(partes);
         return;
     }    
     else if(string_equals_ignore_case(partes[0], "STDOUT")){
         instruccion_decodificada->tipo = I_STDOUT;
-        list_add(instruccion_decodificada->registros, partes[1]); // dir logica
-        list_add(instruccion_decodificada->registros, partes[2]); // tamanio
+        especificacion_registro* param1 = obtener_registro(partes[1], pcb);
+        especificacion_registro* param2 = obtener_registro(partes[2], pcb);
+        list_add(instruccion_decodificada->registros, param1); // dir logica
+        list_add(instruccion_decodificada->registros, param2); // tamanio
         string_array_destroy(partes);
         return;
     }
@@ -519,7 +524,6 @@ void ejecutar_m_lock(t_instruccion_decodificada* instr){
 void ejecutar_m_create(t_instruccion_decodificada* instr){
     detener_ejecucion(); // cpu tiene que esperar a que esta syscall se termine (es instantaneo) para seguir ejecutando
     char * nombre = list_get(instr->registros, 0);
-    //char* nombre = instr->param1;
     log_debug(logger, "Ejecutando MUTEX_CREATE %d", *nombre);
     t_paquete* paquete = crear_paquete(CPU_SCH__MUTEX_CREATE);
     agregar_string_a_paquete(paquete, nombre);
@@ -528,10 +532,11 @@ void ejecutar_m_create(t_instruccion_decodificada* instr){
 
 void ejecutar_stdout(t_instruccion_decodificada* instr){
     detener_ejecucion(); // esta es bloqueante, obligatoriamente detiene la ejecucion hasta que scheduler le mande el proximo pid
-    int * dir_logica = list_get(instr->registros, 0);
-    int * tamanio = list_get(instr->registros, 0);
-    //int dir_logica = atoi(instr->param1);
-    //int tamanio = atoi(instr->param2);
+    especificacion_registro *param1 = list_get(instr->registros,0);
+    especificacion_registro *param2 = list_get(instr->registros,1);
+    uint32_t dir_logica = leer_registro(param1);
+    uint32_t tamanio = leer_registro(param2);
+    log_debug(logger, "dir: %u, tam: %u", dir_logica, tamanio);
     t_paquete* paquete = crear_paquete(CPU_SCH__STDOUT);
     agregar_a_paquete(paquete, &dir_logica, sizeof(dir_logica));
     agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
@@ -540,8 +545,11 @@ void ejecutar_stdout(t_instruccion_decodificada* instr){
 
 void ejecutar_stdin(t_instruccion_decodificada* instr){
     detener_ejecucion(); // esta es bloqueante, obligatoriamente detiene la ejecucion hasta que scheduler le mande el proximo pid
-    int dir_logica = *(int*)list_get(instr->registros, 0); // TODO: esto tiene q ser distinto cuando le pida a km las cosas, se deberia poder guardar en un registro, ej "AX"
-    int tamanio = *(int*)list_get(instr->registros, 1);
+    especificacion_registro *param1 = list_get(instr->registros,0);
+    especificacion_registro *param2 = list_get(instr->registros,1);
+    uint32_t dir_logica = leer_registro(param1);
+    uint32_t tamanio = leer_registro(param2);
+    log_debug(logger, "dir: %u, tam: %u", dir_logica, tamanio);
     t_paquete* paquete = crear_paquete(CPU_SCH__STDIN);
     agregar_a_paquete(paquete, &dir_logica, sizeof(dir_logica));
     agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));

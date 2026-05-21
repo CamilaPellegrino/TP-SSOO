@@ -50,6 +50,7 @@ typedef enum
 	KM_CPU__RTA_CONTEXTO,
 	// mensajes con destino a KM
 	CPU_KM__PCONTEXTO,
+	CPU_KM__ACTUALIZAR_PCB,
 	KM_READ,
 	KM_WRITE,
 	KM_GET_INSTRUCTION,

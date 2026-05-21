@@ -30,11 +30,12 @@ void* planificador_corto_plazo(){
         agregar_a_paquete(paquete_asignar_proceso, &pid, sizeof(pid));         
         enviar_paquete(paquete_asignar_proceso, cpu_fd);         
         log_debug(logger, "planificador_corto_plazo: Envie pid %d a cpu de fd %d", pid, cpu_fd); 
-	    log_debug(logger, "ENVIO OP=%d SIZE=%d", paquete_asignar_proceso->codigo_operacion, paquete_asignar_proceso->buffer->size);
 
         ready_a_exec(prox_proceso);
-        log_debug(logger, "creando hilo_fin_quantum para proc %d", pid);
-        crear_hilo_o_exit(hilo_fin_quantum, prox_cpu, "hilo_fin_quantum");
+        if(algoritmo_de_proceso(prox_proceso) == RR){
+            log_debug(logger, "creando hilo_fin_quantum para proc %d", pid);
+            crear_hilo_o_exit(hilo_fin_quantum, prox_cpu, "hilo_fin_quantum");
+        }
     }
     return NULL;
 }
@@ -144,8 +145,13 @@ void* hilo_timeout(void* arg){
 }
 
 void* hilo_fin_quantum(void* arg){
+    log_debug(logger, "iniciando hilo_fin_quantum");
     t_cpu* cpu = (t_cpu*) arg;
     t_pcb* proceso = cpu->proceso;
+    if(proceso == NULL){
+        log_debug(logger, "hilo_fin_quantum: cpu libre, terminando este hilo");
+        return NULL;
+    }
     t_data_cond* data_cond = &proceso->data_cond;
 
     struct timespec ts;
@@ -161,7 +167,7 @@ void* hilo_fin_quantum(void* arg){
     // timeout vencido o syscall finalizada
     log_debug(logger, "quantum vencido o proceso bloqueado antes del quantum");
     if(!data_cond->cond_val && proceso->estado == EJECUTANDO){
-        log_debug(logger, "proceso no finalizo a tiempo, bloqueando por quantum");
+        log_debug(logger, "## (<%d>) - Desalojado por fin de quantum", proceso->pid);
         exec_a_ready(proceso);
         liberar_cpu(cpu);
         enviar_operacion(cpu->fd, SCH_CPU__DETENER_EJECUCION);

@@ -37,10 +37,7 @@ t_pcb pcb_prueba = {
 	.di=0
 };
 
-/*void inicializar_nueva_cpu(t_list *lista_sticks, int cpu_id){ 
-    // crear una nueva estructura para la cpu  // agregarla a la lista de cpus
-} hola,  no los escucho xd, se me escucha? nope! q mal
-*/
+
 int main(int argc, char* argv[]) { //KERNEL MEMORY
     // ejemplo para ejecutar: ./bin/kernel_memory ./kernel_memory.config
     if(argc < 2){ 
@@ -215,8 +212,8 @@ void atender_cpu(t_cpu* cpu){
                 "MUTEX_LOCK MUTEX_1",
                 "SET AX 5",
                 "SLEEP 1000",
-                // "STDIN AX BX",
-                // "MUTEX_UNLOCK MUTEX_1",
+                "STDOUT AX BX",
+                "MUTEX_UNLOCK MUTEX_1",
                 "EXIT"
                 };
                 t_list* lista = recibir_paquete(cpu_fd);
@@ -240,6 +237,9 @@ void atender_cpu(t_cpu* cpu){
                 log_info(logger, "Respuesta MOCK: OK");
                 break;
             }
+            case CPU_KM__ACTUALIZAR_PCB:
+                log_info(logger, "pcb actualizado"); // falta hacer esto
+                break;
             default:{
                 log_warning(logger,"atender_cpu: op desconocida, op=%d", cod_op);
             }
@@ -301,24 +301,3 @@ void enviar_nuevo_stick_a_scheduler(t_stick* nuevo_stick, int sch_fd){
     enviar_paquete_y_liberarlo(paquete, sch_fd);
     log_info(logger, "Enviando stick con IP %s al SCHED por el FD %d",nuevo_stick->ip, sch_fd);
 }
-
-
-/*
-void enviar_nuevo_stick_a_cpus(t_stick* nuevo_stick){
-    log_info(logger, "size: %d", list_size(lista_cpus));
-
-    for(int i = 0; i < list_size(lista_cpus); i++){
-        log_info(logger, "en for");
-        t_cpu* cpu = list_get(lista_cpus, i);
-        enviar_nuevo_stick_a_cpu(nuevo_stick, cpu->fd);
-    }
-}
-
-void enviar_nuevo_stick_a_cpu(t_stick* nuevo_stick, int cpu_fd){
-    t_paquete* paquete = crear_paquete(KM_CPU__NUEVO_STICK);
-    agregar_string_a_paquete(paquete, nuevo_stick->ip);
-    agregar_string_a_paquete(paquete, nuevo_stick->puerto);
-    enviar_paquete(paquete, cpu_fd);
-    log_info(logger, "Enviando stick con IP %s a la CPU por el FD %d",nuevo_stick->ip, cpu_fd);
-}
-*/

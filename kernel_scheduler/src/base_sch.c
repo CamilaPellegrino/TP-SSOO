@@ -488,3 +488,12 @@ void loguear_tamanio_listas_de_estado(){
                     , list_size(lista_susp_blocked)
                     , list_size(lista_susp_ready));
 }
+
+t_planificacion algoritmo_de_proceso(t_pcb* proceso){
+    if(algoritmo != CMN){
+        return algoritmo;
+    }
+    // para CMN:
+    t_planificacion algo = *(t_planificacion*)list_get(queues_algorithms, proceso->prioridad);
+    return algo;
+}
