@@ -30,6 +30,7 @@ typedef enum
 	KM_SCH__NUEVO_STICK,
 	KM_SCH__BSOD,
 	KM_SCH__EXIT_OK,
+	KM_SCH__INIT_PROC_RESP,
 	CPU_SCH__INIT_PROC,
 	CPU_SCH__SLEEP,
 	CPU_SCH__STDIN,
@@ -55,6 +56,7 @@ typedef enum
 	KM_WRITE,
 	KM_GET_INSTRUCTION,
 	SCH_KM__EXIT,
+	SCH_KM__INIT_PROC,
 	CPU_KM__FETCH,
 	// mensajes con destino a IO
 	SCH_IO__SOLICITUD,

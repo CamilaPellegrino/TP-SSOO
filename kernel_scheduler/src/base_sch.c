@@ -51,7 +51,10 @@ void inicializar_variables_globales(t_config* config){
     pthread_mutex_init(&m_lista_cpus, NULL);
     
     //otras cosas
+    pthread_mutex_lock(&m_proximo_pid);
     proximo_pid = 0;
+    pthread_mutex_unlock(&m_proximo_pid);
+
 }   
 
 void inicializar_parametros_de_config(t_config* config){
@@ -125,10 +128,11 @@ t_io* iniciar_io(t_tipo_io tipo, int io_fd){
 	return nueva_io;
 }
 
-t_pcb* iniciar_pcb(int pid, int prioridad, t_tipo_estado estado){
+t_pcb* iniciar_pcb(int pid, int ppid, int prioridad, t_tipo_estado estado){
 	t_pcb* nuevo_pcb = malloc(sizeof(t_pcb));
 	nuevo_pcb->estado = NUEVO;
 	nuevo_pcb->pid = pid;
+	nuevo_pcb->ppid = ppid;
 	nuevo_pcb->prioridad = prioridad;
 	nuevo_pcb->estado = estado;
 	return nuevo_pcb;
@@ -365,10 +369,18 @@ void agregar_proceso_a_lista(t_list* lista, t_pcb* proceso, t_tipo_estado nuevo_
     proceso->estado = nuevo_estado;
 }
 
-t_pcb* nuevo_proc(int prioridad, char* instrucciones){
-    t_pcb* pcb = iniciar_pcb(proximo_pid++, prioridad, NUEVO);
+t_pcb* nuevo_proc(int prioridad, int ppid, char* instrucciones){
+    pthread_mutex_lock(&m_proximo_pid);
+    int pid = proximo_pid++;
+    pthread_mutex_unlock(&m_proximo_pid);
+
+    t_pcb* pcb = iniciar_pcb(pid, ppid, prioridad, NUEVO);
     proceso_a_new(pcb);
-    sem_post(&s_nuevo_proceso_new);
+    t_paquete* data_init_proc = crear_paquete(SCH_KM__INIT_PROC);
+    agregar_a_paquete(data_init_proc, &pcb->pid, sizeof(int));
+    agregar_a_paquete(data_init_proc, &pcb->ppid, sizeof(int));
+    agregar_string_a_paquete(data_init_proc, instrucciones);
+    enviar_paquete_y_liberarlo(data_init_proc, conexion_kernel_memory);
 
     return pcb;
 }

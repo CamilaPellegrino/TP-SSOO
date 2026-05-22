@@ -56,6 +56,7 @@ pthread_mutex_t m_lista_exit;
 pthread_mutex_t m_lista_cpus;
 pthread_mutex_t m_lista_mutex;
 
+pthread_mutex_t m_proximo_pid;
 // sockets
 int conexion_kernel_memory;
 

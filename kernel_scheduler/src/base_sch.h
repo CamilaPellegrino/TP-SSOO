@@ -14,6 +14,7 @@ typedef struct
 
 typedef struct{
     int pid;
+    int ppid;
     int prioridad;
 	t_tipo_estado estado;
 	t_data_cond data_cond;
@@ -113,6 +114,8 @@ extern pthread_mutex_t m_lista_exit;
 extern pthread_mutex_t m_lista_cpus;
 extern pthread_mutex_t m_lista_mutex;
 
+extern pthread_mutex_t m_proximo_pid;
+
 // sockets
 extern int conexion_kernel_memory;
 
@@ -124,7 +127,7 @@ void inicializar_parametros_de_config(t_config* config);
 t_list* queues_algorithms_a_t_list(char** queues_algorithms_str);
 t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
-t_pcb* iniciar_pcb(int pid, int prioridad, t_tipo_estado estado);
+t_pcb* iniciar_pcb(int pid, int ppid, int prioridad, t_tipo_estado estado);
 t_evt* iniciar_evt_sleep(int tiempo_sleep, t_pcb* proceso);
 t_evt* iniciar_evt_std_in_out(int tamanio, int dir_logica, t_pcb* proceso);
 
@@ -149,7 +152,7 @@ void agregar_a_ready_CMN(t_pcb* proceso);
 bool eliminar_de_ready_CMN(t_pcb* proceso);
 void agregar_proceso_a_lista(t_list* lista, t_pcb* proceso, t_tipo_estado nuevo_estado);
 bool eliminar_proceso_de_lista(t_list* lista, t_pcb* proceso, char* nombre_lista);
-t_pcb* nuevo_proc(int prioridad, char* instrucciones);
+t_pcb* nuevo_proc(int prioridad, int ppid, char* instrucciones);
 t_list* sublista_ready_de_prioridad(int prioridad);
 void desbloquear_proceso(t_pcb* proceso);
 

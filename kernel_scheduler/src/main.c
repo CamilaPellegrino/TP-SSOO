@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) { // ejecucion con valgrind: valgrind --leak-ch
     log_debug(logger, "hilos de planificacion creados");
 
     // agregar el proceso de pid 0
-    t_pcb* pcb_pid_0 = nuevo_proc(0, instrucciones_pid_0); //TODO: mandar la ruta de las instrucciones junto al PID al kernel memory para que las guarde
+    t_pcb* pcb_pid_0 = nuevo_proc(0, -1, instrucciones_pid_0);
     
     // esperar clientes
     while(true){
@@ -150,7 +150,7 @@ void* atender_cpu(t_cpu* cpu){
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 char* instrucciones = list_get(lista_paquete, 0);
                 int prioridad = *(int*)list_get(lista_paquete, 1);
-                t_pcb* pcb_pid_0 = nuevo_proc(prioridad, instrucciones);
+                t_pcb* pcb_pid_0 = nuevo_proc(prioridad, cpu->proceso->pid, instrucciones);
                 break;
             }case CPU_SCH__EXIT:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <EXIT>", cpu->proceso->pid);
@@ -305,6 +305,17 @@ void* atender_km(void*){
                 t_list* data_pcb = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*)list_get(data_pcb, 0);
                 liberar_pcb_de_exit(pid);
+                break;
+            }case KM_SCH__INIT_PROC_RESP:{
+                t_list* paquete = recibir_paquete(conexion_kernel_memory);
+                int pid = *(int*)list_get(paquete, 0);
+                bool ok = *(bool*)list_get(paquete,1);
+                if(ok){
+                    log_debug(logger, "Init proc de pid %d OK", pid);
+                    sem_post(&s_nuevo_proceso_new);
+                }else{
+                    log_warning(logger, "error en init_proc de pid %d", pid);
+                }
                 break;
             }default: 
                 log_warning(logger, "Warning: Operacion desconocida, cod_op = %d",cod_op);
