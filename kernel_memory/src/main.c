@@ -1,45 +1,4 @@
-#include <utils/hello.h>
-#include <utils/utils.h>
-#include "base_km.h"
-
-void* atender_cliente(void *arg);
-void atender_scheduler(int sch_fd);
-void atender_stick(int sch_fd, int *tamanio);
-void atender_swap(int swap_fd);
-void atender_cpu(t_cpu* cpu);
-void enviar_nuevo_stick_a_scheduler(t_stick* nuevo_stick, int sch_fd);
-
-void recibir_pcb_actualizado(t_list* valores);
-void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p); 
-bool guardar_nuevo_proceso(int pid, int ppid, char* ruta_instrucciones);
-t_list* instrucciones_de_ruta(char* ruta);
-t_proceso* proceso_de_pid(int pid);
-// variables globales
-
-t_log *logger;
-t_list *lista_sticks;
-t_list *lista_cpus;
-
-int sch_fd; 
-
-t_pcb pcb_prueba = {
-    .pid = 0,
-    .ppid = 0,
-    .priodidad = 0,
-    .pc = 0,
-    .ax = 0,
-    .bx = 0,
-    .cx = 0,
-    .dx = 0,
-    .eax = 0,
-    .ebx = 0,
-    .ecx = 0,
-    .edx = 0,
-    .si = 0,
-    .di = 0
-};
-
-t_list* lista_procesos;
+#include "main.h"
 
 int main(int argc, char* argv[]) { //KERNEL MEMORY
     if(argc < 2){ 
@@ -47,22 +6,25 @@ int main(int argc, char* argv[]) { //KERNEL MEMORY
         exit(EXIT_FAILURE);
     }
     char *ruta_config = argv[1];
-    char* puerto;
 
-    t_config* config;
-    lista_sticks = list_create();
-    lista_cpus = list_create();
-    lista_procesos = list_create();
-
-    logger = iniciar_logger("kernel_memory.log", "ProcesoKernelMemory", LOG_LEVEL_INFO );
-    config = iniciar_config(ruta_config);
+    t_config* config = iniciar_config(ruta_config);
+    
     if(config == NULL){
         printf("No se pudo cargar el config\n");
         exit(EXIT_FAILURE);
     }
 
-    // iniciar servidor
     puerto = config_get_string_value (config, "PUERTO_KERNEL_MEMORY");
+    scripts_basepath = config_get_string_value(config, "SCRIPTS_BASEPATH");
+
+    t_log_level log_level = log_level_from_string(config_get_string_value(config, "LOG_LEVEL"));
+    logger = iniciar_logger("kernel_memory.log", "ProcesoKernelMemory", log_level);
+    
+    lista_sticks = list_create();
+    lista_cpus = list_create();
+    lista_procesos = list_create();
+
+    // iniciar servidor
     int kernel_memory_fd = iniciar_servidor(puerto);
     if(kernel_memory_fd == -1){
         log_error(logger, "No se pudo iniciar el servidor");
@@ -371,27 +333,29 @@ bool guardar_nuevo_proceso(int pid, int ppid, char* ruta){
     return true;
 }
 
-t_list* instrucciones_de_ruta(char* ruta){
-    t_list* instr = list_create();
-    list_add(instr, strdup("SET AX 5"));
-    list_add(instr, strdup("SET BX 2"));
-    list_add(instr, strdup("SUM AX BX"));
-    list_add(instr, strdup("SUB AX BX"));
-    list_add(instr, strdup("JNZ AX 7"));
-    list_add(instr, strdup("SUM AX BX"));
-    list_add(instr, strdup("SUB AX BX"));
-    list_add(instr, strdup("SUM AX CX"));
-    list_add(instr, strdup("SUB AX BX"));
-    list_add(instr, strdup("MUTEX_CREATE MUTEX_1"));
-    list_add(instr, strdup("MUTEX_LOCK MUTEX_1"));
-    list_add(instr, strdup("SET AX 5"));
-    list_add(instr, strdup("SET BX 2"));
-    list_add(instr, strdup("SLEEP 1000"));
-    // list_add(instr, strdup("STDOUT AX BX"));
-    // list_add(instr, strdup("STDIN AX BX"));
-    list_add(instr, strdup("MUTEX_UNLOCK MUTEX_1"));
-    list_add(instr, strdup("EXIT"));
-    return instr;
+t_list* instrucciones_de_ruta(char* nombre_archivo){
+    char* ruta = ruta_completa(scripts_basepath, nombre_archivo);
+    FILE* archivo = fopen(ruta, "r");
+    if (archivo == NULL) {
+        return NULL;
+    }
+    t_list* lineas = list_create();
+    char* linea = NULL;
+    size_t len = 0;
+    ssize_t leidos;
+
+    while ((leidos = getline(&linea, &len, archivo)) != -1) {
+        // sacar '\n' si existe
+        if (leidos > 0 && linea[leidos - 1] == '\n') {
+            linea[leidos - 1] = '\0';
+        }
+        log_info(logger, "linea: %s", linea);
+        // guardar copia en la lista
+        list_add(lineas, strdup(linea));
+    }
+    free(linea);
+    fclose(archivo);
+    return lineas;
 }
 
 void atender_stick(int stick_fd, int *tamanio){

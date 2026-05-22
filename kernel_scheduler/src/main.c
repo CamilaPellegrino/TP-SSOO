@@ -101,6 +101,7 @@ void* atender_cpu(t_cpu* cpu){
     log_info(logger, "## CPU <%d> Conectada", cpu_id);
     while(1){
         op_code cod_op = recibir_operacion(cpu_fd);
+        log_debug(logger, "llego operacion de cpu <%d>", cpu_id);
         if(cod_op == -1){
             log_warning(logger, "Se desconecto cpu de id:%d", cpu_id);
             break;
@@ -110,6 +111,7 @@ void* atender_cpu(t_cpu* cpu){
                 log_info(logger, "## (<%d>) - Solicito syscall: <SLEEP>", cpu->proceso->pid);
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 int tiempo_sleep = *(int*)list_get(lista_paquete, 0);
+
                 atender_cpu_syscall_sleep(tiempo_sleep, cpu);
                 break;
             }case CPU_SCH__MUTEX_CREATE:{
@@ -122,7 +124,6 @@ void* atender_cpu(t_cpu* cpu){
                 log_info(logger, "## (<%d>) - Solicito syscall: <MUTEX_LOCK>", cpu->proceso->pid);
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 char* nombre_mutex = (char*)list_get(lista_paquete, 0);
-                log_debug(logger, "n: %s", nombre_mutex);
                 atender_cpu_syscall_mutex_lock(nombre_mutex, cpu);
                 break;
             }case CPU_SCH__MUTEX_UNLOCK:{
@@ -150,7 +151,7 @@ void* atender_cpu(t_cpu* cpu){
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 char* instrucciones = list_get(lista_paquete, 0);
                 int prioridad = *(int*)list_get(lista_paquete, 1);
-                t_pcb* pcb_pid_0 = nuevo_proc(prioridad, cpu->proceso->pid, instrucciones);
+                t_pcb* pcb = nuevo_proc(prioridad, cpu->proceso->pid, instrucciones);
                 break;
             }case CPU_SCH__EXIT:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <EXIT>", cpu->proceso->pid);
@@ -195,9 +196,13 @@ void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu){
         log_debug(logger, "atender_cpu_syscall_mutex_lock: mutex %s no disponible, bloqueando proceso y desalojando de cpu", nombre_mutex);
         
         // detener ejecucion de cpu
-        enviar_operacion(cpu->fd, SCH_CPU__DETENER_EJECUCION);
+        // enviar_operacion(cpu->fd, SCH_CPU__DETENER_EJECUCION);
+        liberar_cpu(cpu);
+        log_debug(logger, "test1: libero cpu");
         // bloquear proceso
         exec_a_blocked_cond_signal(proceso);
+        log_debug(logger, "test1: paso a blocked");
+
     }
 
 }
@@ -246,12 +251,14 @@ void atender_cpu_syscall_sleep(int tiempo_sleep, t_cpu* cpu){
     
     // crear evento
     t_evt* evt = iniciar_evt_sleep(tiempo_sleep, proceso);
-
     // crear el hilo de timeout para que dps del timeout se suspenda el proceso
     evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout");
     
+    log_debug(logger, "TEST01: hilo timeout creado");
     // agregar evt a lista de evts
     pthread_mutex_lock(&m_lista_evt_sleep);
+    log_debug(logger, "TEST01: mutex tomado");
+
     list_add(lista_evt_sleep, evt);
     pthread_mutex_unlock(&m_lista_evt_sleep);
     sem_post(&s_evt_sleep);

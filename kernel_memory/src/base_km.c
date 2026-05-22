@@ -1,5 +1,5 @@
 #include "base_km.h"
-
+// iniciar
 t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd){
 	t_stick* nuevo_stick = malloc(sizeof(t_stick));
 	if (nuevo_stick != NULL) {
@@ -31,4 +31,20 @@ t_io* iniciar_io(t_tipo_io tipo, int io_fd){
 		nueva_io->fd = io_fd;
 	}
 	return nueva_io;
+}
+
+
+char* ruta_completa(char* base, char* nombre_archivo){
+	size_t len1 = strlen(base);
+    size_t len2 = strlen(nombre_archivo);
+
+    // +2 => '/' y '\0'
+    char* resultado = malloc(len1 + len2 + 2);
+
+    if (resultado == NULL) {
+        return NULL;
+    }
+
+    sprintf(resultado, "%s/%s", base, nombre_archivo);
+    return resultado;
 }

@@ -359,6 +359,14 @@ void decode(char *instruccion, t_pcb *pcb,  t_instruccion_decodificada * instruc
         string_array_destroy(partes);
         return;
     }
+    else if(string_equals_ignore_case(partes[0], "INIT_PROC")){
+        instruccion_decodificada->tipo = I_INIT_PROC;
+        char* ruta_instr = strdup(partes[1]);
+        int* prioridad = malloc(sizeof(int));
+        *prioridad = (int)strtol(partes[2], NULL, 10);
+        list_add(instruccion_decodificada->registros, ruta_instr);
+        list_add(instruccion_decodificada->registros, prioridad);
+    }
     string_array_destroy(partes);
     return;
 }
@@ -428,7 +436,6 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
     }
     return false;
 }
-
 
 void pedir_contexto(int pid, t_pcb* pcb){
     t_paquete *paquete = crear_paquete(CPU_KM__PCONTEXTO);
@@ -510,7 +517,6 @@ void esperar_a_poder_ejecutar(){
 // syscalls: 
 void ejecutar_init_proc(t_instruccion_decodificada* instr){
     log_debug(logger, "Ejecutando INIT_PROC");
-    detener_ejecucion();
     char* ruta_archivo_instrucciones = list_get(instr->registros, 0);
     int prioridad = *(int*)list_get(instr->registros, 1);
     t_paquete* paquete = crear_paquete(CPU_SCH__INIT_PROC);
@@ -532,6 +538,7 @@ void ejecutar_m_unlock(t_instruccion_decodificada* instr){
     t_paquete* paquete = crear_paquete(CPU_SCH__MUTEX_UNLOCK);
     agregar_string_a_paquete(paquete, nombre);
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+    log_debug(logger, "paquete enviado");
 }
 
 void ejecutar_m_lock(t_instruccion_decodificada* instr){
@@ -586,6 +593,7 @@ void ejecutar_sleep(t_instruccion_decodificada* instruccion){
     t_paquete* paquete = crear_paquete(CPU_SCH__SLEEP);
     agregar_a_paquete(paquete, &tiempo_sleep, sizeof(tiempo_sleep));
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+    log_debug(logger, "paquete enviado");
 }
 
 // otras 

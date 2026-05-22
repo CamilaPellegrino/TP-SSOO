@@ -240,11 +240,22 @@ void exec_a_blocked(t_pcb* proceso){
 }
 
 void exec_a_blocked_cond_signal(t_pcb* proceso){
+    if(algoritmo_de_proceso(proceso) != RR){
+        exec_a_blocked(proceso);
+        log_debug(logger, "no era RR, no hago lo de cond");
+        return;
+    }
+    log_debug(logger, "fuera de m");
     pthread_mutex_lock(&proceso->data_cond.mutex_cond);
-    proceso->data_cond.cond_val = true;
-    pthread_cond_signal(&proceso->data_cond.cond);
-    pthread_mutex_unlock(&proceso->data_cond.mutex_cond);
+    log_debug(logger, "dentro de m");
     exec_a_blocked(proceso);
+    log_debug(logger, "antes cond_val");
+    proceso->data_cond.cond_val = true;
+    log_debug(logger, "antes signal");
+    pthread_cond_signal(&proceso->data_cond.cond);
+    log_debug(logger, "antes unlock");
+    pthread_mutex_unlock(&proceso->data_cond.mutex_cond);
+    log_debug(logger, "ya sali de m");
 }
 
 void exec_a_ready(t_pcb* proceso){
@@ -308,6 +319,7 @@ void agregar_a_ready(t_pcb* proceso){
     }
     procesos_en_ready++;
     sem_post(&s_nuevo_proceso_ready);
+    log_debug(logger, "Hice sem_post de s_nuevo_proceso_ready");
 }
 
 void agregar_a_ready_CMN(t_pcb* proceso){
@@ -373,7 +385,7 @@ t_pcb* nuevo_proc(int prioridad, int ppid, char* instrucciones){
     pthread_mutex_lock(&m_proximo_pid);
     int pid = proximo_pid++;
     pthread_mutex_unlock(&m_proximo_pid);
-
+    log_debug(logger, "en nuevo_proc: proximo pid: %d", pid);
     t_pcb* pcb = iniciar_pcb(pid, ppid, prioridad, NUEVO);
     proceso_a_new(pcb);
     t_paquete* data_init_proc = crear_paquete(SCH_KM__INIT_PROC);

@@ -51,6 +51,6 @@ t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd);
 void destruir_stick(t_stick* stick);
 t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
-
+char* ruta_completa(char* base, char* nombre_archivo);
 
 #endif
