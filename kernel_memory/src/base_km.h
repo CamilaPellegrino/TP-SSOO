@@ -27,9 +27,7 @@ typedef struct
 	// identificadores del proceso
 	int pid;
 	int ppid;
-	int priodidad;
-	t_tipo_estado estado;
-	// registros de estado
+	int priodidad; // le sacamos la prioridad? solo la necesita scheduler y ya la tiene
 	uint32_t pc;
 	uint8_t ax;
 	uint8_t bx;
@@ -41,14 +39,18 @@ typedef struct
 	uint32_t edx;
 	uint32_t si;
 	uint32_t di;
-	
 } t_pcb;
+
+typedef struct {
+	t_pcb* pcb;
+	t_list* instrucciones;
+} t_proceso;
 
 
 t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd);
 void destruir_stick(t_stick* stick);
 t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
-
+char* ruta_completa(char* base, char* nombre_archivo);
 
 #endif

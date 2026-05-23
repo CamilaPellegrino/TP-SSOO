@@ -29,11 +29,38 @@ typedef enum
 	// mensajes con destino a SCH
 	KM_SCH__NUEVO_STICK,
 	KM_SCH__BSOD,
+	KM_SCH__EXIT_OK,
+	KM_SCH__INIT_PROC_RESP,
+	CPU_SCH__INIT_PROC,
+	CPU_SCH__SLEEP,
+	CPU_SCH__STDIN,
+	CPU_SCH__STDOUT,
+	CPU_SCH__MUTEX_CREATE,
+	CPU_SCH__MUTEX_LOCK,
+	CPU_SCH__MUTEX_UNLOCK,
+	CPU_SCH__EXIT,
+	IO_SCH__OK,
+	IO_SCH__ERROR,
 	// mensajes con destino a CPU
 	SCH_CPU__NUEVO_STICK,
-	SCH_CPU__PID
+	SCH_CPU__PID,
+	SCH_CPU__DETENER_EJECUCION,
+	SCH_CPU__REANUDAR_EJECUCION,
+	KM_CPU__RESPUESTA,
+	KM_CPU__INSTRUCCION,
+	KM_CPU__RTA_CONTEXTO,
 	// mensajes con destino a KM
-	// ...
+	CPU_KM__PCONTEXTO,
+	CPU_KM__ACTUALIZAR_PCB,
+	KM_READ,
+	KM_WRITE,
+	KM_GET_INSTRUCTION,
+	SCH_KM__EXIT,
+	SCH_KM__INIT_PROC,
+	CPU_KM__FETCH,
+	// mensajes con destino a IO
+	SCH_IO__SOLICITUD,
+
 
 }op_code;
 
@@ -63,7 +90,7 @@ typedef enum
 	BLOQUEADO,
 	FINALIZADO,
 	SUSP_LISTO,
-	SUSP_BLOQUEADO
+	SUSP_BLOQUEADO,
 } t_tipo_estado;
 
 //declaracion de funciones
