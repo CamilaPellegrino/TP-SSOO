@@ -345,12 +345,9 @@ t_list* instrucciones_de_ruta(char* nombre_archivo){
     ssize_t leidos;
 
     while ((leidos = getline(&linea, &len, archivo)) != -1) {
-        // sacar '\n' si existe
         if (leidos > 0 && linea[leidos - 1] == '\n') {
             linea[leidos - 1] = '\0';
         }
-        log_info(logger, "linea: %s", linea);
-        // guardar copia en la lista
         list_add(lineas, strdup(linea));
     }
     free(linea);

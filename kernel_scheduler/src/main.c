@@ -285,7 +285,7 @@ void* atender_km(void*){
         op_code cod_op = recibir_operacion(conexion_kernel_memory);
         if(cod_op == -1){
             log_warning(logger, "error, se desconecto kernel memory");
-            // exit(EXIT_FAILURE);
+            exit(EXIT_FAILURE);
             break;
         }
 
@@ -321,7 +321,7 @@ void* atender_km(void*){
                     log_debug(logger, "Init proc de pid %d OK", pid);
                     sem_post(&s_nuevo_proceso_new);
                 }else{
-                    log_warning(logger, "error en init_proc de pid %d", pid);
+                    log_error(logger, "error en init_proc de pid %d: Ruta invalida", pid);
                 }
                 break;
             }default: 

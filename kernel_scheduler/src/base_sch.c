@@ -134,7 +134,10 @@ t_pcb* iniciar_pcb(int pid, int ppid, int prioridad, t_tipo_estado estado){
 	nuevo_pcb->pid = pid;
 	nuevo_pcb->ppid = ppid;
 	nuevo_pcb->prioridad = prioridad;
-	nuevo_pcb->estado = estado;
+	nuevo_pcb->estado = estado;   
+    nuevo_pcb->data_cond.cond_val = false;
+    pthread_mutex_init(&nuevo_pcb->data_cond.mutex_cond, NULL);
+    pthread_cond_init(&nuevo_pcb->data_cond.cond, NULL);
 	return nuevo_pcb;
 }
 

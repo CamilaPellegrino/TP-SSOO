@@ -38,7 +38,6 @@ char* ruta_completa(char* base, char* nombre_archivo){
 	size_t len1 = strlen(base);
     size_t len2 = strlen(nombre_archivo);
 
-    // +2 => '/' y '\0'
     char* resultado = malloc(len1 + len2 + 2);
 
     if (resultado == NULL) {
