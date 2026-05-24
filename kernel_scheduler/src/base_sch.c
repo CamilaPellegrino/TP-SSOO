@@ -447,16 +447,7 @@ void liberar_pcb_de_exit(int pid){
     log_error(logger, "No se encontro el proceso PID <%d> en lista_exit", pid);
 }
 
-// genericas
-int iniciar_servidor_o_exit(char* puerto){
-    int fd = iniciar_servidor(puerto);
-
-    if(fd == -1){
-        log_error(logger, "No se pudo iniciar el servidor");
-        exit(EXIT_FAILURE);
-    }
-    return fd;
-}
+// funciones genericas
 
 t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str){
     t_planificacion algo = algoritmo_str_a_enum(algoritmo_str);
@@ -465,17 +456,6 @@ t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str){
         exit(EXIT_FAILURE);
     }
     return algo;
-}
-
-pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo){
-    pthread_t hilo;
-    int resultado = pthread_create(&hilo, NULL, funcion, arg);
-
-    if(resultado != 0){
-        log_error(logger, "Error al crear el hilo %s. Codigo: %d", nombre_hilo, resultado);
-        exit(EXIT_FAILURE);
-    }
-    return hilo;
 }
 
 void enviar_paquete_a_todas_las_cpus(t_paquete* paquete){

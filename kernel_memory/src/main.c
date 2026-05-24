@@ -8,30 +8,12 @@ int main(int argc, char* argv[]) { //KERNEL MEMORY
     char *ruta_config = argv[1];
 
     t_config* config = iniciar_config(ruta_config);
-    
-    if(config == NULL){
-        printf("No se pudo cargar el config\n");
-        exit(EXIT_FAILURE);
-    }
 
-    puerto = config_get_string_value (config, "PUERTO_KERNEL_MEMORY");
-    scripts_basepath = config_get_string_value(config, "SCRIPTS_BASEPATH");
-
-    t_log_level log_level = log_level_from_string(config_get_string_value(config, "LOG_LEVEL"));
-    logger = iniciar_logger("kernel_memory.log", "ProcesoKernelMemory", log_level);
-    
-    lista_sticks = list_create();
-    lista_cpus = list_create();
-    lista_procesos = list_create();
+    inicializar_variables_globales(config);
 
     // iniciar servidor
-    int kernel_memory_fd = iniciar_servidor(puerto);
-    if(kernel_memory_fd == -1){
-        log_error(logger, "No se pudo iniciar el servidor");
-        exit(EXIT_FAILURE);
-    }
+    int kernel_memory_fd = iniciar_servidor_o_exit(puerto, logger);
 
-    log_info(logger, "esperar cliente");
     // esperar clientes
     while(true){
         int *cliente_fd = esperar_cliente(kernel_memory_fd);
@@ -40,8 +22,7 @@ int main(int argc, char* argv[]) { //KERNEL MEMORY
         handshake_servidor(*cliente_fd, logger);
 
         //Creacion del hilo para atender la conexion entrante
-        pthread_t thread;
-        pthread_create(&thread, NULL, atender_cliente, cliente_fd);
+        pthread_t thread = crear_hilo_o_exit(atender_cliente, cliente_fd, "atender_cliente", logger);
         pthread_detach(thread);
     }
     list_destroy_and_destroy_elements(lista_sticks, free);
@@ -75,9 +56,6 @@ void* atender_cliente(void *arg){
             t_stick* nuevo_stick = iniciar_stick(ip, puerto, *tamanio, cliente_fd);
             
             list_add(lista_sticks, nuevo_stick);
-            
-            //avisar a las cpus conectadas que llego un stick para que se conecten
-            // ...
             enviar_nuevo_stick_a_scheduler(nuevo_stick, sch_fd);
             // atender stick
             atender_stick(cliente_fd, tamanio);
@@ -132,7 +110,7 @@ void atender_cpu(t_cpu* cpu){
                 break;
             }
             case KM_READ:
-            case CPU_KM__PCONTEXTO:
+            case CPU_KM__PCONTEXTO:{
                 //tiene que recibir pid, puede mandar todo el pcb
                 t_list *lista = recibir_paquete(cpu_fd);
                 int pid = *(int*)list_get(lista, 0);
@@ -149,7 +127,7 @@ void atender_cpu(t_cpu* cpu){
                 }
                 list_destroy_and_destroy_elements(lista, free);
                 break;
-            case CPU_KM__FETCH: {
+            }case CPU_KM__FETCH: {
                 t_list* lista = recibir_paquete(cpu_fd);
                 int i = 0;
                 int pid = *(int*) list_get(lista, i++);
@@ -189,16 +167,6 @@ void atender_cpu(t_cpu* cpu){
     log_info(logger, "cerrando hilo de CPU");
 }
 
-t_proceso* proceso_de_pid(int pid){
-    for(int i = 0; i < list_size(lista_procesos); i++){
-        t_proceso* proceso = list_get(lista_procesos, i);
-        if(proceso->pcb->pid == pid){
-            return proceso;
-        }
-    }
-    return NULL;
-}
-
 void recibir_pcb_actualizado(t_list* valores){
     int i = 0;
     // pcb
@@ -213,7 +181,7 @@ void recibir_pcb_actualizado(t_list* valores){
     }
     memcpy(&pcb->pid, pid, sizeof(pcb->pid));
     memcpy(&pcb->ppid, list_get(valores, i++), sizeof(pcb->ppid));
-    memcpy(&pcb->priodidad, list_get(valores, i++), sizeof(pcb->priodidad));
+    memcpy(&pcb->prioridad, list_get(valores, i++), sizeof(pcb->prioridad));
     // registros
     memcpy(&pcb->pc, list_get(valores, i++), sizeof(pcb->pc));
 
@@ -238,7 +206,7 @@ void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p){
     // datos del pcb
     agregar_a_paquete(p, &pcb->pid, sizeof(pcb->pid));
     agregar_a_paquete(p, &pcb->ppid, sizeof(pcb->ppid));
-    agregar_a_paquete(p, &pcb->priodidad, sizeof(pcb->priodidad));
+    agregar_a_paquete(p, &pcb->prioridad, sizeof(pcb->prioridad));
 
     // registros
     agregar_a_paquete(p, &pcb->pc, sizeof(pcb->pc));
@@ -306,28 +274,17 @@ void atender_scheduler(int sch_fd){
 }
 
 bool guardar_nuevo_proceso(int pid, int ppid, char* ruta){
-    t_proceso* proceso = malloc(sizeof(t_proceso));
-    t_pcb* pcb = malloc(sizeof(t_pcb));
+    t_pcb* pcb = calloc(1, sizeof(t_pcb));
+    if (pcb == NULL) {
+        return NULL;
+    }
     pcb->pid = pid;
     pcb->ppid = ppid;
-    pcb->pc = 0;
-    pcb->ax = 0;
-    pcb->bx = 0;
-    pcb->cx = 0;
-    pcb->dx = 0;
-    pcb->eax = 0;
-    pcb->ebx = 0;
-    pcb->ecx = 0;
-    pcb->edx = 0;
-    pcb->di = 0;
-    pcb->si = 0;
-    proceso->instrucciones = instrucciones_de_ruta(ruta);
-    if(proceso->instrucciones == NULL){
-        free(proceso);
-        free(pcb);
+    t_list* instrucciones = instrucciones_de_ruta(ruta);
+    t_proceso* proceso = iniciar_proceso(pcb, instrucciones);
+    if(proceso == NULL){
         return false;
     }
-    proceso->pcb = pcb;
     list_add(lista_procesos, proceso);
     log_info(logger, "Nuevo proceso de PID <%d> guardado", pcb->pid);
     return true;

@@ -24,10 +24,9 @@ typedef struct
 
 typedef struct
 {
-	// identificadores del proceso
 	int pid;
 	int ppid;
-	int priodidad; // le sacamos la prioridad? solo la necesita scheduler y ya la tiene
+	int prioridad;
 	uint32_t pc;
 	uint8_t ax;
 	uint8_t bx;
@@ -46,11 +45,39 @@ typedef struct {
 	t_list* instrucciones;
 } t_proceso;
 
+// estructuras para manejo de memoria: 
+typedef struct {
+    int id_segmento;
+    uint32_t base;
+    uint32_t tamanio;
+} t_segmento;
 
+// variables globales
+
+extern t_log *logger;
+extern t_list *lista_sticks;
+extern t_list *lista_cpus;
+
+extern int sch_fd; 
+
+extern t_list* lista_procesos;
+
+// De config
+extern char* scripts_basepath;
+extern char* puerto;
+
+// Funciones
+
+// iniciar cosas
+void inicializar_variables_globales(t_config*);
+t_proceso* iniciar_proceso(t_pcb*, t_list*);
 t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd);
 void destruir_stick(t_stick* stick);
 t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
 char* ruta_completa(char* base, char* nombre_archivo);
+
+// ...
+t_proceso* proceso_de_pid(int pid);
 
 #endif

@@ -106,6 +106,7 @@ int crear_conexion(char* ip, char* puerto);
 void exit_si_error_conexion(int, t_log *, char *);
 void liberar_conexion(int socket_cliente);
 int iniciar_servidor(char*);
+int iniciar_servidor_o_exit(char* puerto, t_log* logger);
 int* esperar_cliente(int);
 
 // paquetes
@@ -137,5 +138,10 @@ t_config* iniciar_config(char*);
 
 t_log* iniciar_logger(char*, char*, t_log_level);
 t_log* iniciar_logger_log_level_string(char*, char*, char*);
+
+// otras
+
+pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo, t_log* logger);
+
 
 #endif  /* UTILS_H_ */ 

@@ -34,7 +34,7 @@ void* planificador_corto_plazo(){
         ready_a_exec(prox_proceso);
         if(algoritmo_de_proceso(prox_proceso) == RR){
             log_debug(logger, "creando hilo_fin_quantum para proc %d", pid);
-            crear_hilo_o_exit(hilo_fin_quantum, prox_cpu, "hilo_fin_quantum");
+            crear_hilo_o_exit(hilo_fin_quantum, prox_cpu, "hilo_fin_quantum", logger);
         }
     }
     return NULL;

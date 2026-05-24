@@ -157,9 +157,7 @@ t_list* sublista_ready_de_prioridad(int prioridad);
 void desbloquear_proceso(t_pcb* proceso);
 
 // funciones genericas
-int iniciar_servidor_o_exit(char* puerto);
 t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str);
-pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo);
 void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
 void sumar_milisegundos(struct timespec* ts, int milisegundos);
 void loguear_tamanio_listas_de_estado();

@@ -56,7 +56,6 @@ void handshake_servidor(int cliente_fd, t_log* logger){
     }
 }
 
-
 int crear_conexion(char *ip, char* puerto)
 {
 	struct addrinfo hints;
@@ -144,11 +143,20 @@ int iniciar_servidor(char* puerto){
 	return socket_servidor;
 }
 
+int iniciar_servidor_o_exit(char* puerto, t_log* logger){
+    int fd = iniciar_servidor(puerto);
+
+    if(fd == -1){
+        log_error(logger, "Error: No se pudo iniciar el servidor");
+        exit(EXIT_FAILURE);
+    }
+    return fd;
+}
+
 int* esperar_cliente(int socket_servidor)
 {
 	int *socket_cliente = malloc(sizeof(int));
 	*socket_cliente = accept(socket_servidor, NULL, NULL);
-	printf("socket_cliente = %d\n", *socket_cliente);
 	return socket_cliente;
 }
 
@@ -273,6 +281,7 @@ t_list* recibir_paquete(int socket_cliente)
 	free(buffer);
 	return valores;
 }
+
 void send_all(int socket, void* buffer, size_t size){
     size_t enviados = 0;
 
@@ -319,16 +328,27 @@ t_log* iniciar_logger(char* ruta, char* process_name, t_log_level log_level)
 	return nuevo_logger;
 }
 
+// otras
+pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo, t_log* logger){
+    pthread_t hilo;
+    int resultado = pthread_create(&hilo, NULL, funcion, arg);
 
-// Definimos un tipo de puntero a función que acepte dos argumentos
-typedef void (*t_closure_con_arg)(void*, void*);
-
-void list_iterate_con_argumento(t_list* lista, t_closure_con_arg closure, void* argumento_extra) {
-    if (lista == NULL || closure == NULL) return;
-
-    // Iteramos sobre todos los elementos de la lista
-    for (int i = 0; i < list_size(lista); i++) {
-        void* elemento = list_get(lista, i); // Obtenemos la CPU
-        closure(elemento, argumento_extra);  // Llamamos a la función
+    if(resultado != 0){
+        log_error(logger, "Error al crear el hilo %s. Codigo: %d", nombre_hilo, resultado);
+        exit(EXIT_FAILURE);
     }
+    return hilo;
 }
+
+// // Definimos un tipo de puntero a función que acepte dos argumentos
+// typedef void (*t_closure_con_arg)(void*, void*);
+
+// void list_iterate_con_argumento(t_list* lista, t_closure_con_arg closure, void* argumento_extra) {
+//     if (lista == NULL || closure == NULL) return;
+
+//     // Iteramos sobre todos los elementos de la lista
+//     for (int i = 0; i < list_size(lista); i++) {
+//         void* elemento = list_get(lista, i); // Obtenemos la CPU
+//         closure(elemento, argumento_extra);  // Llamamos a la función
+//     }
+// }

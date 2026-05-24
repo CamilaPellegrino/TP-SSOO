@@ -31,15 +31,15 @@ int main(int argc, char* argv[]) { // ejecucion con valgrind: valgrind --leak-ch
     // enviar mensaje a kernel memory
     enviar_mensaje("Hola, soy sche", conexion_kernel_memory, SCH_KM__CONEXION);
     
-    pthread_t thread_km = crear_hilo_o_exit(atender_km, NULL, "thread_km");
+    pthread_t thread_km = crear_hilo_o_exit(atender_km, NULL, "thread_km", logger);
     pthread_detach(thread_km);
     // iniciar servidor
-    int kernel_scheduler_fd = iniciar_servidor_o_exit(puerto_kernel_scheduler); 
+    int kernel_scheduler_fd = iniciar_servidor_o_exit(puerto_kernel_scheduler, logger); 
 
     // crear hilos de planificacion
 
-    pthread_t hilo_largo_plazo = crear_hilo_o_exit(planificador_largo_plazo, NULL, "hilo_largo_plazo");
-    pthread_t hilo_corto_plazo = crear_hilo_o_exit(planificador_corto_plazo, NULL, "hilo_corto_plazo");
+    pthread_t hilo_largo_plazo = crear_hilo_o_exit(planificador_largo_plazo, NULL, "hilo_largo_plazo", logger);
+    pthread_t hilo_corto_plazo = crear_hilo_o_exit(planificador_corto_plazo, NULL, "hilo_corto_plazo", logger);
     pthread_detach(hilo_largo_plazo);
     pthread_detach(hilo_corto_plazo);
 
@@ -215,7 +215,7 @@ void atender_cpu_syscall_stdout(int tamanio, int dir_logica, t_cpu* cpu){
     // crear evento
     t_evt* evt = iniciar_evt_std_in_out(tamanio, dir_logica, proceso);
     // crear el hilo de timeout para que dps del timeout se suspenda el proceso
-    evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout");
+    evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout", logger);
     
     // agregar evt a lista de evts
     pthread_mutex_lock(&m_lista_evt_stdout);
@@ -233,7 +233,7 @@ void atender_cpu_syscall_stdin(int tamanio, int dir_logica, t_cpu* cpu){ // TODO
     // crear evento
     t_evt* evt = iniciar_evt_std_in_out(tamanio, dir_logica, proceso);
     // crear el hilo de timeout para que dps del timeout se suspenda el proceso
-    evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout");
+    evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout", logger);
     
     // agregar evt a lista de evts
     pthread_mutex_lock(&m_lista_evt_stdin);
@@ -252,7 +252,7 @@ void atender_cpu_syscall_sleep(int tiempo_sleep, t_cpu* cpu){
     // crear evento
     t_evt* evt = iniciar_evt_sleep(tiempo_sleep, proceso);
     // crear el hilo de timeout para que dps del timeout se suspenda el proceso
-    evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout");
+    evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout", logger);
     
     log_debug(logger, "TEST01: hilo timeout creado");
     // agregar evt a lista de evts
