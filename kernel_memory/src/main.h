@@ -6,11 +6,13 @@
 #include "base_km.h"
 
 void* atender_cliente(void *arg);
-void atender_scheduler(int sch_fd);
+void* atender_scheduler(void*);
 void atender_stick(int sch_fd, int *tamanio);
 void atender_swap(int swap_fd);
-void atender_cpu(t_cpu* cpu);
+void* atender_cpu(void* cpu);
+
 void enviar_nuevo_stick_a_scheduler(t_stick* nuevo_stick, int sch_fd);
+void enviar_sticks_a_cpu(int cpu_fd);
 
 void recibir_pcb_actualizado(t_list* valores);
 void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p); 

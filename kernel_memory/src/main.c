@@ -21,9 +21,11 @@ int main(int argc, char* argv[]) { //KERNEL MEMORY
         log_info(logger, "Me llego un cliente, %d", *cliente_fd);
         handshake_servidor(*cliente_fd, logger);
 
-        //Creacion del hilo para atender la conexion entrante
-        pthread_t thread = crear_hilo_o_exit(atender_cliente, cliente_fd, "atender_cliente", logger);
-        pthread_detach(thread);
+        atender_cliente(cliente_fd);
+
+        // //Creacion del hilo para atender la conexion entrante
+        // pthread_t thread = crear_hilo_o_exit(atender_cliente, cliente_fd, "atender_cliente", logger);
+        // pthread_detach(thread);
     }
     list_destroy_and_destroy_elements(lista_sticks, free);
 }
@@ -38,8 +40,8 @@ void* atender_cliente(void *arg){
             char *msg = recibir_mensaje(cliente_fd);
             sch_fd = cliente_fd;
             log_info(logger, "Me llego el scheduler, mensaje recibido: %s", msg);
-
-            atender_scheduler(cliente_fd);
+            pthread_t thread_sch= crear_hilo_o_exit(atender_scheduler, NULL, "atender_scheduler", logger);
+            pthread_detach(thread_sch);
             free(msg);
             break;
         }case STICK_KM__CONEXION: {
@@ -47,23 +49,21 @@ void* atender_cliente(void *arg){
             t_list *lista_paquete = recibir_paquete(cliente_fd);
 
             // leo cada elemento de la t_list en el orden en que stick los agrego al paquete
-            int *tamanio = list_get(lista_paquete, 0);
+            int tamanio = *(int*)list_get(lista_paquete, 0);
             char *puerto = list_get(lista_paquete, 1);
             char *ip = list_get(lista_paquete, 2);
-            log_info(logger, "Me llego un stick: %d, %s, %s", *tamanio, puerto, ip);
+            log_info(logger, "Me llego un stick: %d, %s, %s", tamanio, puerto, ip);
             
             // poner al stick en la lista de sticks
-            t_stick* nuevo_stick = iniciar_stick(ip, puerto, *tamanio, cliente_fd);
+            t_stick* nuevo_stick = iniciar_stick(ip, puerto, tamanio, cliente_fd);
             
             list_add(lista_sticks, nuevo_stick);
             enviar_nuevo_stick_a_scheduler(nuevo_stick, sch_fd);
-            // atender stick
-            atender_stick(cliente_fd, tamanio);
-            
+            list_destroy_and_destroy_elements(lista_paquete, free);            
             break;
         }case SWAP_KM__CONEXION:{
             log_info(logger, "SWAP");
-            atender_swap(cliente_fd);
+            // atender_swap(cliente_fd);
             break;
         }case CPU_KM__CONEXION:{
             t_list *lista_paquete = recibir_paquete(cliente_fd);
@@ -74,8 +74,9 @@ void* atender_cliente(void *arg){
             list_add(lista_cpus, cpu);
 
             // mandarle todos los sticks que se conectaron hasta ahora
-            
-            atender_cpu(cpu);
+            enviar_sticks_a_cpu(cliente_fd);
+            pthread_t thread_cpu = crear_hilo_o_exit(atender_cpu, cpu, "atender_cpu", logger);
+            pthread_detach(thread_cpu);
             list_destroy_and_destroy_elements(lista_paquete, free);
             break;
         }default: 
@@ -84,7 +85,8 @@ void* atender_cliente(void *arg){
     return NULL;
 }
 
-void atender_cpu(t_cpu* cpu){
+void* atender_cpu(void* arg){
+    t_cpu* cpu = (t_cpu*)arg;
     int cpu_fd = cpu->fd;
     int cpu_id = cpu->id;
     log_info(logger, "## CPU <%d> Conectada", cpu_id);
@@ -108,9 +110,7 @@ void atender_cpu(t_cpu* cpu){
                 enviar_mensaje(instruccion, cpu_fd, HANDSHAKE);
                 list_destroy_and_destroy_elements(paquete, free);
                 break;
-            }
-            case KM_READ:
-            case CPU_KM__PCONTEXTO:{
+            }case CPU_KM__PCONTEXTO:{
                 //tiene que recibir pid, puede mandar todo el pcb
                 t_list *lista = recibir_paquete(cpu_fd);
                 int pid = *(int*)list_get(lista, 0);
@@ -165,6 +165,18 @@ void atender_cpu(t_cpu* cpu){
     }
     close(cpu_fd);
     log_info(logger, "cerrando hilo de CPU");
+    return NULL;
+}
+
+void enviar_sticks_a_cpu(int cpu_fd){
+    t_paquete* paquete = crear_paquete(KM_CPU__STICKS);
+    int cant_sticks = list_size(lista_sticks);
+    agregar_a_paquete(paquete, &cant_sticks, sizeof(int));
+    for(int i = 0; i < cant_sticks; i++){
+        t_stick* stick = list_get(lista_sticks, i);
+        agregar_stick_a_paquete(paquete, stick);
+    }
+    enviar_paquete_y_liberarlo(paquete, cpu_fd);
 }
 
 void recibir_pcb_actualizado(t_list* valores){
@@ -238,7 +250,7 @@ void atender_swap(int swap_fd){
     log_info(logger, "cerrando hilo de swap");
 }
 
-void atender_scheduler(int sch_fd){
+void* atender_scheduler(void*){
     log_info(logger, "## Kernel Scheduler Conectado - FD del socket: %d", sch_fd);
     while(1){
         op_code cod_op = recibir_operacion(sch_fd);
@@ -267,10 +279,9 @@ void atender_scheduler(int sch_fd){
             }
             default:
                 log_warning(logger, "atender_scheduler: Operacion desconocida, cod_op=%d", cod_op);
-            
         }
     }
-    return;
+    return NULL;
 }
 
 bool guardar_nuevo_proceso(int pid, int ppid, char* ruta){
@@ -307,6 +318,7 @@ t_list* instrucciones_de_ruta(char* nombre_archivo){
         }
         list_add(lineas, strdup(linea));
     }
+    free(ruta);
     free(linea);
     fclose(archivo);
     return lineas;

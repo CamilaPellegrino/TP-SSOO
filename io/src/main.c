@@ -12,15 +12,18 @@ int main(int argc, char* argv[]) {
     }
 
     char *ruta_config = argv[1];
-    t_tipo_io tipo_io = tipo_str_a_enum(argv[2]);
-    t_log * logger;
-    t_config* config;
     char* ip; 
     char * puerto_kernel_scheduler;
 
     //Setup inicial
-    logger = iniciar_logger("io.log", "ProcesoIO", LOG_LEVEL_INFO );
-    config = iniciar_config(ruta_config);
+    t_log * logger = iniciar_logger("io.log", "ProcesoIO", LOG_LEVEL_INFO );
+    
+    t_tipo_io tipo_io = tipo_str_a_enum(argv[2]);
+    if(tipo_io == INVALIDO){
+        log_error(logger, "Error: Tipo de IO desconocida. Opciones validas: SLEEP, STDIN, STDOUT");
+        exit(EXIT_FAILURE);
+    }
+    t_config* config = iniciar_config(ruta_config);
     
     if(config == NULL){
         printf("No se pudo cargar el config\n");
@@ -71,7 +74,6 @@ int main(int argc, char* argv[]) {
                 usleep(tiempo*1000);
             break;
             }
-
             case STDIN: {
                 int tam = *(int*)list_get(paquete_datos , 1);
                 log_info(logger, " ## PID: %u - Ingrese %u caracteres: " , pid ,tam );
@@ -104,6 +106,8 @@ int main(int argc, char* argv[]) {
                 printf("%s\n" , texto);
             break;
             }
+            default:
+                break;
         }
 
         log_info(logger, "## PID: %u - Fin de IO" ,pid);
@@ -132,5 +136,5 @@ t_tipo_io tipo_str_a_enum(char* tipo_str){
     if(strcmp(tipo_str, "STDOUT") == 0){
         return STDOUT;
     }
-    return -1;
+    return INVALIDO;
 }

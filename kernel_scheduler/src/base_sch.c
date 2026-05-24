@@ -245,20 +245,14 @@ void exec_a_blocked(t_pcb* proceso){
 void exec_a_blocked_cond_signal(t_pcb* proceso){
     if(algoritmo_de_proceso(proceso) != RR){
         exec_a_blocked(proceso);
-        log_debug(logger, "no era RR, no hago lo de cond");
+        log_debug(logger, "El proceso %d no usa RR, no hago lo de cond", proceso->pid);
         return;
     }
-    log_debug(logger, "fuera de m");
     pthread_mutex_lock(&proceso->data_cond.mutex_cond);
-    log_debug(logger, "dentro de m");
     exec_a_blocked(proceso);
-    log_debug(logger, "antes cond_val");
     proceso->data_cond.cond_val = true;
-    log_debug(logger, "antes signal");
     pthread_cond_signal(&proceso->data_cond.cond);
-    log_debug(logger, "antes unlock");
     pthread_mutex_unlock(&proceso->data_cond.mutex_cond);
-    log_debug(logger, "ya sali de m");
 }
 
 void exec_a_ready(t_pcb* proceso){

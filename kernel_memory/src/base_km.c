@@ -80,3 +80,9 @@ t_proceso* proceso_de_pid(int pid){
     }
     return NULL;
 }
+
+void agregar_stick_a_paquete(t_paquete* paquete, t_stick* stick){
+    agregar_a_paquete(paquete, &(stick->tamanio), sizeof(int));
+    agregar_string_a_paquete(paquete, stick->puerto);
+    agregar_string_a_paquete(paquete, stick->ip);
+}

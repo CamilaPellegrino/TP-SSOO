@@ -3,6 +3,8 @@
 #include "base_cpu.h"
 #include <semaphore.h>
 
+void conectarse_a_stick(char* ip, char* puerto, uint32_t tamanio);
+void recibir_sticks_de_km();
 void* ejecutar();
 void detener_ejecucion();
 void reanudar_ejecucion();
@@ -71,13 +73,12 @@ int main(int argc, char* argv[]){
 
     // iniciar config
     config = iniciar_config(ruta_config);
-    if(config == NULL){
-        printf("No se pudo cargar el config\n");
-        exit(EXIT_FAILURE);
-    }
 
     ip = config_get_string_value(config, "IP");
     
+    // inicializar variables
+    inicializar_variables();
+
     puerto_kernel_memory = config_get_string_value(config, "PUERTO_KERNEL_MEMORY");
     puerto_kernel_scheduler = config_get_string_value(config, "PUERTO_KERNEL_SCHEDULER");
 
@@ -101,8 +102,7 @@ int main(int argc, char* argv[]){
     agregar_a_paquete(paquete_conexion_km, &id_cpu, sizeof(id_cpu));
     enviar_paquete_y_liberarlo(paquete_conexion_km, conexion_kernel_memory);
 
-    // inicializar variables
-    inicializar_variables();
+    recibir_sticks_de_km();
     
     // hilo que ejecuta instrucciones:
     pthread_t hilo_ejecucion;
@@ -147,7 +147,7 @@ int main(int argc, char* argv[]){
                 char* ip_stick = list_get(lista_del_paquete, 0);
                 char* puerto_stick = list_get(lista_del_paquete, 1);
                 int* tamanio = list_get(lista_del_paquete, 2); 
-                                
+     
                 // conectar a memory stick
                 int conexion_memory_stick = crear_conexion(ip_stick, puerto_stick);
                 exit_si_error_conexion(conexion_memory_stick, logger, "memory stick");
@@ -175,6 +175,49 @@ int main(int argc, char* argv[]){
     close(conexion_kernel_scheduler);
     close(conexion_kernel_memory);
     return 0;
+}
+
+void conectarse_a_stick(char* ip, char* puerto, uint32_t tamanio){
+    // conectar a memory stick
+    int conexion_memory_stick = crear_conexion(ip, puerto);
+    exit_si_error_conexion(conexion_memory_stick, logger, "memory stick");
+
+    handshake_cliente(conexion_memory_stick, logger);
+
+    log_info(logger, "Conectado a stick -> ip: %s, puerto: %s", ip, puerto);
+
+    // crear stick
+    t_stick* stick = iniciar_stick(ip, puerto, tamanio, conexion_memory_stick);
+    enviar_operacion(conexion_memory_stick, CPU_STICK__CONEXION);
+    // agregar a lista local
+    list_add(lista_sticks, stick);
+}
+
+void recibir_sticks_de_km(){
+    op_code cod_op = recibir_operacion(conexion_kernel_memory);
+    if(cod_op != KM_CPU__STICKS){
+        log_error(logger, "Error: Kernel Memory no envio las sticks");
+        exit(EXIT_FAILURE);
+    }
+    log_debug(logger, "recibi sticks");
+    t_list* paquete = recibir_paquete(conexion_kernel_memory);
+    int desplazamiento = 0;
+    int cantidad;
+    memcpy(&cantidad, list_get(paquete, desplazamiento++), sizeof(int));
+    log_debug(logger, "cantidad de sticks: %d", cantidad);
+    for(int i = 0; i < cantidad; i++){
+        int tamanio;
+        char* puerto;
+        char* ip;
+        memcpy(&tamanio, list_get(paquete, desplazamiento++), sizeof(int));
+        puerto = list_get(paquete, desplazamiento++);
+        ip = list_get(paquete, desplazamiento++);
+
+        log_info(logger, "Stick recibida -> tam: %u ip: %s puerto: %s", tamanio, ip, puerto);
+        
+        conectarse_a_stick(ip, puerto, tamanio);
+    }
+    list_destroy_and_destroy_elements(paquete, free);
 }
 
 void* ejecutar(){
@@ -378,9 +421,9 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
         case I_SET://Asigna al registro el valor pasado como parámetro. SET ax 5
             especificacion_registro* reg =list_get(instruccion->registros,0);
             int *input  =list_get(instruccion->registros,1);
-            log_info(logger, "antes de set, valor: %u",reg->ptro_reg);
+            log_info(logger, "antes de set, valor: %p",reg->ptro_reg);
             escribir_registro(reg, *input);
-            log_info(logger, "despues de set, valor: %u",reg->ptro_reg);
+            log_info(logger, "despues de set, valor: %p",reg->ptro_reg);
             break;
         case I_SUM:
             log_info(logger, "Ejecutando instruccion JNZ");

@@ -79,5 +79,6 @@ char* ruta_completa(char* base, char* nombre_archivo);
 
 // ...
 t_proceso* proceso_de_pid(int pid);
+void agregar_stick_a_paquete(t_paquete* paquete, t_stick* stick);
 
 #endif

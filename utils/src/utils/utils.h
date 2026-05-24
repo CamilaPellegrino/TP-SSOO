@@ -49,6 +49,7 @@ typedef enum
 	KM_CPU__RESPUESTA,
 	KM_CPU__INSTRUCCION,
 	KM_CPU__RTA_CONTEXTO,
+	KM_CPU__STICKS,
 	// mensajes con destino a KM
 	CPU_KM__PCONTEXTO,
 	CPU_KM__ACTUALIZAR_PCB,
@@ -60,7 +61,12 @@ typedef enum
 	CPU_KM__FETCH,
 	// mensajes con destino a IO
 	SCH_IO__SOLICITUD,
-
+	// mensajes con destino a SWAP
+	KM_SWAP__ESCRITURA,
+	KM_SWAP__LECTURA,
+	// mensajes con destino a Sticks
+	X_STICK__ESCRITURA,
+	X_STICK__LETURA,
 
 }op_code;
 
@@ -79,7 +85,8 @@ typedef enum
 {
 	SLEEP,
 	STDIN,
-	STDOUT
+	STDOUT,
+	INVALIDO
 } t_tipo_io;
 
 typedef enum

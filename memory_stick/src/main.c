@@ -1,14 +1,13 @@
 #include <utils/hello.h>
 #include <utils/utils.h>
 #include "base_stick.h"
-
+void atender_pedido_escritura();
+void atender_pedido_lectura();
+void* atender_pedidos(void* arg);
 void* atender_cliente(void *arg);
-void atender_cpu(int cpu_fd);
-void *atender_kernel_memory();
 
 t_log * logger;
 
-// fd del km
 int conexion_kernel_memory;
 
 int main(int argc, char* argv[]) {
@@ -21,21 +20,13 @@ int main(int argc, char* argv[]) {
     char *ruta_config = argv[1];
     int tamanio = atoi(argv[2]);
 
-    t_config* config;
-    char *ip;
-    char *puerto;
-
     logger = iniciar_logger("memory_stick.log", "ProcesoMemorySticks", LOG_LEVEL_INFO);
     
     // inciar config
-    config = iniciar_config(ruta_config);
-    if(config == NULL){
-        printf("No se pudo cargar el config\n");
-        exit(EXIT_FAILURE);
-    }
+    t_config* config = iniciar_config(ruta_config);
 
     // conectarse a kernel memory
-    ip = config_get_string_value(config, "IP");
+    char *ip = config_get_string_value(config, "IP");
     char *puerto_kernel_memory = config_get_string_value(config, "PUERTO_KERNEL_MEMORY");
     conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
     
@@ -43,17 +34,13 @@ int main(int argc, char* argv[]) {
     log_info(logger, "## Conectado a Kernel Memory");
     handshake_cliente(conexion_kernel_memory, logger);
 
-    pthread_t hilo;
-    pthread_create(&hilo, NULL, atender_kernel_memory, NULL);
+    t_cliente* cliente_km = iniciar_cliente(conexion_kernel_memory, CLIENTE_KERNEL_MEMORY);
+    pthread_t hilo = crear_hilo_o_exit(atender_pedidos, cliente_km, "atender_pedidos", logger);
     pthread_detach(hilo);
 
     //iniciar como servidor
-    puerto = config_get_string_value (config, "PUERTO_MEMORY_STICK"); //31551
-    int memory_stick_fd = iniciar_servidor(puerto);
-    if(memory_stick_fd == -1){
-        log_error(logger, "No se pudo iniciar el servidor");
-        exit(EXIT_FAILURE);
-    }
+    char *puerto = config_get_string_value (config, "PUERTO_MEMORY_STICK"); //31551
+    int memory_stick_fd = iniciar_servidor_o_exit(puerto, logger);
     
     // mandar info propia al kernel memory
     t_paquete *paquete = crear_paquete(STICK_KM__CONEXION);
@@ -61,60 +48,74 @@ int main(int argc, char* argv[]) {
     agregar_string_a_paquete(paquete, puerto);
     agregar_string_a_paquete(paquete, ip);
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
+
     // esperar clientes
     while(true){
         int *cliente_fd = esperar_cliente(memory_stick_fd);
         log_info(logger, "Me llego un cliente, %d", *cliente_fd);
         handshake_servidor(*cliente_fd, logger);
         //creamos el hilo para atender multiples CPUs
-        pthread_t thread;
-        pthread_create(&thread, NULL, atender_cliente, cliente_fd);
+        pthread_t thread = crear_hilo_o_exit(atender_cliente, cliente_fd, "atender_cliente", logger);
         pthread_detach(thread);
     }
-    
     return 0;
 }
 
+void* atender_pedidos(void* arg){
+    log_info(logger, "atendiendo pedidos de cliente");
+    t_cliente* cliente = (t_cliente*) arg;
+    int cliente_fd = cliente->fd;
+    while(1){
+        op_code cod_op = recibir_operacion(cliente_fd);
+        if(cod_op == -1){
+            if(cliente->tipo == CLIENTE_KERNEL_MEMORY){
+                log_error(logger, "Error: se desconecto Kernel Memory");
+                free(cliente);
+                exit(EXIT_FAILURE);
+            }
+            log_warning(logger, "se desconecto CPU");
+            free(cliente);
+            break; // salgo del hilo
+        }
+        switch(cod_op){
+            case X_STICK__ESCRITURA:{
+                atender_pedido_escritura();
+                break;
+            }case X_STICK__LETURA:{
+                atender_pedido_lectura();
+                break;
+            }default:{
+                log_warning(logger, "Operacion desconocida, cod_op: %d", cod_op);
+            }
+        }
+    }
+    return NULL;
+}
+
+void atender_pedido_escritura(){
+    log_warning(logger, "Warning: Operacion de escritura no implementada en stick");
+}
+
+void atender_pedido_lectura(){
+    log_warning(logger, "Warning: Operacion de lectura no implementada en stick");
+}
+
 void* atender_cliente(void *arg){
+    log_debug(logger, "atendiendo");
     int *cliente_fd_ptr = (int *) arg;
     int cliente_fd = *cliente_fd_ptr;
+    free(cliente_fd_ptr);
     op_code cod_op = recibir_operacion(cliente_fd);
     switch(cod_op){
         case CPU_STICK__CONEXION: {
-            char *msg = recibir_mensaje(cliente_fd);
-            log_info(logger, "Me llego el CPU, mensaje recibido: %s", msg);
-            free(msg);
-            atender_cpu(cliente_fd);
+            log_info(logger, "Me llego el CPU");
+            t_cliente* cliente_cpu = iniciar_cliente(cliente_fd, CLIENTE_CPU);
+            atender_pedidos(cliente_cpu);
             break;
         }
         default:
             log_warning(logger, "Warning: Operacion desconocida, cod_op = %d", cod_op);
     }
-
     return NULL;
 }
-
-void* atender_kernel_memory(){
-    log_info(logger, "## Conectado a Kernel Memory");
-    while(1){
-        op_code cod_op = recibir_operacion(conexion_kernel_memory);
-        if(cod_op == -1){
-            log_warning(logger, "se desconecto km");
-            exit(EXIT_FAILURE);
-        }
-    }
-}
-
-
-void atender_cpu(int cpu_fd){
-    log_info(logger, "## CPU <ID CPU> Conectada");
-    while(1){
-        op_code cod_op = recibir_operacion(cpu_fd);
-        if(cod_op == -1){
-            log_warning(logger, "se desconecto cpu");
-            break;
-        }
-    }
-}
-
 

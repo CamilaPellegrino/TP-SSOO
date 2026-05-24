@@ -71,10 +71,11 @@ void* atender_cliente(void *arg){
     switch(cod_op){
         case CPU_SCH__CONEXION: {
             t_list* lista_paquete = recibir_paquete(cliente_fd);
-            int* id_cpu = list_get(lista_paquete, 0);
-            t_cpu* cpu = iniciar_cpu(*id_cpu, cliente_fd); 
+            int id_cpu = *(int*)list_get(lista_paquete, 0);
+            t_cpu* cpu = iniciar_cpu(id_cpu, cliente_fd); 
             list_add(lista_cpus, cpu); // la agrego a la lista
             atender_cpu(cpu);
+            list_destroy_and_destroy_elements(lista_paquete, free);
             break;
             
         }case IO_SCH__CONEXION: { 
@@ -104,6 +105,8 @@ void* atender_cpu(t_cpu* cpu){
         log_debug(logger, "llego operacion de cpu <%d>", cpu_id);
         if(cod_op == -1){
             log_warning(logger, "Se desconecto cpu de id:%d", cpu_id);
+            list_remove_element(lista_cpus, cpu);
+            free(cpu);
             break;
         }
         switch(cod_op){
