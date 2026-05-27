@@ -11,6 +11,8 @@ int main(int argc, char* argv[]) { //KERNEL MEMORY
 
     inicializar_variables_globales(config);
 
+    // testear(); // Descomentar para ejecutar TESTS
+
     // iniciar servidor
     int kernel_memory_fd = iniciar_servidor_o_exit(puerto, logger);
 
@@ -22,10 +24,6 @@ int main(int argc, char* argv[]) { //KERNEL MEMORY
         handshake_servidor(*cliente_fd, logger);
 
         atender_cliente(cliente_fd);
-
-        // //Creacion del hilo para atender la conexion entrante
-        // pthread_t thread = crear_hilo_o_exit(atender_cliente, cliente_fd, "atender_cliente", logger);
-        // pthread_detach(thread);
     }
     list_destroy_and_destroy_elements(lista_sticks, free);
 }
@@ -57,8 +55,10 @@ void* atender_cliente(void *arg){
             // poner al stick en la lista de sticks
             t_stick* nuevo_stick = iniciar_stick(ip, puerto, tamanio, cliente_fd);
             
-            list_add(lista_sticks, nuevo_stick);
+            agregar_stick(nuevo_stick);
+
             enviar_nuevo_stick_a_scheduler(nuevo_stick, sch_fd);
+            
             list_destroy_and_destroy_elements(lista_paquete, free);            
             break;
         }case SWAP_KM__CONEXION:{

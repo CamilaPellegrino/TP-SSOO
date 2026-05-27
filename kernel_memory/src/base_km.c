@@ -6,11 +6,22 @@ void inicializar_variables_globales(t_config* config){
 
     t_log_level log_level = log_level_from_string(config_get_string_value(config, "LOG_LEVEL"));
     logger = iniciar_logger("kernel_memory.log", "ProcesoKernelMemory", log_level);
-    
     lista_sticks   = list_create();
     lista_cpus     = list_create();
+
+    lista_segmentos_global = list_create();
+    lista_huecos = list_create();
     lista_procesos = list_create();
 
+    algoritmo_fit = BEST_FIT;
+    tamanio_total_mem = 0;
+    // semaforos
+    // ...
+
+    // mutex
+    pthread_mutex_init(&m_lista_segmentos_global, NULL);
+    pthread_mutex_init(&m_lista_procesos, NULL);
+    pthread_mutex_init(&m_lista_huecos, NULL);
 }
 
 t_proceso* iniciar_proceso(t_pcb* pcb, t_list* instrucciones){
@@ -85,4 +96,9 @@ void agregar_stick_a_paquete(t_paquete* paquete, t_stick* stick){
     agregar_a_paquete(paquete, &(stick->tamanio), sizeof(int));
     agregar_string_a_paquete(paquete, stick->puerto);
     agregar_string_a_paquete(paquete, stick->ip);
+}
+
+void agregar_stick(t_stick* stick){
+    list_add(lista_sticks, stick);
+    tamanio_total_mem += stick->tamanio;
 }
