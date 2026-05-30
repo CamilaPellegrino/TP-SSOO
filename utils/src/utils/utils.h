@@ -39,6 +39,7 @@ typedef enum
 	CPU_SCH__MUTEX_LOCK,
 	CPU_SCH__MUTEX_UNLOCK,
 	CPU_SCH__EXIT,
+	CPU_SCH__EJECUCION_DETENIDA,
 	IO_SCH__OK,
 	IO_SCH__ERROR,
 	// mensajes con destino a CPU

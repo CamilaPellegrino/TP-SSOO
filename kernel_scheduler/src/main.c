@@ -73,7 +73,9 @@ void* atender_cliente(void *arg){
             t_list* lista_paquete = recibir_paquete(cliente_fd);
             int id_cpu = *(int*)list_get(lista_paquete, 0);
             t_cpu* cpu = iniciar_cpu(id_cpu, cliente_fd); 
+            pthread_mutex_lock(&m_lista_cpus);
             list_add(lista_cpus, cpu); // la agrego a la lista
+            pthread_mutex_unlock(&m_lista_cpus);
             atender_cpu(cpu);
             list_destroy_and_destroy_elements(lista_paquete, free);
             break;
@@ -97,15 +99,17 @@ void* atender_cliente(void *arg){
 void* atender_cpu(t_cpu* cpu){
     int cpu_fd = cpu->fd;
     int cpu_id = cpu->id;
-    
-    sem_post(&s_nueva_cpu_libre); 
+    sem_post(&s_intentar_planificar);
+    // sem_post(&s_nueva_cpu_libre); 
     log_info(logger, "## CPU <%d> Conectada", cpu_id);
     while(1){
         op_code cod_op = recibir_operacion(cpu_fd);
         log_debug(logger, "llego operacion de cpu <%d>", cpu_id);
         if(cod_op == -1){
             log_warning(logger, "Se desconecto cpu de id:%d", cpu_id);
+            pthread_mutex_lock(&m_lista_cpus);
             list_remove_element(lista_cpus, cpu);
+            pthread_mutex_unlock(&m_lista_cpus);
             free(cpu);
             break;
         }
@@ -155,12 +159,29 @@ void* atender_cpu(t_cpu* cpu){
                 char* instrucciones = list_get(lista_paquete, 0);
                 int prioridad = *(int*)list_get(lista_paquete, 1);
                 t_pcb* pcb = nuevo_proc(prioridad, cpu->proceso->pid, instrucciones);
+                list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
             }case CPU_SCH__EXIT:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <EXIT>", cpu->proceso->pid);
                 t_pcb* proceso_exit = cpu->proceso;
                 liberar_cpu(cpu);
                 manejar_proceso_exit(proceso_exit);
+                break;
+            }case CPU_SCH__EJECUCION_DETENIDA: {
+                log_info(logger, "cpu <%d>: Ejecucion detenida", cpu->id);
+                pthread_mutex_lock(&m_lista_cpus);
+                t_pcb* proceso = cpu->proceso;
+                if(!cpu->desalojando){
+                    log_debug(logger, "no estaba desalojando, no hago nd");
+                    pthread_mutex_unlock(&m_lista_cpus);
+                    break;
+                }
+                liberar_cpu(cpu);
+                pthread_mutex_unlock(&m_lista_cpus);
+                if(proceso != NULL){
+                    exec_a_ready_cond_signal(proceso);
+                }
+                sem_post(&s_intentar_planificar);
                 break;
             }default:
                 log_warning(logger, "operacion desconocida en hilo que atiende a cpu id: %d, cod_op: %d", cpu_id, cod_op);
@@ -169,6 +190,7 @@ void* atender_cpu(t_cpu* cpu){
     }
     return NULL;
 }
+
 void atender_cpu_syscall_mutex_unlock(char* nombre_mutex, t_cpu* cpu){
     t_mutex* mutex = get_mutex(nombre_mutex);
     t_pcb* proceso = cpu->proceso;
@@ -257,10 +279,8 @@ void atender_cpu_syscall_sleep(int tiempo_sleep, t_cpu* cpu){
     // crear el hilo de timeout para que dps del timeout se suspenda el proceso
     evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout", logger);
     
-    log_debug(logger, "TEST01: hilo timeout creado");
     // agregar evt a lista de evts
     pthread_mutex_lock(&m_lista_evt_sleep);
-    log_debug(logger, "TEST01: mutex tomado");
 
     list_add(lista_evt_sleep, evt);
     pthread_mutex_unlock(&m_lista_evt_sleep);
@@ -326,6 +346,7 @@ void* atender_km(void*){
                 }else{
                     log_error(logger, "error en init_proc de pid %d: Ruta invalida", pid);
                 }
+                list_destroy_and_destroy_elements(paquete, free);
                 break;
             }default: 
                 log_warning(logger, "Warning: Operacion desconocida, cod_op = %d",cod_op);

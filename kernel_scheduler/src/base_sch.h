@@ -24,6 +24,7 @@ typedef struct
 	int fd;
 	int id;
 	t_pcb* proceso; // proceso que esta ejecutando (NULL si no esta ejecutando nada)
+	bool desalojando;
 } t_cpu;
 
 
@@ -93,8 +94,8 @@ extern t_list* lista_evt_stdout;
 extern t_list* lista_mutex;        // mutexs creados por los procesos (tiene cosas de tipo t_mutex adentro)
 
 // semaforos
-extern sem_t s_nuevo_proceso_ready;
-extern sem_t s_nueva_cpu_libre;
+
+extern sem_t s_intentar_planificar;
 extern sem_t s_nuevo_proceso_new;
 extern sem_t s_evt_sleep;       // cuando hay una nueva solic de sleep
 extern sem_t s_evt_stdin;
@@ -162,7 +163,7 @@ void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
 void sumar_milisegundos(struct timespec* ts, int milisegundos);
 void loguear_tamanio_listas_de_estado();
 t_planificacion algoritmo_de_proceso(t_pcb*);
-
+ 
 // liberar
 void liberar_cpu(t_cpu* cpu);     // liberar la cpu, osea que no tenga asignado ningun proceso (no le manda nada a la cpu, solo hace cpu->proceso=NULL)
 void liberar_pcb_de_exit(int pid);

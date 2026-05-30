@@ -2,8 +2,8 @@
 void inicializar_lista_ready();
 void log_obligatorio_cambio_de_estado(int pid, char* estado_anterior, char* estado_actual);
 
-int procesos_en_ready = 0;
-
+int procesos_en_ready;
+pthread_mutex_t m_procesos_en_ready;
 // inicializar cosas 
 void inicializar_variables_globales(t_config* config){
     inicializar_parametros_de_config(config);
@@ -28,14 +28,15 @@ void inicializar_variables_globales(t_config* config){
     lista_mutex        = list_create();
 
     // inicializar semaforos
-    sem_init(&s_nueva_cpu_libre, 0, 0);
-    sem_init(&s_nuevo_proceso_ready, 0, 0);
+    sem_init(&s_intentar_planificar, 0, 0);
     sem_init(&s_nuevo_proceso_new, 0, 0);
     sem_init(&s_evt_sleep, 0, 0);
     sem_init(&s_evt_stdin, 0, 0);
     sem_init(&s_evt_stdout, 0, 0);
 
     // inicializar mutexes
+    pthread_mutex_init(&m_procesos_en_ready, NULL);
+
     pthread_mutex_init(&m_lista_evt_sleep, NULL);
     pthread_mutex_init(&m_lista_evt_stdin, NULL);
     pthread_mutex_init(&m_lista_evt_stdout, NULL);
@@ -54,6 +55,9 @@ void inicializar_variables_globales(t_config* config){
     pthread_mutex_lock(&m_proximo_pid);
     proximo_pid = 0;
     pthread_mutex_unlock(&m_proximo_pid);
+    pthread_mutex_lock(&m_procesos_en_ready);
+    procesos_en_ready = 0;
+    pthread_mutex_unlock(&m_procesos_en_ready);
 
 }   
 
@@ -115,6 +119,7 @@ t_cpu* iniciar_cpu(int id, int fd){
 		nuevo_cpu->id = id;
 		nuevo_cpu->fd = fd;
         nuevo_cpu->proceso = NULL;
+        nuevo_cpu->desalojando = false;
 	}
 	return nuevo_cpu;
 }
@@ -313,9 +318,11 @@ void agregar_a_ready(t_pcb* proceso){
         pthread_mutex_lock(&m_lista_ready);
         agregar_proceso_a_lista(lista_ready, proceso, LISTO);
         pthread_mutex_unlock(&m_lista_ready);
-    }
+    }    
+    pthread_mutex_lock(&m_procesos_en_ready);
     procesos_en_ready++;
-    sem_post(&s_nuevo_proceso_ready);
+    pthread_mutex_unlock(&m_procesos_en_ready);
+    sem_post(&s_intentar_planificar);
     log_debug(logger, "Hice sem_post de s_nuevo_proceso_ready");
 }
 
@@ -342,7 +349,9 @@ bool eliminar_de_ready(t_pcb* proceso){
         pthread_mutex_unlock(&m_lista_ready);
     }
     if(eliminado){
+        pthread_mutex_lock(&m_procesos_en_ready);
         procesos_en_ready--;
+        pthread_mutex_unlock(&m_procesos_en_ready);
     }
 
     return eliminado;
@@ -382,7 +391,6 @@ t_pcb* nuevo_proc(int prioridad, int ppid, char* instrucciones){
     pthread_mutex_lock(&m_proximo_pid);
     int pid = proximo_pid++;
     pthread_mutex_unlock(&m_proximo_pid);
-    log_debug(logger, "en nuevo_proc: proximo pid: %d", pid);
     t_pcb* pcb = iniciar_pcb(pid, ppid, prioridad, NUEVO);
     proceso_a_new(pcb);
     t_paquete* data_init_proc = crear_paquete(SCH_KM__INIT_PROC);
@@ -421,8 +429,9 @@ void desbloquear_proceso(t_pcb* proceso){
 
 void liberar_cpu(t_cpu* cpu){
     log_debug(logger, "liberando cpu de id %d", cpu->id);
+    cpu->desalojando = false;
     cpu->proceso = NULL;
-    sem_post(&s_nueva_cpu_libre);
+    sem_post(&s_intentar_planificar);
 }
 
 void liberar_pcb_de_exit(int pid){

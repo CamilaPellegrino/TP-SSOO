@@ -26,14 +26,16 @@ void ejecutar_init_proc(t_instruccion_decodificada* instr);
 t_log* logger;
 t_list* lista_sticks;  // lista global para guardar los memory sticks a los que me conecte
 
+bool v_desalojado_por_sch;
 bool v_ejecutar;
 pthread_cond_t cond_ejecutar;
 pthread_mutex_t m_ejecutar;
 
+// pthread_mutex_t m_desalojado_por_sch;
+
 int pid_pendiente;
 pthread_mutex_t m_pid_pendiente;
 
-t_pcb* pcb;
 
 // otros
 int conexion_kernel_scheduler;
@@ -131,8 +133,13 @@ int main(int argc, char* argv[]){
             }
             case SCH_CPU__DETENER_EJECUCION:{ // ej cuando hace un MUTEX_LOCK y se bloquea, o cuando se desaloja
                 log_debug(logger, "hilo principal: detener_ejecucion");
-                enviar_pcb_actualizado_a_km(pcb);
                 detener_ejecucion();
+                // pthread_mutex_lock(&m_desalojado_por_sch);
+                pthread_mutex_lock(&m_ejecutar);
+                v_desalojado_por_sch = true;
+                pthread_cond_signal(&cond_ejecutar);
+                pthread_mutex_unlock(&m_ejecutar);
+                // pthread_mutex_unlock(&m_desalojado_por_sch);
                 break;
             }
             case SCH_CPU__REANUDAR_EJECUCION:{ // cuando hace MUTEX_LOCK y estaba el semaforo disponible, no bloquea el proceso
@@ -222,14 +229,16 @@ void recibir_sticks_de_km(){
 
 void* ejecutar(){
     t_instruccion_decodificada* prox_instruccion;
+    t_pcb* pcb = malloc(sizeof(t_pcb));
     while(1){
         esperar_a_poder_ejecutar(); 
-        log_debug(logger, "ejecutar: Puedo seguir ejecutando");
+        log_debug(logger, "ya puedo ejecutar");
         pthread_mutex_lock(&m_pid_pendiente);
 
         if(pid_pendiente >= 0){ // significa que tengo que cambiar de proceso
             // reemplazar pcb actual por el pendiente (recibirlo de km)
             log_debug(logger, "prox pid: %d", pid_pendiente);
+            enviar_pcb_actualizado_a_km(pcb);
             pedir_contexto(pid_pendiente, pcb);
             log_debug(logger, "ejecutar: pidiendo nuevo pcb de pid %d a km y cargandolo", pid_pendiente);
             pid_pendiente = -1;
@@ -262,7 +271,7 @@ void ciclo_instruccion(t_pcb *pcb){
 
         if(syscall_bloqueante){
             enviar_pcb_actualizado_a_km(pcb);
-        }
+        } 
         list_destroy_and_destroy_elements(instruccion_decodificada->registros, free);
         free(instruccion_decodificada);
         free(instruccion);
@@ -552,6 +561,10 @@ void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p){
 void esperar_a_poder_ejecutar(){
     pthread_mutex_lock(&m_ejecutar);
     while(!v_ejecutar){
+        if(v_desalojado_por_sch){
+            enviar_operacion(conexion_kernel_scheduler, CPU_SCH__EJECUCION_DETENIDA);
+            v_desalojado_por_sch = false;
+        }
         pthread_cond_wait(&cond_ejecutar, &m_ejecutar);
     }
     pthread_mutex_unlock(&m_ejecutar);
@@ -658,10 +671,12 @@ void reanudar_ejecucion(){
 }
 
 void inicializar_variables(){
+    v_desalojado_por_sch = false;
     v_ejecutar = false;
     pid_pendiente = -1;
     lista_sticks = list_create();
-    pcb = malloc(sizeof(t_pcb));
+    pthread_mutex_init(&m_ejecutar, NULL);
+    pthread_cond_init(&cond_ejecutar, NULL);
 }
 
 especificacion_registro* obtener_registro(char* registro_crudo, t_pcb *pcb){
