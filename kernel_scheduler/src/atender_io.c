@@ -13,6 +13,8 @@ void* atender_io(t_io* io){
         case STDOUT:
             atender_io_stdout(io);
             break;
+        default:
+            log_warning(logger, "IO de tipo desconcido");
     }
     return NULL;
 }

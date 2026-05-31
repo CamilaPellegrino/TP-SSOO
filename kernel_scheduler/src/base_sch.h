@@ -12,12 +12,19 @@ typedef struct
 	bool cond_val;
 } t_data_cond;
 
+typedef struct
+{
+	t_list* sublista;
+	pthread_mutex_t mutex;
+} t_sublista_ready;
+
 typedef struct{
     int pid;
     int ppid;
     int prioridad;
 	t_tipo_estado estado;
 	t_data_cond data_cond;
+	pthread_mutex_t mutex;
 } t_pcb;
 typedef struct
 {
@@ -25,6 +32,7 @@ typedef struct
 	int id;
 	t_pcb* proceso; // proceso que esta ejecutando (NULL si no esta ejecutando nada)
 	bool desalojando;
+	pthread_mutex_t mutex;
 } t_cpu;
 
 
@@ -151,10 +159,10 @@ void agregar_a_ready(t_pcb* proceso);
 bool eliminar_de_ready(t_pcb* proceso);
 void agregar_a_ready_CMN(t_pcb* proceso);
 bool eliminar_de_ready_CMN(t_pcb* proceso);
-void agregar_proceso_a_lista(t_list* lista, t_pcb* proceso, t_tipo_estado nuevo_estado);
-bool eliminar_proceso_de_lista(t_list* lista, t_pcb* proceso, char* nombre_lista);
+void agregar_proceso_a_lista(t_list* lista, t_pcb* proceso, t_tipo_estado nuevo_estado, pthread_mutex_t* m);
+bool eliminar_proceso_de_lista(t_list* lista, t_pcb* proceso, char* nombre_lista, pthread_mutex_t* m);
 t_pcb* nuevo_proc(int prioridad, int ppid, char* instrucciones);
-t_list* sublista_ready_de_prioridad(int prioridad);
+t_sublista_ready* sublista_ready_de_prioridad(int prioridad);
 void desbloquear_proceso(t_pcb* proceso);
 
 // funciones genericas

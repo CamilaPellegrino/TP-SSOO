@@ -1,0 +1,31 @@
+{
+   commons_log_info
+   Helgrind:Race
+   ...
+   fun:log_info
+   ...
+}
+
+{
+   commons_log_debug
+   Helgrind:Race
+   ...
+   fun:log_debug
+   ...
+}
+
+{
+   commons_log_error
+   Helgrind:Race
+   ...
+   fun:log_error
+   ...
+}
+
+{
+   commons_log_warning
+   Helgrind:Race
+   ...
+   fun:log_warning
+   ...
+}

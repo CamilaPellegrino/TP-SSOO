@@ -5,6 +5,7 @@ t_cpu* proxima_cpu_libre();
 
 void* planificador_corto_plazo(){
     while(1){
+        log_debug(logger, "esperando");
         sem_wait(&s_intentar_planificar);
         log_debug(logger, "planificador_corto_plazo: despertado");
         while(1){
@@ -139,16 +140,19 @@ t_cpu* proxima_cpu()
 // devuelve el pcb dep proximo proceso a ejecutar si el algoritmo es CMN
 t_pcb* planificar_CMN(){
     pthread_mutex_lock(&m_lista_ready);
-    for(int i = 0; i < list_size(lista_ready); i++){
-        t_list* actual = list_get(lista_ready, i);
-        
-        if(!list_is_empty(actual)){
-            t_pcb* proceso = list_get(actual, 0);
-            pthread_mutex_unlock(&m_lista_ready);
+    int size = list_size(lista_ready);
+    pthread_mutex_unlock(&m_lista_ready);
+
+    for(int i = 0; i < size; i++){
+        t_sublista_ready* actual = sublista_ready_de_prioridad(i);
+        pthread_mutex_lock(&actual->mutex);
+        if(!list_is_empty(actual->sublista)){
+            t_pcb* proceso = list_get(actual->sublista, 0);
+            pthread_mutex_unlock(&actual->mutex);
             return proceso;
         }
+        pthread_mutex_unlock(&actual->mutex);
     }
-    pthread_mutex_unlock(&m_lista_ready);
     return NULL;
 }
 
