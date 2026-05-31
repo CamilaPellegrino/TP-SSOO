@@ -11,7 +11,7 @@ void testear(){
 
 void testear_listas(){
     log_debug(logger, "tamanio de lista_ready: %d", list_size(lista_ready));
-    t_pcb* proc1 = iniciar_pcb(0, 0, LISTO);
+    t_pcb* proc1 = iniciar_pcb(0, 0, -1, LISTO);
     agregar_a_ready_CMN(proc1);
     t_cpu* cpu = iniciar_cpu(1,0);
     list_add(lista_cpus, cpu);

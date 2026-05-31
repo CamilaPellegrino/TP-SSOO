@@ -31,22 +31,22 @@ int main(int argc, char* argv[]) { // ejecucion con valgrind: valgrind --leak-ch
     // enviar mensaje a kernel memory
     enviar_mensaje("Hola, soy sche", conexion_kernel_memory, SCH_KM__CONEXION);
     
-    pthread_t thread_km = crear_hilo_o_exit(atender_km, NULL, "thread_km");
+    pthread_t thread_km = crear_hilo_o_exit(atender_km, NULL, "thread_km", logger);
     pthread_detach(thread_km);
     // iniciar servidor
-    int kernel_scheduler_fd = iniciar_servidor_o_exit(puerto_kernel_scheduler); 
+    int kernel_scheduler_fd = iniciar_servidor_o_exit(puerto_kernel_scheduler, logger); 
 
     // crear hilos de planificacion
 
-    pthread_t hilo_largo_plazo = crear_hilo_o_exit(planificador_largo_plazo, NULL, "hilo_largo_plazo");
-    pthread_t hilo_corto_plazo = crear_hilo_o_exit(planificador_corto_plazo, NULL, "hilo_corto_plazo");
+    pthread_t hilo_largo_plazo = crear_hilo_o_exit(planificador_largo_plazo, NULL, "hilo_largo_plazo", logger);
+    pthread_t hilo_corto_plazo = crear_hilo_o_exit(planificador_corto_plazo, NULL, "hilo_corto_plazo", logger);
     pthread_detach(hilo_largo_plazo);
     pthread_detach(hilo_corto_plazo);
 
     log_debug(logger, "hilos de planificacion creados");
 
     // agregar el proceso de pid 0
-    t_pcb* pcb_pid_0 = nuevo_proc(0, instrucciones_pid_0); //TODO: mandar la ruta de las instrucciones junto al PID al kernel memory para que las guarde
+    t_pcb* pcb_pid_0 = nuevo_proc(0, -1, instrucciones_pid_0);
     
     // esperar clientes
     while(true){
@@ -71,10 +71,13 @@ void* atender_cliente(void *arg){
     switch(cod_op){
         case CPU_SCH__CONEXION: {
             t_list* lista_paquete = recibir_paquete(cliente_fd);
-            int* id_cpu = list_get(lista_paquete, 0);
-            t_cpu* cpu = iniciar_cpu(*id_cpu, cliente_fd); 
+            int id_cpu = *(int*)list_get(lista_paquete, 0);
+            t_cpu* cpu = iniciar_cpu(id_cpu, cliente_fd); 
+            pthread_mutex_lock(&m_lista_cpus);
             list_add(lista_cpus, cpu); // la agrego a la lista
+            pthread_mutex_unlock(&m_lista_cpus);
             atender_cpu(cpu);
+            list_destroy_and_destroy_elements(lista_paquete, free);
             break;
             
         }case IO_SCH__CONEXION: { 
@@ -96,13 +99,18 @@ void* atender_cliente(void *arg){
 void* atender_cpu(t_cpu* cpu){
     int cpu_fd = cpu->fd;
     int cpu_id = cpu->id;
-    
-    sem_post(&s_nueva_cpu_libre); 
+    sem_post(&s_intentar_planificar);
+    // sem_post(&s_nueva_cpu_libre); 
     log_info(logger, "## CPU <%d> Conectada", cpu_id);
     while(1){
         op_code cod_op = recibir_operacion(cpu_fd);
+        log_debug(logger, "llego operacion de cpu <%d>", cpu_id);
         if(cod_op == -1){
             log_warning(logger, "Se desconecto cpu de id:%d", cpu_id);
+            pthread_mutex_lock(&m_lista_cpus);
+            list_remove_element(lista_cpus, cpu);
+            pthread_mutex_unlock(&m_lista_cpus);
+            free(cpu);
             break;
         }
         switch(cod_op){
@@ -110,6 +118,7 @@ void* atender_cpu(t_cpu* cpu){
                 log_info(logger, "## (<%d>) - Solicito syscall: <SLEEP>", cpu->proceso->pid);
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 int tiempo_sleep = *(int*)list_get(lista_paquete, 0);
+
                 atender_cpu_syscall_sleep(tiempo_sleep, cpu);
                 break;
             }case CPU_SCH__MUTEX_CREATE:{
@@ -149,13 +158,30 @@ void* atender_cpu(t_cpu* cpu){
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 char* instrucciones = list_get(lista_paquete, 0);
                 int prioridad = *(int*)list_get(lista_paquete, 1);
-                t_pcb* pcb_pid_0 = nuevo_proc(prioridad, instrucciones);
+                t_pcb* pcb = nuevo_proc(prioridad, cpu->proceso->pid, instrucciones);
+                list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
             }case CPU_SCH__EXIT:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <EXIT>", cpu->proceso->pid);
                 t_pcb* proceso_exit = cpu->proceso;
                 liberar_cpu(cpu);
                 manejar_proceso_exit(proceso_exit);
+                break;
+            }case CPU_SCH__EJECUCION_DETENIDA: {
+                log_info(logger, "cpu <%d>: Ejecucion detenida", cpu->id);
+                pthread_mutex_lock(&m_lista_cpus);
+                t_pcb* proceso = cpu->proceso;
+                if(!cpu->desalojando){
+                    log_debug(logger, "no estaba desalojando, no hago nd");
+                    pthread_mutex_unlock(&m_lista_cpus);
+                    break;
+                }
+                liberar_cpu(cpu);
+                pthread_mutex_unlock(&m_lista_cpus);
+                if(proceso != NULL){
+                    exec_a_ready_cond_signal(proceso);
+                }
+                sem_post(&s_intentar_planificar);
                 break;
             }default:
                 log_warning(logger, "operacion desconocida en hilo que atiende a cpu id: %d, cod_op: %d", cpu_id, cod_op);
@@ -164,6 +190,7 @@ void* atender_cpu(t_cpu* cpu){
     }
     return NULL;
 }
+
 void atender_cpu_syscall_mutex_unlock(char* nombre_mutex, t_cpu* cpu){
     t_mutex* mutex = get_mutex(nombre_mutex);
     t_pcb* proceso = cpu->proceso;
@@ -178,34 +205,42 @@ void atender_cpu_syscall_mutex_unlock(char* nombre_mutex, t_cpu* cpu){
 void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu){
     t_mutex* mutex = get_mutex(nombre_mutex);
     if(mutex == NULL){
+        log_error(logger, "NotFoundException: Mutex de nombre <%s> no declarado", nombre_mutex);
+        enviar_operacion(cpu->fd, SCH_CPU__DETENER_EJECUCION);
+        exec_a_exit(cpu->proceso);
+        liberar_cpu(cpu);
+        return;
         // TODO: no existe un mutex con ese nombre en lista_mutex, devolver a CPU codigo de error
     }
     t_pcb* proceso = cpu->proceso;
     bool reservado = m_wait(mutex, proceso);
     if(reservado){
-        log_info(logger, "## (<%d>) Toma el Mutex <%s>", proceso->pid, nombre_mutex);
         log_debug(logger, "atender_cpu_syscall_mutex_lock: mutex %s reservado", nombre_mutex);
         enviar_operacion(cpu->fd, SCH_CPU__REANUDAR_EJECUCION);
     }else{
         log_debug(logger, "atender_cpu_syscall_mutex_lock: mutex %s no disponible, bloqueando proceso y desalojando de cpu", nombre_mutex);
         
         // detener ejecucion de cpu
-        enviar_operacion(cpu->fd, SCH_CPU__DETENER_EJECUCION);
+        // enviar_operacion(cpu->fd, SCH_CPU__DETENER_EJECUCION);
+        liberar_cpu(cpu);
+        log_debug(logger, "test1: libero cpu");
         // bloquear proceso
-        ready_a_blocked(proceso);
+        exec_a_blocked_cond_signal(proceso);
+        log_debug(logger, "test1: paso a blocked");
+
     }
 
 }
 
 void atender_cpu_syscall_stdout(int tamanio, int dir_logica, t_cpu* cpu){
     t_pcb* proceso = cpu->proceso;
-    exec_a_blocked(proceso);
+    exec_a_blocked_cond_signal(proceso);
     liberar_cpu(cpu);
     log_debug(logger, "tamanio a leer: %d, dir logica: %d", tamanio, dir_logica);
     // crear evento
     t_evt* evt = iniciar_evt_std_in_out(tamanio, dir_logica, proceso);
     // crear el hilo de timeout para que dps del timeout se suspenda el proceso
-    evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout");
+    evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout", logger);
     
     // agregar evt a lista de evts
     pthread_mutex_lock(&m_lista_evt_stdout);
@@ -217,13 +252,13 @@ void atender_cpu_syscall_stdout(int tamanio, int dir_logica, t_cpu* cpu){
 
 void atender_cpu_syscall_stdin(int tamanio, int dir_logica, t_cpu* cpu){ // TODO: Codigo muy parecido a atender_cpu_syscall_sleep, juntarlo
     t_pcb* proceso = cpu->proceso;
-    exec_a_blocked(proceso);
+    exec_a_blocked_cond_signal(proceso);
     liberar_cpu(cpu);
     log_debug(logger, "tamanio a leer: %d, dir logica: %d", tamanio, dir_logica);
     // crear evento
     t_evt* evt = iniciar_evt_std_in_out(tamanio, dir_logica, proceso);
     // crear el hilo de timeout para que dps del timeout se suspenda el proceso
-    evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout");
+    evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout", logger);
     
     // agregar evt a lista de evts
     pthread_mutex_lock(&m_lista_evt_stdin);
@@ -235,18 +270,18 @@ void atender_cpu_syscall_stdin(int tamanio, int dir_logica, t_cpu* cpu){ // TODO
 
 void atender_cpu_syscall_sleep(int tiempo_sleep, t_cpu* cpu){
     t_pcb* proceso = cpu->proceso;
-    exec_a_blocked(proceso);
+    exec_a_blocked_cond_signal(proceso);
     liberar_cpu(cpu);
     log_debug(logger, "tiempo: %d", tiempo_sleep);
     
     // crear evento
     t_evt* evt = iniciar_evt_sleep(tiempo_sleep, proceso);
-
     // crear el hilo de timeout para que dps del timeout se suspenda el proceso
-    evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout");
+    evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout", logger);
     
     // agregar evt a lista de evts
     pthread_mutex_lock(&m_lista_evt_sleep);
+
     list_add(lista_evt_sleep, evt);
     pthread_mutex_unlock(&m_lista_evt_sleep);
     sem_post(&s_evt_sleep);
@@ -273,7 +308,7 @@ void* atender_km(void*){
         op_code cod_op = recibir_operacion(conexion_kernel_memory);
         if(cod_op == -1){
             log_warning(logger, "error, se desconecto kernel memory");
-            // exit(EXIT_FAILURE);
+            exit(EXIT_FAILURE);
             break;
         }
 
@@ -300,6 +335,18 @@ void* atender_km(void*){
                 t_list* data_pcb = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*)list_get(data_pcb, 0);
                 liberar_pcb_de_exit(pid);
+                break;
+            }case KM_SCH__INIT_PROC_RESP:{
+                t_list* paquete = recibir_paquete(conexion_kernel_memory);
+                int pid = *(int*)list_get(paquete, 0);
+                bool ok = *(bool*)list_get(paquete,1);
+                if(ok){
+                    log_debug(logger, "Init proc de pid %d OK", pid);
+                    sem_post(&s_nuevo_proceso_new);
+                }else{
+                    log_error(logger, "error en init_proc de pid %d: Ruta invalida", pid);
+                }
+                list_destroy_and_destroy_elements(paquete, free);
                 break;
             }default: 
                 log_warning(logger, "Warning: Operacion desconocida, cod_op = %d",cod_op);

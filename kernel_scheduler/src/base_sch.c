@@ -2,8 +2,8 @@
 void inicializar_lista_ready();
 void log_obligatorio_cambio_de_estado(int pid, char* estado_anterior, char* estado_actual);
 
-int procesos_en_ready = 0;
-
+int procesos_en_ready;
+pthread_mutex_t m_procesos_en_ready;
 // inicializar cosas 
 void inicializar_variables_globales(t_config* config){
     inicializar_parametros_de_config(config);
@@ -28,14 +28,15 @@ void inicializar_variables_globales(t_config* config){
     lista_mutex        = list_create();
 
     // inicializar semaforos
-    sem_init(&s_nueva_cpu_libre, 0, 0);
-    sem_init(&s_nuevo_proceso_ready, 0, 0);
+    sem_init(&s_intentar_planificar, 0, 0);
     sem_init(&s_nuevo_proceso_new, 0, 0);
     sem_init(&s_evt_sleep, 0, 0);
     sem_init(&s_evt_stdin, 0, 0);
     sem_init(&s_evt_stdout, 0, 0);
 
     // inicializar mutexes
+    pthread_mutex_init(&m_procesos_en_ready, NULL);
+
     pthread_mutex_init(&m_lista_evt_sleep, NULL);
     pthread_mutex_init(&m_lista_evt_stdin, NULL);
     pthread_mutex_init(&m_lista_evt_stdout, NULL);
@@ -51,7 +52,13 @@ void inicializar_variables_globales(t_config* config){
     pthread_mutex_init(&m_lista_cpus, NULL);
     
     //otras cosas
+    pthread_mutex_lock(&m_proximo_pid);
     proximo_pid = 0;
+    pthread_mutex_unlock(&m_proximo_pid);
+    pthread_mutex_lock(&m_procesos_en_ready);
+    procesos_en_ready = 0;
+    pthread_mutex_unlock(&m_procesos_en_ready);
+
 }   
 
 void inicializar_parametros_de_config(t_config* config){
@@ -64,7 +71,7 @@ void inicializar_parametros_de_config(t_config* config){
     char** queues_str = config_get_array_value(config, "QUEUES_ALGORITHMS");
     queues_algorithms = queues_algorithms_a_t_list(queues_str);
     string_array_destroy(queues_str); 
-    // rr_quantum = config_get_int_value(config, "RR_QUANTUM"); // esto mas adelante
+    quantum = config_get_int_value(config, "RR_QUANTUM"); 
 }
 
 t_list* queues_algorithms_a_t_list(char** queues_algorithms_str){
@@ -112,6 +119,7 @@ t_cpu* iniciar_cpu(int id, int fd){
 		nuevo_cpu->id = id;
 		nuevo_cpu->fd = fd;
         nuevo_cpu->proceso = NULL;
+        nuevo_cpu->desalojando = false;
 	}
 	return nuevo_cpu;
 }
@@ -125,12 +133,16 @@ t_io* iniciar_io(t_tipo_io tipo, int io_fd){
 	return nueva_io;
 }
 
-t_pcb* iniciar_pcb(int pid, int prioridad, t_tipo_estado estado){
+t_pcb* iniciar_pcb(int pid, int ppid, int prioridad, t_tipo_estado estado){
 	t_pcb* nuevo_pcb = malloc(sizeof(t_pcb));
 	nuevo_pcb->estado = NUEVO;
 	nuevo_pcb->pid = pid;
+	nuevo_pcb->ppid = ppid;
 	nuevo_pcb->prioridad = prioridad;
-	nuevo_pcb->estado = estado;
+	nuevo_pcb->estado = estado;   
+    nuevo_pcb->data_cond.cond_val = false;
+    pthread_mutex_init(&nuevo_pcb->data_cond.mutex_cond, NULL);
+    pthread_cond_init(&nuevo_pcb->data_cond.cond, NULL);
 	return nuevo_pcb;
 }
 
@@ -211,16 +223,6 @@ void ready_a_exec(t_pcb* proceso){
     log_obligatorio_cambio_de_estado(proceso->pid, "READY", "EXEC");
 }
 
-void ready_a_blocked(t_pcb* proceso){
-    bool eliminado = eliminar_de_ready(proceso);
-    if(eliminado){
-        pthread_mutex_lock(&m_lista_blocked);
-        agregar_proceso_a_lista(lista_blocked, proceso, BLOQUEADO);
-        pthread_mutex_unlock(&m_lista_blocked);
-    }
-    log_obligatorio_cambio_de_estado(proceso->pid, "READY", "BLOCKED");
-}
-
 void blocked_a_ready(t_pcb* proceso){
     pthread_mutex_lock(&m_lista_blocked);
     bool eliminado = eliminar_proceso_de_lista(lista_blocked, proceso, "lista_blocked");
@@ -245,6 +247,19 @@ void exec_a_blocked(t_pcb* proceso){
     log_obligatorio_cambio_de_estado(proceso->pid, "EXEC", "BLOCKED");
 }
 
+void exec_a_blocked_cond_signal(t_pcb* proceso){
+    if(algoritmo_de_proceso(proceso) != RR){
+        exec_a_blocked(proceso);
+        log_debug(logger, "El proceso %d no usa RR, no hago lo de cond", proceso->pid);
+        return;
+    }
+    pthread_mutex_lock(&proceso->data_cond.mutex_cond);
+    exec_a_blocked(proceso);
+    proceso->data_cond.cond_val = true;
+    pthread_cond_signal(&proceso->data_cond.cond);
+    pthread_mutex_unlock(&proceso->data_cond.mutex_cond);
+}
+
 void exec_a_ready(t_pcb* proceso){
 
     pthread_mutex_lock(&m_lista_exec);
@@ -255,6 +270,14 @@ void exec_a_ready(t_pcb* proceso){
         agregar_a_ready(proceso);
     }
     log_obligatorio_cambio_de_estado(proceso->pid, "EXEC", "READY");
+}
+
+void exec_a_ready_cond_signal(t_pcb* proceso){
+    pthread_mutex_lock(&proceso->data_cond.mutex_cond);
+    proceso->data_cond.cond_val = true;
+    pthread_cond_signal(&proceso->data_cond.cond);
+    pthread_mutex_unlock(&proceso->data_cond.mutex_cond);
+    exec_a_ready(proceso);
 }
 
 void new_a_ready(t_pcb* proceso){
@@ -278,9 +301,8 @@ void exec_a_exit(t_pcb* proceso){
         agregar_proceso_a_lista(lista_exit, proceso, FINALIZADO);
         pthread_mutex_unlock(&m_lista_exit);
     }
-    log_obligatorio_cambio_de_estado(proceso->pid, "EXEC", "BLOCKED");
+    log_obligatorio_cambio_de_estado(proceso->pid, "EXEC", "EXIT");
 }
-
 
 void proceso_a_new(t_pcb* proceso){
     pthread_mutex_lock(&m_lista_new);
@@ -296,9 +318,12 @@ void agregar_a_ready(t_pcb* proceso){
         pthread_mutex_lock(&m_lista_ready);
         agregar_proceso_a_lista(lista_ready, proceso, LISTO);
         pthread_mutex_unlock(&m_lista_ready);
-    }
+    }    
+    pthread_mutex_lock(&m_procesos_en_ready);
     procesos_en_ready++;
-    sem_post(&s_nuevo_proceso_ready);
+    pthread_mutex_unlock(&m_procesos_en_ready);
+    sem_post(&s_intentar_planificar);
+    log_debug(logger, "Hice sem_post de s_nuevo_proceso_ready");
 }
 
 void agregar_a_ready_CMN(t_pcb* proceso){
@@ -324,11 +349,14 @@ bool eliminar_de_ready(t_pcb* proceso){
         pthread_mutex_unlock(&m_lista_ready);
     }
     if(eliminado){
+        pthread_mutex_lock(&m_procesos_en_ready);
         procesos_en_ready--;
+        pthread_mutex_unlock(&m_procesos_en_ready);
     }
 
     return eliminado;
 }
+
 bool eliminar_de_ready_CMN(t_pcb* proceso){
     pthread_mutex_lock(&m_lista_ready);
     t_list* cola = list_get(lista_ready, proceso->prioridad);
@@ -359,10 +387,17 @@ void agregar_proceso_a_lista(t_list* lista, t_pcb* proceso, t_tipo_estado nuevo_
     proceso->estado = nuevo_estado;
 }
 
-t_pcb* nuevo_proc(int prioridad, char* instrucciones){
-    t_pcb* pcb = iniciar_pcb(proximo_pid++, prioridad, NUEVO);
+t_pcb* nuevo_proc(int prioridad, int ppid, char* instrucciones){
+    pthread_mutex_lock(&m_proximo_pid);
+    int pid = proximo_pid++;
+    pthread_mutex_unlock(&m_proximo_pid);
+    t_pcb* pcb = iniciar_pcb(pid, ppid, prioridad, NUEVO);
     proceso_a_new(pcb);
-    sem_post(&s_nuevo_proceso_new);
+    t_paquete* data_init_proc = crear_paquete(SCH_KM__INIT_PROC);
+    agregar_a_paquete(data_init_proc, &pcb->pid, sizeof(int));
+    agregar_a_paquete(data_init_proc, &pcb->ppid, sizeof(int));
+    agregar_string_a_paquete(data_init_proc, instrucciones);
+    enviar_paquete_y_liberarlo(data_init_proc, conexion_kernel_memory);
 
     return pcb;
 }
@@ -394,8 +429,9 @@ void desbloquear_proceso(t_pcb* proceso){
 
 void liberar_cpu(t_cpu* cpu){
     log_debug(logger, "liberando cpu de id %d", cpu->id);
+    cpu->desalojando = false;
     cpu->proceso = NULL;
-    sem_post(&s_nueva_cpu_libre);
+    sem_post(&s_intentar_planificar);
 }
 
 void liberar_pcb_de_exit(int pid){
@@ -414,16 +450,7 @@ void liberar_pcb_de_exit(int pid){
     log_error(logger, "No se encontro el proceso PID <%d> en lista_exit", pid);
 }
 
-// genericas
-int iniciar_servidor_o_exit(char* puerto){
-    int fd = iniciar_servidor(puerto);
-
-    if(fd == -1){
-        log_error(logger, "No se pudo iniciar el servidor");
-        exit(EXIT_FAILURE);
-    }
-    return fd;
-}
+// funciones genericas
 
 t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str){
     t_planificacion algo = algoritmo_str_a_enum(algoritmo_str);
@@ -432,17 +459,6 @@ t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str){
         exit(EXIT_FAILURE);
     }
     return algo;
-}
-
-pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo){
-    pthread_t hilo;
-    int resultado = pthread_create(&hilo, NULL, funcion, arg);
-
-    if(resultado != 0){
-        log_error(logger, "Error al crear el hilo %s. Codigo: %d", nombre_hilo, resultado);
-        exit(EXIT_FAILURE);
-    }
-    return hilo;
 }
 
 void enviar_paquete_a_todas_las_cpus(t_paquete* paquete){
@@ -481,4 +497,13 @@ void loguear_tamanio_listas_de_estado(){
                     , list_size(lista_blocked)
                     , list_size(lista_susp_blocked)
                     , list_size(lista_susp_ready));
+}
+
+t_planificacion algoritmo_de_proceso(t_pcb* proceso){
+    if(algoritmo != CMN){
+        return algoritmo;
+    }
+    // para CMN:
+    t_planificacion algo = *(t_planificacion*)list_get(queues_algorithms, proceso->prioridad);
+    return algo;
 }

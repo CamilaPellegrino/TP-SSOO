@@ -22,6 +22,16 @@ typedef struct
 	t_tipo_io tipo;
 } t_io;
 
+typedef enum {
+    CLIENTE_KERNEL_MEMORY,
+    CLIENTE_CPU
+} tipo_cliente_t;
+
+typedef struct {
+    int fd;
+    tipo_cliente_t tipo;
+} t_cliente;
+
 typedef struct
 {
 	// identificadores del proceso
@@ -44,7 +54,9 @@ typedef struct
 	
 } t_pcb;
 
+// iniciarlizar cosas
 
+t_cliente* iniciar_cliente(int fd, tipo_cliente_t tipo);
 t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd);
 void destruir_stick(t_stick* stick);
 t_cpu* iniciar_cpu(int id, int fd);

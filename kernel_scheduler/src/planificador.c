@@ -1,53 +1,114 @@
 #include "planificador.h"
+void asignar_proceso(t_pcb* proceso, t_cpu* cpu);
+t_cpu* cpu_a_desalojar_por_prioridad(t_pcb* p);
+t_cpu* proxima_cpu_libre();
 
 void* planificador_corto_plazo(){
     while(1){
-        log_debug(logger, "esperando cosas en corto plazo");
-        sem_wait(&s_nueva_cpu_libre);
-        log_debug(logger, "planificador_corto_plazo: cpu libre encontrada");
-        t_cpu* prox_cpu = proxima_cpu();
-        if(prox_cpu == NULL){
-            log_debug(logger, "planificador_corto_plazo: no hay cpu, volviendo a wait");
-            continue;
+        sem_wait(&s_intentar_planificar);
+        log_debug(logger, "planificador_corto_plazo: despertado");
+        while(1){
+            t_pcb* proceso = proximo_proceso();
+            if(proceso == NULL){
+                log_debug(logger, "planificador_corto_plazo: no hay procesos en ready");
+                break;
+            }
+            t_cpu* cpu = proxima_cpu_libre();
+            if(cpu != NULL){
+                log_debug(logger, "planificador_corto_plazo: asignando cpu %d a proceso %d", cpu->id, proceso->pid);
+                asignar_proceso(proceso, cpu);
+                continue;
+            }
+            if(algoritmo == CMN){
+                t_cpu* cpu_desalojable = cpu_a_desalojar_por_prioridad(proceso);
+                
+                if(cpu_desalojable != NULL){
+                    pthread_mutex_lock(&m_lista_cpus);
+
+                    if(!cpu_desalojable->desalojando){
+                        cpu_desalojable->desalojando = true;
+                        enviar_operacion(cpu_desalojable->fd, SCH_CPU__DETENER_EJECUCION);
+                        log_info(logger, "## desalojando cpu %d", cpu_desalojable->id);
+                    }
+
+                    pthread_mutex_unlock(&m_lista_cpus);
+                }
+            }
+            break;
         }
-        
-        sem_wait(&s_nuevo_proceso_ready);
-        log_debug(logger, "planificador_corto_plazo: ejecutando");
-        
-        t_pcb* prox_proceso = proximo_proceso();
-        if(prox_proceso == NULL){
-            log_debug(logger, "planificador_corto_plazo: no encontre proceso, volviendo a wait. Probablemente hubo un sem_post de mas");
-            continue;
-        }
-        int pid = prox_proceso->pid;
-
-        // marcar que la cpu esta ocupada 
-        prox_cpu->proceso = prox_proceso;
-
-        // le asigno a prox_cpu el proceso prox_proceso mandandole el pid
-        int cpu_fd = prox_cpu->fd;
-        t_paquete* paquete_asignar_proceso = crear_paquete(SCH_CPU__PID);         
-        agregar_a_paquete(paquete_asignar_proceso, &pid, sizeof(pid));         
-        enviar_paquete(paquete_asignar_proceso, cpu_fd);         
-        log_debug(logger, "planificador_corto_plazo: Envie pid %d a cpu de fd %d", pid, cpu_fd); 
-	    log_debug(logger, "ENVIO OP=%d SIZE=%d", paquete_asignar_proceso->codigo_operacion, paquete_asignar_proceso->buffer->size);
-
-        ready_a_exec(prox_proceso);
     }
     return NULL;
+}
+t_cpu* proxima_cpu_libre(){
+    pthread_mutex_lock(&m_lista_cpus);
+    for(int i = 0; i< list_size(lista_cpus); i++){
+        t_cpu* c = list_get(lista_cpus, i);
+        if(c->proceso == NULL){
+            pthread_mutex_unlock(&m_lista_cpus);
+            return c;
+        }
+    }
+    pthread_mutex_unlock(&m_lista_cpus);
+    return NULL;
+}
+
+t_cpu* cpu_a_desalojar_por_prioridad(t_pcb* p){
+    t_cpu* peor_cpu = NULL;
+    pthread_mutex_lock(&m_lista_cpus);
+    for(int i = 0; i < list_size(lista_cpus); i++){
+        t_cpu* c = list_get(lista_cpus, i);
+        log_debug(logger, "analizando cpu de id %d", c->id);
+        if(c->proceso == NULL){
+            peor_cpu = NULL;
+            break;
+        }
+        if(c->desalojando){
+            continue;
+        }
+        if(c->proceso->prioridad > p->prioridad){
+            if(peor_cpu == NULL || c->proceso->prioridad > peor_cpu->proceso->prioridad){
+                peor_cpu = c;
+            }
+        }
+    }
+    pthread_mutex_unlock(&m_lista_cpus);
+    log_debug(logger, "cpu_a_desalojar_por_prioridad finalizando");
+    return peor_cpu;
+}
+
+
+void asignar_proceso(t_pcb* proceso, t_cpu* cpu){
+    // marcar que la cpu esta ocupada 
+    cpu->proceso = proceso;
+    int pid = proceso->pid;
+
+    // le asigno a prox_cpu el proceso prox_proceso mandandole el pid
+    int cpu_fd = cpu->fd;
+    t_paquete* paquete_asignar_proceso = crear_paquete(SCH_CPU__PID);         
+    agregar_a_paquete(paquete_asignar_proceso, &pid, sizeof(pid));         
+    enviar_paquete_y_liberarlo(paquete_asignar_proceso, cpu_fd);         
+    log_debug(logger, "planificador_corto_plazo: Envie pid %d a cpu de fd %d", pid, cpu_fd); 
+
+    ready_a_exec(proceso);
+    if(algoritmo_de_proceso(proceso) == RR){
+        log_debug(logger, "creando hilo_fin_quantum para proc %d", pid);
+        crear_hilo_o_exit(hilo_fin_quantum, cpu, "hilo_fin_quantum", logger);
+    }
 }
 
 void * planificador_largo_plazo(){
     while(1){
         sem_wait(&s_nuevo_proceso_new);
         log_info(logger, "planificador_largo_plazo: ejecutando");
+        pthread_mutex_lock(&m_lista_new);
         if(list_is_empty(lista_new)){
+        pthread_mutex_unlock(&m_lista_new);
             log_warning(logger, "planificador_largo_plazo: no habia nada en new (raro que esto pase)");
             continue;
         }
+        pthread_mutex_unlock(&m_lista_new);
         t_pcb* proceso_new = list_get(lista_new, 0);
         new_a_ready(proceso_new);
-        log_debug(logger, "cosas en new ahora: %d, cosas en ready: %d", list_size(lista_new), list_size(lista_ready));
     }
 }
 
@@ -65,8 +126,10 @@ t_cpu* proxima_cpu()
     pthread_mutex_lock(&m_lista_cpus);
     for(int i=0; i<list_size(lista_cpus); i++){
         t_cpu* cpu = list_get(lista_cpus, i);
-        if(cpu->proceso == NULL)
+        if(cpu->proceso == NULL){
             ret = cpu;
+            break;
+        }
     }
     pthread_mutex_unlock(&m_lista_cpus);
 
@@ -138,5 +201,41 @@ void* hilo_timeout(void* arg){
     log_debug(logger, "hilo_timeout: finalizando");
     
     pthread_mutex_unlock(&evt->mutex);
+    return NULL;
+}
+
+void* hilo_fin_quantum(void* arg){
+    t_cpu* cpu = (t_cpu*) arg;
+    if(cpu == NULL || cpu->proceso == NULL){ return NULL; }
+    t_pcb* proceso = cpu->proceso;
+    log_debug(logger, "iniciando hilo_fin_quantum para pid <%d>", proceso->pid);
+    if(proceso == NULL){
+        log_debug(logger, "hilo_fin_quantum: cpu libre, terminando este hilo");
+        return NULL;
+    }
+    t_data_cond* data_cond = &proceso->data_cond;
+
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    sumar_milisegundos(&ts, quantum);
+    int rc = 0;
+
+    pthread_mutex_lock(&data_cond->mutex_cond);
+    while(!data_cond->cond_val && rc == 0){
+        rc = pthread_cond_timedwait(&data_cond->cond, &data_cond->mutex_cond, &ts);
+    }
+
+    // timeout vencido o syscall finalizada
+    log_debug(logger, "quantum vencido o proceso bloqueado antes del quantum");
+    if(!data_cond->cond_val && proceso->estado == EJECUTANDO){
+        log_debug(logger, "## (<%d>) - Desalojado por fin de quantum", proceso->pid);
+        // exec_a_ready(proceso);
+        // liberar_cpu(cpu); 
+        enviar_operacion(cpu->fd, SCH_CPU__DETENER_EJECUCION);
+    }
+    data_cond->cond_val = false;
+    pthread_mutex_unlock(&data_cond->mutex_cond);
+    log_debug(logger, "hilo_fin_quantum: finalizando");
+
     return NULL;
 }

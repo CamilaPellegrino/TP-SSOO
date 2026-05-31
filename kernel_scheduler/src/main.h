@@ -25,6 +25,7 @@ t_planificacion algoritmo;
 t_list* queues_algorithms;  
 int proximo_pid;
 int suspension_timeout;
+int quantum;
 
 // listas de cosas de syscalls
 t_list* lista_evt_sleep;
@@ -34,8 +35,7 @@ t_list* lista_mutex;
 
 // semaforos
 sem_t s_nuevo_proceso_new;
-sem_t s_nuevo_proceso_ready;
-sem_t s_nueva_cpu_libre;
+sem_t s_intentar_planificar;
 sem_t s_planificar_corto;
 sem_t s_evt_sleep;
 sem_t s_evt_stdin;
@@ -55,6 +55,7 @@ pthread_mutex_t m_lista_exit;
 pthread_mutex_t m_lista_cpus;
 pthread_mutex_t m_lista_mutex;
 
+pthread_mutex_t m_proximo_pid;
 // sockets
 int conexion_kernel_memory;
 

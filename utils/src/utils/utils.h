@@ -30,6 +30,7 @@ typedef enum
 	KM_SCH__NUEVO_STICK,
 	KM_SCH__BSOD,
 	KM_SCH__EXIT_OK,
+	KM_SCH__INIT_PROC_RESP,
 	CPU_SCH__INIT_PROC,
 	CPU_SCH__SLEEP,
 	CPU_SCH__STDIN,
@@ -38,6 +39,7 @@ typedef enum
 	CPU_SCH__MUTEX_LOCK,
 	CPU_SCH__MUTEX_UNLOCK,
 	CPU_SCH__EXIT,
+	CPU_SCH__EJECUCION_DETENIDA,
 	IO_SCH__OK,
 	IO_SCH__ERROR,
 	// mensajes con destino a CPU
@@ -46,14 +48,26 @@ typedef enum
 	SCH_CPU__DETENER_EJECUCION,
 	SCH_CPU__REANUDAR_EJECUCION,
 	KM_CPU__RESPUESTA,
+	KM_CPU__INSTRUCCION,
+	KM_CPU__RTA_CONTEXTO,
+	KM_CPU__STICKS,
 	// mensajes con destino a KM
+	CPU_KM__PCONTEXTO,
+	CPU_KM__ACTUALIZAR_PCB,
 	KM_READ,
 	KM_WRITE,
 	KM_GET_INSTRUCTION,
 	SCH_KM__EXIT,
+	SCH_KM__INIT_PROC,
+	CPU_KM__FETCH,
 	// mensajes con destino a IO
 	SCH_IO__SOLICITUD,
-
+	// mensajes con destino a SWAP
+	KM_SWAP__ESCRITURA,
+	KM_SWAP__LECTURA,
+	// mensajes con destino a Sticks
+	X_STICK__ESCRITURA,
+	X_STICK__LETURA,
 
 }op_code;
 
@@ -72,7 +86,8 @@ typedef enum
 {
 	SLEEP,
 	STDIN,
-	STDOUT
+	STDOUT,
+	INVALIDO
 } t_tipo_io;
 
 typedef enum
@@ -99,6 +114,7 @@ int crear_conexion(char* ip, char* puerto);
 void exit_si_error_conexion(int, t_log *, char *);
 void liberar_conexion(int socket_cliente);
 int iniciar_servidor(char*);
+int iniciar_servidor_o_exit(char* puerto, t_log* logger);
 int* esperar_cliente(int);
 
 // paquetes
@@ -130,5 +146,10 @@ t_config* iniciar_config(char*);
 
 t_log* iniciar_logger(char*, char*, t_log_level);
 t_log* iniciar_logger_log_level_string(char*, char*, char*);
+
+// otras
+
+pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo, t_log* logger);
+
 
 #endif  /* UTILS_H_ */ 

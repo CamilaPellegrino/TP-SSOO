@@ -24,12 +24,9 @@ typedef struct
 
 typedef struct
 {
-	// identificadores del proceso
 	int pid;
 	int ppid;
-	int priodidad;
-	t_tipo_estado estado;
-	// registros de estado
+	int prioridad;
 	uint32_t pc;
 	uint8_t ax;
 	uint8_t bx;
@@ -41,14 +38,68 @@ typedef struct
 	uint32_t edx;
 	uint32_t si;
 	uint32_t di;
-	
 } t_pcb;
 
+typedef struct {
+	t_pcb* pcb;
+	t_list* instrucciones;
+	t_list* lista_segmentos;
+} t_proceso;
+ 
+// estructuras para manejo de memoria: 
+typedef struct {
+    int id_segmento;
+    uint32_t base;  //dir fisica
+    uint32_t tamanio;
+} t_segmento;
 
+typedef struct {
+	uint32_t base;
+	uint32_t tamanio;
+} t_hueco;
+
+typedef enum {
+	BEST_FIT,
+	WORST_FIT
+}t_fit;
+// variables globales
+
+extern t_log *logger;
+extern t_list *lista_sticks;
+extern t_list *lista_cpus;
+extern int sch_fd; 
+
+// listas para cosas de segmentos
+extern t_list *lista_segmentos_global;
+extern t_list *lista_procesos;
+extern t_list *lista_huecos;
+
+// variables para cosas de segmentos
+extern t_fit algoritmo_fit;
+extern int tamanio_total_mem;
+
+// De config
+extern char* scripts_basepath;
+extern char* puerto;
+
+// mutex
+extern pthread_mutex_t m_lista_segmentos_global;
+extern pthread_mutex_t m_lista_procesos;
+extern pthread_mutex_t m_lista_huecos;
+
+// Funciones
+
+// iniciar cosas
+void inicializar_variables_globales(t_config*);
+t_proceso* iniciar_proceso(t_pcb*, t_list*);
 t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd);
 void destruir_stick(t_stick* stick);
 t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
+char* ruta_completa(char* base, char* nombre_archivo);
 
-
+// ...
+t_proceso* proceso_de_pid(int pid);
+void agregar_stick_a_paquete(t_paquete* paquete, t_stick* stick);
+void agregar_stick(t_stick* stick);
 #endif
