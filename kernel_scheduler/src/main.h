@@ -42,7 +42,7 @@ sem_t s_evt_stdin;
 sem_t s_evt_stdout;
 
 // mutexs
-pthread_mutex_t m_lista_evt_sleep;   // mutex para la lista de evts tipo sleep
+pthread_mutex_t m_lista_evt_sleep;
 pthread_mutex_t m_lista_evt_stdin;
 pthread_mutex_t m_lista_evt_stdout;
 pthread_mutex_t m_lista_new;

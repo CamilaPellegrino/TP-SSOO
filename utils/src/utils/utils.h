@@ -55,8 +55,6 @@ typedef enum
 	CPU_KM__PCONTEXTO,
 	CPU_KM__ACTUALIZAR_PCB,
 	KM_READ,
-	KM_WRITE,
-	KM_GET_INSTRUCTION,
 	SCH_KM__EXIT,
 	SCH_KM__INIT_PROC,
 	CPU_KM__FETCH,
@@ -67,7 +65,10 @@ typedef enum
 	KM_SWAP__LECTURA,
 	// mensajes con destino a Sticks
 	X_STICK__ESCRITURA,
-	X_STICK__LETURA,
+	X_STICK__LECTURA,
+	// confirmaciones de sticks
+	STICK_X__OK,
+	STICK_X__ERROR
 
 }op_code;
 

@@ -118,7 +118,6 @@ void* atender_cpu(t_cpu* cpu){
                 log_info(logger, "## (<%d>) - Solicito syscall: <SLEEP>", cpu->proceso->pid);
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 int tiempo_sleep = *(int*)list_get(lista_paquete, 0);
-
                 atender_cpu_syscall_sleep(tiempo_sleep, cpu);
                 break;
             }case CPU_SCH__MUTEX_CREATE:{

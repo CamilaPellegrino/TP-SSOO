@@ -140,6 +140,9 @@ t_pcb* iniciar_pcb(int pid, int ppid, int prioridad, t_tipo_estado estado);
 t_evt* iniciar_evt_sleep(int tiempo_sleep, t_pcb* proceso);
 t_evt* iniciar_evt_std_in_out(int tamanio, int dir_logica, t_pcb* proceso);
 
+// Funciones para modificar
+void cambiar_prioridad(t_pcb* proceso, int prioridad);
+
 // funciones para destroy
 void destroy_pcb(t_pcb* pcb);
 

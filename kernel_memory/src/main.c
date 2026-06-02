@@ -11,7 +11,7 @@ int main(int argc, char* argv[]) { //KERNEL MEMORY
 
     inicializar_variables_globales(config);
 
-    // testear(); // Descomentar para ejecutar TESTS
+    testear(); // Descomentar para ejecutar TESTS
 
     // iniciar servidor
     int kernel_memory_fd = iniciar_servidor_o_exit(puerto, logger);
@@ -98,19 +98,7 @@ void* atender_cpu(void* arg){
             break;
         }
         switch(cod_op) {
-            case KM_GET_INSTRUCTION: {
-                t_list* paquete = recibir_paquete(cpu_fd);
-                uint32_t pid = *(uint32_t*)list_get(paquete, 0);
-                uint32_t pc = *(uint32_t*)list_get(paquete, 1);
-                
-                // MOCK: Enviar instrucción genérica para que CPU avance 
-                char* instruccion = "SET AX 1"; 
-                log_info(logger, "## PID: %u - Obtener instrucción: %u - Instrucción: %s", pid, pc, instruccion);
-                
-                enviar_mensaje(instruccion, cpu_fd, HANDSHAKE);
-                list_destroy_and_destroy_elements(paquete, free);
-                break;
-            }case CPU_KM__PCONTEXTO:{
+            case CPU_KM__PCONTEXTO:{
                 //tiene que recibir pid, puede mandar todo el pcb
                 t_list *lista = recibir_paquete(cpu_fd);
                 int pid = *(int*)list_get(lista, 0);
@@ -144,16 +132,9 @@ void* atender_cpu(void* arg){
                     log_error(logger, "Atender_cpu de id <%d>, Error: pid <%d> no encontrado", cpu_id, pid);
                 }
                 
-                list_destroy_and_destroy_elements( lista, free);
+                list_destroy_and_destroy_elements(lista, free);
                 break;
-            }
-            case KM_WRITE:{
-                // MOCK: Responder OK sin implementar lógica real [3]
-                enviar_mensaje("OK", cpu_fd, KM_CPU__RESPUESTA);
-                log_info(logger, "Respuesta MOCK: OK");
-                break;
-            }
-            case CPU_KM__ACTUALIZAR_PCB:
+            }case CPU_KM__ACTUALIZAR_PCB:
                 t_list* p = recibir_paquete(cpu_fd);
                 recibir_pcb_actualizado(p);
                 break;

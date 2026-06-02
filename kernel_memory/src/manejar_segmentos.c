@@ -2,6 +2,8 @@
 t_hueco* best_fit(uint32_t tamanio);
 t_hueco* worst_fit(uint32_t tamanio);
 void insertar_ordenado_por_base(t_list* lista, t_segmento* segmento);
+int pos_segmento_que_comienza_en(int base);
+bool segmento_adelante_de_dir(t_segmento* s, int dir);
 
 t_hueco* ubicacion_de_proximo_segmento(uint32_t tamanio){
     switch(algoritmo_fit){
@@ -193,6 +195,89 @@ bool hay_espacio_total(uint32_t tamanio){
     return tamanio_total_mem >= tamanio;
 }
 
-void compactar_memoria(){
-    // ...
+int pos_segmento_que_comienza_en(int base){
+    pthread_mutex_lock(&m_lista_segmentos_global);
+    for(int i = 0; i<list_size(lista_segmentos_global); i++){
+        t_segmento* s = list_get(lista_segmentos_global, i);
+        if(s->base == base){
+            pthread_mutex_unlock(&m_lista_segmentos_global);
+            return i;
+        }
+        if(s->base + s->tamanio > base){
+            pthread_mutex_unlock(&m_lista_segmentos_global);
+            return -1;
+        }
+    }
+    pthread_mutex_unlock(&m_lista_segmentos_global);
+    return -1;
 }
+
+bool segmento_adelante_de_dir(t_segmento* s, int dir){
+    return s->base > dir;
+}
+
+void compactar_memoria(){
+    if(list_is_empty(lista_huecos)){
+        return;
+    }
+    t_hueco* prox_h = list_get(lista_huecos, 0);
+    int prox_base = prox_h->base;
+    int ult_dir = 0;
+    int s_size = list_size(lista_segmentos_global);
+    int i = 0;
+    for(; i < s_size; i++){
+        t_segmento* s = list_get(lista_segmentos_global, i);
+        if(segmento_adelante_de_dir(s, prox_base)){
+            break;
+        }
+    }
+    for(; i < s_size; i++){
+        t_segmento* s = list_get(lista_segmentos_global, i);
+        // leer contenido del segmento
+        // ...
+        // escribirlo a partir de prox_dir
+        // ...
+        // actualizar seg
+        s->base = prox_base;
+        prox_base += s->tamanio;
+        ult_dir = s->base + s->tamanio;
+    }
+    // agrupar todos los huecos al final
+    int tamanio = 0;
+    while(list_size(lista_huecos) > 1){
+        t_hueco* h = list_remove(lista_huecos, 0);
+        tamanio += h->tamanio;
+        free(h);
+    }
+    t_hueco* h = list_get(lista_huecos, 0);
+    h->base = ult_dir;
+    h->tamanio += tamanio;
+}
+
+
+
+/*
+
+void pedido_escritura_stick(int fd, int base, int tamanio){
+    t_paquete* paquete = crear_paquete(X_STICK__ESCRITURA);
+    agregar_a_paquete(paquete, &base, sizeof(base));
+    agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
+    enviar_paquete_y_liberarlo(paquete, fd);
+
+    op_code cod_op = recibir_operacion(fd);
+    switch(cod_op){
+        case STICK_X__OK:{
+            
+        }case STICK_X__ERROR:{
+
+        }default:{
+            log_warning(logger, "Operacion invalida, op = %d", cod_op);
+        }
+    }
+}
+
+void pedido_lectura_stick(int fd){
+    t_paquete* paquete = crear_paquete(X_STICK__LECTURA);
+}
+
+*/

@@ -174,6 +174,20 @@ t_evt* iniciar_evt_std_in_out(int tamanio, int dir_logica, t_pcb* proceso){
     evt->data_evt = evt_std_in_out;
     return evt;
 }
+
+// funciones para modificar
+void cambiar_prioridad(t_pcb* proceso, int prioridad){
+    if(algoritmo != CMN || list_size(queues_algorithms)>prioridad){
+        pthread_mutex_lock(&proceso->mutex);
+        proceso->prioridad = prioridad;
+        pthread_mutex_unlock(&proceso->mutex);
+    }else{
+        log_error(logger, "Error: Intento de pasar al proceso <%d> a una prioridad invalida (%d)", proceso->pid, prioridad);
+        exit(EXIT_FAILURE);
+    }
+
+}
+
 // funciones par destroy
 void destroy_pcb(t_pcb* pcb){ free(pcb); }
 

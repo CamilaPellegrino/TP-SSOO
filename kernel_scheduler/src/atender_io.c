@@ -121,7 +121,7 @@ void atender_io_stdin(t_io* io){
             log_info(logger, "## (<%d>) finalizó IO y pasa a SUSP_READY", proceso->pid);
             susp_blocked_a_susp_ready(proceso);
         }
-        pthread_join(evt->hilo_timeout, NULL); //estoy espserando que termine para que el hilo_timeout no intente acceder a evt 
+        pthread_join(evt->hilo_timeout, NULL); 
         pthread_mutex_destroy(&evt->mutex);
         pthread_cond_destroy(&evt->cond);
         free(evt->data_evt);
