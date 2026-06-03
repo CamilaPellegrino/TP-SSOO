@@ -40,6 +40,9 @@ t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd){
 		nuevo_stick->puerto = strdup(puerto);
 		nuevo_stick->fd = cliente_fd;
 		nuevo_stick->tamanio = tamanio;
+        nuevo_stick->lista_evt = list_create();
+        pthread_mutex_init(&nuevo_stick->m_lista_evt, NULL);
+        sem_init(&nuevo_stick->s_list_evt, 0, 0);
 	}
 	return nuevo_stick;
 }
@@ -66,6 +69,146 @@ t_io* iniciar_io(t_tipo_io tipo, int io_fd){
 	return nueva_io;
 }
 
+// ...
+t_proceso* proceso_de_pid(int pid){
+    for(int i = 0; i < list_size(lista_procesos); i++){
+        t_proceso* proceso = list_get(lista_procesos, i);
+        if(proceso->pcb->pid == pid){
+            return proceso;
+        }
+    }
+    return NULL;
+}
+
+bool guardar_nuevo_proceso(int pid, int ppid, char* ruta){
+    t_pcb* pcb = calloc(1, sizeof(t_pcb));
+    if (pcb == NULL) {
+        return NULL;
+    }
+    pcb->pid = pid;
+    pcb->ppid = ppid;
+    t_list* instrucciones = instrucciones_de_ruta(ruta);
+    t_proceso* proceso = iniciar_proceso(pcb, instrucciones);
+    if(proceso == NULL){
+        return false;
+    }
+    list_add(lista_procesos, proceso);
+    log_info(logger, "Nuevo proceso de PID <%d> guardado", pcb->pid);
+    return true;
+}
+
+void agregar_stick_a_paquete(t_paquete* paquete, t_stick* stick){
+    agregar_a_paquete(paquete, &(stick->tamanio), sizeof(int));
+    agregar_string_a_paquete(paquete, stick->puerto);
+    agregar_string_a_paquete(paquete, stick->ip);
+}
+
+void agregar_stick(t_stick* stick){
+    list_add(lista_sticks, stick);
+    tamanio_total_mem += stick->tamanio;
+}
+
+void enviar_nuevo_stick_a_scheduler(t_stick* nuevo_stick, int sch_fd){
+    t_paquete* paquete = crear_paquete(KM_SCH__NUEVO_STICK);
+    agregar_string_a_paquete(paquete, nuevo_stick->ip);
+    agregar_string_a_paquete(paquete, nuevo_stick->puerto);
+    agregar_a_paquete(paquete, &(nuevo_stick->tamanio), sizeof(int));
+    enviar_paquete_y_liberarlo(paquete, sch_fd);
+    log_info(logger, "Enviando stick con IP %s al SCHED por el FD %d",nuevo_stick->ip, sch_fd);
+}
+
+void enviar_sticks_a_cpu(int cpu_fd){
+    t_paquete* paquete = crear_paquete(KM_CPU__STICKS);
+    int cant_sticks = list_size(lista_sticks);
+    agregar_a_paquete(paquete, &cant_sticks, sizeof(int));
+    for(int i = 0; i < cant_sticks; i++){
+        t_stick* stick = list_get(lista_sticks, i);
+        agregar_stick_a_paquete(paquete, stick);
+    }
+    enviar_paquete_y_liberarlo(paquete, cpu_fd);
+}
+
+void recibir_pcb_actualizado(t_list* valores){
+    int i = 0;
+    // pcb
+    int* pid = list_get(valores, i++);
+    t_proceso* proc = proceso_de_pid(*pid);
+    t_pcb* pcb = proc->pcb;
+
+    if(proc == NULL){
+        log_error(logger, "recibir_pcb_actualizado, Error: No se encontro proceso de pid %d", *pid);
+        list_destroy_and_destroy_elements(valores, free);
+        return;
+    }
+    memcpy(&pcb->pid, pid, sizeof(pcb->pid));
+    memcpy(&pcb->ppid, list_get(valores, i++), sizeof(pcb->ppid));
+    memcpy(&pcb->prioridad, list_get(valores, i++), sizeof(pcb->prioridad));
+    // registros
+    memcpy(&pcb->pc, list_get(valores, i++), sizeof(pcb->pc));
+
+    memcpy(&pcb->ax, list_get(valores, i++), sizeof(pcb->ax));
+    memcpy(&pcb->bx, list_get(valores, i++), sizeof(pcb->bx));
+    memcpy(&pcb->cx, list_get(valores, i++), sizeof(pcb->cx));
+    memcpy(&pcb->dx, list_get(valores, i++), sizeof(pcb->dx));
+
+    memcpy(&pcb->eax, list_get(valores, i++), sizeof(pcb->eax));
+    memcpy(&pcb->ebx, list_get(valores, i++), sizeof(pcb->ebx));
+    memcpy(&pcb->ecx, list_get(valores, i++), sizeof(pcb->ecx));
+    memcpy(&pcb->edx, list_get(valores, i++), sizeof(pcb->edx));
+
+    memcpy(&pcb->si, list_get(valores, i++), sizeof(pcb->si));
+    memcpy(&pcb->di, list_get(valores, i++), sizeof(pcb->di));
+
+    list_destroy_and_destroy_elements(valores, free);
+    return;
+}
+
+void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p){
+    // datos del pcb
+    agregar_a_paquete(p, &pcb->pid, sizeof(pcb->pid));
+    agregar_a_paquete(p, &pcb->ppid, sizeof(pcb->ppid));
+    agregar_a_paquete(p, &pcb->prioridad, sizeof(pcb->prioridad));
+
+    // registros
+    agregar_a_paquete(p, &pcb->pc, sizeof(pcb->pc));
+
+    agregar_a_paquete(p, &pcb->ax, sizeof(pcb->ax));
+    agregar_a_paquete(p, &pcb->bx, sizeof(pcb->bx));
+    agregar_a_paquete(p, &pcb->cx, sizeof(pcb->cx));
+    agregar_a_paquete(p, &pcb->dx, sizeof(pcb->dx));
+
+    agregar_a_paquete(p, &pcb->eax, sizeof(pcb->eax));
+    agregar_a_paquete(p, &pcb->ebx, sizeof(pcb->ebx));
+    agregar_a_paquete(p, &pcb->ecx, sizeof(pcb->ecx));
+    agregar_a_paquete(p, &pcb->edx, sizeof(pcb->edx));
+
+    agregar_a_paquete(p, &pcb->si, sizeof(pcb->si));
+    agregar_a_paquete(p, &pcb->di, sizeof(pcb->di));
+}
+
+// Manejo de rutas
+t_list* instrucciones_de_ruta(char* nombre_archivo){
+    char* ruta = ruta_completa(scripts_basepath, nombre_archivo);
+    FILE* archivo = fopen(ruta, "r");
+    if (archivo == NULL) {
+        return NULL;
+    }
+    t_list* lineas = list_create();
+    char* linea = NULL;
+    size_t len = 0;
+    ssize_t leidos;
+
+    while ((leidos = getline(&linea, &len, archivo)) != -1) {
+        if (leidos > 0 && linea[leidos - 1] == '\n') {
+            linea[leidos - 1] = '\0';
+        }
+        list_add(lineas, strdup(linea));
+    }
+    free(ruta);
+    free(linea);
+    fclose(archivo);
+    return lineas;
+}
 
 char* ruta_completa(char* base, char* nombre_archivo){
 	size_t len1 = strlen(base);
@@ -79,26 +222,4 @@ char* ruta_completa(char* base, char* nombre_archivo){
 
     sprintf(resultado, "%s/%s", base, nombre_archivo);
     return resultado;
-}
-
-// ...
-t_proceso* proceso_de_pid(int pid){
-    for(int i = 0; i < list_size(lista_procesos); i++){
-        t_proceso* proceso = list_get(lista_procesos, i);
-        if(proceso->pcb->pid == pid){
-            return proceso;
-        }
-    }
-    return NULL;
-}
-
-void agregar_stick_a_paquete(t_paquete* paquete, t_stick* stick){
-    agregar_a_paquete(paquete, &(stick->tamanio), sizeof(int));
-    agregar_string_a_paquete(paquete, stick->puerto);
-    agregar_string_a_paquete(paquete, stick->ip);
-}
-
-void agregar_stick(t_stick* stick){
-    list_add(lista_sticks, stick);
-    tamanio_total_mem += stick->tamanio;
 }

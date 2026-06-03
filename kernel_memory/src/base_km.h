@@ -2,13 +2,46 @@
 #define BASE_KM_H_
 
 #include <utils/utils.h>
+#include <semaphore.h>
+#include <pthread.h>
 typedef struct 
 {
     int tamanio;
     int fd;
     char* puerto;
     char* ip;
+	t_list* lista_evt;
+	pthread_mutex_t m_lista_evt;
+	sem_t s_list_evt;
 }t_stick;
+
+typedef enum
+{
+	SCH_LECTURA,
+	SCH_ESCRITURA // ,
+	// SUSPENSION
+	// DESUSPENSION
+}t_tipo_evt;
+
+typedef struct
+{
+	t_tipo_evt tipo;
+	t_cpu* cpu;
+	void* data;
+	pthread_mutex_t* mutex;
+}t_evt;
+
+typedef struct
+{
+	int base;
+	int tamanio;
+}t_data_lectura;
+
+typedef struct
+{
+	int base;
+	int bytes;
+}t_data_escritura;
 
 typedef struct
 {
@@ -96,10 +129,22 @@ t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd);
 void destruir_stick(t_stick* stick);
 t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
-char* ruta_completa(char* base, char* nombre_archivo);
 
 // ...
 t_proceso* proceso_de_pid(int pid);
+bool guardar_nuevo_proceso(int pid, int ppid, char* ruta_instrucciones);
+
 void agregar_stick_a_paquete(t_paquete* paquete, t_stick* stick);
 void agregar_stick(t_stick* stick);
+
+void enviar_nuevo_stick_a_scheduler(t_stick* nuevo_stick, int sch_fd);
+void enviar_sticks_a_cpu(int cpu_fd);
+
+void recibir_pcb_actualizado(t_list* valores);
+void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p); 
+
+// Manejo de rutas
+char* ruta_completa(char* base, char* nombre_archivo);
+t_list* instrucciones_de_ruta(char* ruta);
+
 #endif

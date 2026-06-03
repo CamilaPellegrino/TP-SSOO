@@ -81,7 +81,7 @@ void* atender_pedidos(void* arg){
             case X_STICK__ESCRITURA:{
                 atender_pedido_escritura();
                 break;
-            }case X_STICK__LETURA:{
+            }case X_STICK__LECTURA:{
                 atender_pedido_lectura();
                 break;
             }default:{
