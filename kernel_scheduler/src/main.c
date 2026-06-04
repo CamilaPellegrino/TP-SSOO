@@ -324,7 +324,6 @@ void* atender_km(void*){
                 agregar_string_a_paquete(paquete, puerto_stick);
                 agregar_a_paquete(paquete, tamanio_stick, sizeof(int));
                 enviar_paquete_a_todas_las_cpus(paquete);
-
                 break;
             }case KM_SCH__BSOD: {
                 log_error(logger, "BSOD, cerrando todo");

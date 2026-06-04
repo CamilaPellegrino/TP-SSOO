@@ -99,13 +99,14 @@ void atender_io_stdin(t_io* io){
         
         t_list* lista_paquete = recibir_paquete(io->fd);
 
-        char* contenido = list_get(lista_paquete, 0);
+        void* contenido = list_get(lista_paquete, 0);
 
         t_paquete* paquete = crear_paquete(KM_WRITE);
         agregar_a_paquete(paquete, &dir_logica, sizeof(dir_logica));
         agregar_a_paquete(paquete, &nro_stick, sizeof(nro_stick));
         agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
-        agregar_string_a_paquete(paquete, contenido);
+        // agregar_string_a_paquete(paquete, contenido);
+        agregar_a_paquete(paquete, contenido, tamanio);
         agregar_a_paquete(paquete, &proceso->pid, sizeof(proceso->pid));
 
         enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);

@@ -69,6 +69,41 @@ t_io* iniciar_io(t_tipo_io tipo, int io_fd){
 	return nueva_io;
 }
 
+t_evt* iniciar_evt_read(int pid, int base, int tamanio){
+    t_evt* evt = malloc(sizeof(t_evt));
+
+    evt->tipo = SCH_LECTURA;
+    evt->pid = pid;
+
+    t_data_read* data = malloc(sizeof(t_data_read));
+    data->base = base;
+    data->tamanio = tamanio;
+
+    evt->data = data;
+
+    pthread_mutex_init(&evt->mutex, NULL);
+
+    return evt;
+}
+
+t_evt* iniciar_evt_write(int pid, int base, int tamanio, void* bytes){
+    t_evt* evt = malloc(sizeof(t_evt));
+
+    evt->tipo = SCH_ESCRITURA;
+    evt->pid = pid;
+
+    t_data_write* data = malloc(sizeof(t_data_write));
+    data->base = base;
+    data->bytes = bytes;
+    data->tamanio = tamanio;
+
+    evt->data = data;
+
+    pthread_mutex_init(&evt->mutex, NULL);
+
+    return evt;
+}
+
 // ...
 t_proceso* proceso_de_pid(int pid){
     for(int i = 0; i < list_size(lista_procesos); i++){
@@ -79,7 +114,12 @@ t_proceso* proceso_de_pid(int pid){
     }
     return NULL;
 }
-
+t_stick* stick_por_id(int nro_stick){
+    if(nro_stick >= list_size(lista_sticks)){
+        return NULL;
+    }
+    return (t_stick*)list_get(lista_sticks, nro_stick);
+}
 bool guardar_nuevo_proceso(int pid, int ppid, char* ruta){
     t_pcb* pcb = calloc(1, sizeof(t_pcb));
     if (pcb == NULL) {
@@ -95,6 +135,18 @@ bool guardar_nuevo_proceso(int pid, int ppid, char* ruta){
     list_add(lista_procesos, proceso);
     log_info(logger, "Nuevo proceso de PID <%d> guardado", pcb->pid);
     return true;
+}
+
+void agregar_evt_a_stick(int nro_stick, t_evt* evt){
+    t_stick* stick = stick_por_id(nro_stick);
+    if(stick == NULL){
+        log_error(logger, "Stick no encontrada, error de BSOD");
+        exit(EXIT_FAILURE);
+    }
+    pthread_mutex_lock(&stick->m_lista_evt);
+    list_add(stick->lista_evt, evt);
+    pthread_mutex_unlock(&stick->m_lista_evt);
+    sem_post(&stick->s_list_evt);
 }
 
 void agregar_stick_a_paquete(t_paquete* paquete, t_stick* stick){
@@ -222,4 +274,15 @@ char* ruta_completa(char* base, char* nombre_archivo){
 
     sprintf(resultado, "%s/%s", base, nombre_archivo);
     return resultado;
+}
+
+// Otros
+void imprimir_bytes(void* data, int tamanio){
+    uint8_t* bytes = (uint8_t*) data;
+        printf("Bytes: ");
+        for(int j = 0; j < tamanio; j++) {
+            printf("%02X ", bytes[j]);
+        }
+
+    printf("\n");
 }

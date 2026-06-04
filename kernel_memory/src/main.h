@@ -9,8 +9,11 @@
 #include "tests.h"
 
 void* atender_cliente(void *arg);
-void* atender_scheduler(void*);
 void* atender_cpu(void* cpu);
+void* atender_scheduler(void*);
+void atender_sch_read(t_list* data);
+void atender_sch_write(t_list* data);
+void atender_sch_init_proc(t_list* data);
 
 // variables globales
 

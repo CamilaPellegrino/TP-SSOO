@@ -494,7 +494,6 @@ t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str){
 }
 
 void enviar_paquete_a_todas_las_cpus(t_paquete* paquete){
-    log_info(logger,"%d", list_size(lista_cpus));
     for(int i = 0; i < list_size(lista_cpus); i++){
         
         t_cpu* cpu = list_get(lista_cpus, i);

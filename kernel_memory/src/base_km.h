@@ -62,22 +62,23 @@ typedef struct {
  typedef struct
 {
 	t_tipo_evt tipo;
-	t_cpu* cpu;
+	int pid;
 	void* data;
-	pthread_mutex_t* mutex;
+	pthread_mutex_t mutex;
 }t_evt;
 
 typedef struct
 {
 	int base;
 	int tamanio;
-}t_data_lectura;
+}t_data_read;
 
 typedef struct
 {
 	int base;
-	int bytes;
-}t_data_escritura;
+	int tamanio;
+	void* bytes;
+}t_data_write;
 
 // estructuras para manejo de memoria: 
 typedef struct {
@@ -129,11 +130,15 @@ t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd);
 void destruir_stick(t_stick* stick);
 t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
+t_evt* iniciar_evt_read(int pid, int base, int tamanio);
+t_evt* iniciar_evt_write(int pid, int base, int tamanio, void* bytes);
 
 // ...
 t_proceso* proceso_de_pid(int pid);
+t_stick* stick_por_id(int nro_stick);
 bool guardar_nuevo_proceso(int pid, int ppid, char* ruta_instrucciones);
 
+void agregar_evt_a_stick(int nro_stick, t_evt* evt);
 void agregar_stick_a_paquete(t_paquete* paquete, t_stick* stick);
 void agregar_stick(t_stick* stick);
 
@@ -146,5 +151,8 @@ void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p);
 // Manejo de rutas
 char* ruta_completa(char* base, char* nombre_archivo);
 t_list* instrucciones_de_ruta(char* ruta);
+
+// Otros
+void imprimir_bytes(void* data, int tamanio);
 
 #endif

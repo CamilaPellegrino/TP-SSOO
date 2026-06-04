@@ -23,20 +23,36 @@ void* atender_stick(void* arg){
         t_evt* evt = list_remove(lista_evt, 0);
         pthread_mutex_unlock(&stick->m_lista_evt);
 
+        int pid = evt->pid;
         switch(evt->tipo){
             case SCH_LECTURA: {
-                log_warning(logger, "Caso de SCH_lectura no implementado");
+                log_debug(logger, "Caso de SCH_lectura");
+                t_data_read* data = (t_data_read*)evt->data;
 
-                // enviar_paquete(...);
-                // recibir_operacion(...);
+                // enviar_paquete(stick);
+                // recibir_operacion(stick);
                 
-                t_paquete* paquete = crear_paquete(KM_SCH__LECTURA);
-                agregar_string_a_paquete(paquete, "Hola mundo");
+                char* datos_leidos = "Si esto anda soy una crack B)";
+                t_paquete* paquete = crear_paquete(RTA_READ);
+                agregar_a_paquete(paquete, &pid, sizeof(pid));
+                agregar_string_a_paquete(paquete, datos_leidos);
+
                 enviar_paquete_y_liberarlo(paquete, sch_fd);
+
                 break;
             }
             case SCH_ESCRITURA: {
-                log_warning(logger, "Caso de SCH_escritura no implementado");
+                log_debug(logger, "Caso de SCH_escritura");
+                t_data_write* data = (t_data_write*)evt->data;
+                int base = data->base;
+                int tamanio = data->tamanio;
+                void* bytes = data->bytes;
+                imprimir_bytes(bytes, tamanio);
+
+                t_paquete* paquete = crear_paquete(RTA_WRITE);
+                agregar_a_paquete(paquete, &pid, sizeof(pid));
+                enviar_paquete_y_liberarlo(paquete, sch_fd);
+
                 break;
             }
             default: {
