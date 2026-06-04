@@ -5,6 +5,9 @@
 #include <semaphore.h>
 #include <pthread.h>
 
+typedef struct t_evt t_evt;
+typedef struct t_pcb t_pcb;
+
 typedef struct
 {
 	pthread_cond_t cond;
@@ -17,18 +20,18 @@ typedef struct
 	t_list* sublista;
 	pthread_mutex_t mutex;
 } t_sublista_ready;
-
-typedef struct{
+struct t_pcb{
     int pid;
     int ppid;
     int prioridad;
 	t_tipo_estado estado;
 	t_data_cond data_cond;
 	pthread_mutex_t mutex;
-} t_pcb;
+	t_evt* evt_actual; 
+};
 
 typedef struct
-{
+{ 
 	int fd;
 	int id;
 	t_pcb* proceso; // proceso que esta ejecutando (NULL si no esta ejecutando nada)
@@ -48,18 +51,18 @@ typedef struct{
 } t_evt_sleep;
 
 typedef struct{
-	int tamanio; // cantidad de bits a leer
-	int dir_logica; // TODO: Como implementar esto? 3er entrega
-}t_evt_std_in_out;
+	int tamanio;
+	int dir_logica;
+}t_evt_std_out;
 
-typedef struct{
+struct t_evt{
 	void* data_evt;
 	t_pcb* proceso;
 	bool syscall_finalizada;
 	pthread_mutex_t mutex;
     pthread_cond_t cond;
 	pthread_t hilo_timeout;
-} t_evt;
+};
 
 typedef struct{
 	char* datos_leidos;
@@ -144,11 +147,11 @@ t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
 t_pcb* iniciar_pcb(int pid, int ppid, int prioridad, t_tipo_estado estado);
 t_evt* iniciar_evt_sleep(int tiempo_sleep, t_pcb* proceso);
-t_evt* iniciar_evt_std_in_out(int tamanio, int dir_logica, t_pcb* proceso);
-t_evt* iniciar_evt_std_in(char* datos_leidos, t_pcb* proceso);
+t_evt* iniciar_evt_std_in(int tamanio, int dir_logica, t_pcb* proceso);
+t_evt* iniciar_evt_std_out(char* datos_leidos, t_pcb* proceso);
 // Funciones para modificar
 void cambiar_prioridad(t_pcb* proceso, int prioridad);
-
+void cambiar_de_evt(t_pcb* proceso, t_evt* evt);
 // funciones para destroy
 void destroy_pcb(t_pcb* pcb);
 

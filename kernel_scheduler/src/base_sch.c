@@ -138,16 +138,19 @@ t_io* iniciar_io(t_tipo_io tipo, int io_fd){
 
 t_pcb* iniciar_pcb(int pid, int ppid, int prioridad, t_tipo_estado estado){
 	t_pcb* nuevo_pcb = malloc(sizeof(t_pcb));
-	nuevo_pcb->estado = NUEVO;
-	nuevo_pcb->pid = pid;
-	nuevo_pcb->ppid = ppid;
-	nuevo_pcb->prioridad = prioridad;
-	nuevo_pcb->estado = estado;   
-    nuevo_pcb->data_cond.cond_val = false;
-    pthread_mutex_init(&nuevo_pcb->data_cond.mutex_cond, NULL);
-    pthread_cond_init(&nuevo_pcb->data_cond.cond, NULL);
+    if(nuevo_pcb != NULL){
+        nuevo_pcb->estado = NUEVO;
+        nuevo_pcb->pid = pid;
+        nuevo_pcb->ppid = ppid;
+        nuevo_pcb->prioridad = prioridad;
+        nuevo_pcb->estado = estado;   
+        nuevo_pcb->data_cond.cond_val = false;
+        pthread_mutex_init(&nuevo_pcb->data_cond.mutex_cond, NULL);
+        pthread_cond_init(&nuevo_pcb->data_cond.cond, NULL);
 
-    pthread_mutex_init(&nuevo_pcb->mutex, NULL);
+        pthread_mutex_init(&nuevo_pcb->mutex, NULL);
+        nuevo_pcb->evt_actual = NULL;
+    }
 	return nuevo_pcb;
 }
 
@@ -162,20 +165,20 @@ t_evt* iniciar_evt_sleep(int tiempo_sleep, t_pcb* proceso){
     evt->data_evt = evt_sleep;
     return evt;
 }
-t_evt* iniciar_evt_std_in_out(int tamanio, int dir_logica, t_pcb* proceso){
+t_evt* iniciar_evt_std_in(int tamanio, int dir_logica, t_pcb* proceso){
     t_evt* evt = malloc(sizeof(t_evt));
     evt->proceso = proceso;
     evt->syscall_finalizada = false;
     pthread_cond_init(&evt->cond, NULL);
     pthread_mutex_init(&evt->mutex, NULL);
-    t_evt_std_in_out* evt_std_in_out = malloc(sizeof(*evt_std_in_out));
-    evt_std_in_out->tamanio = tamanio;
-    evt_std_in_out->dir_logica = dir_logica;
-    evt->data_evt = evt_std_in_out;
+    t_evt_std_out* evt_std_out = malloc(sizeof(*evt_std_out));
+    evt_std_out->tamanio = tamanio;
+    evt_std_out->dir_logica = dir_logica;
+    evt->data_evt = evt_std_out;
     return evt;
 }
 
-t_evt* iniciar_evt_std_in(char* datos_leidos, t_pcb* proceso){
+t_evt* iniciar_evt_std_out(char* datos_leidos, t_pcb* proceso){
     t_evt* evt = malloc(sizeof(t_evt));
     evt->proceso = proceso;
     evt->syscall_finalizada = false;
@@ -199,7 +202,11 @@ void cambiar_prioridad(t_pcb* proceso, int prioridad){
     }
 
 }
-
+void cambiar_de_evt(t_pcb* proceso, t_evt* evt){
+    pthread_mutex_lock(&proceso->mutex);
+    proceso->evt_actual = evt;
+    pthread_mutex_unlock(&proceso->mutex);
+}
 // funciones par destroy
 void destroy_pcb(t_pcb* pcb){ free(pcb); }
 

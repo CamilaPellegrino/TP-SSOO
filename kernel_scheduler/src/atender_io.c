@@ -84,8 +84,10 @@ void atender_io_stdin(t_io* io){
             log_warning(logger, "evento stdin NULL");
             continue;
         }
-        t_evt_std_in_out* data_evt = evt->data_evt;
+        t_evt_std_out* data_evt = evt->data_evt;
         int tamanio = data_evt->tamanio;
+        int dir_logica = data_evt->dir_logica;
+        int nro_stick = 0;
         t_pcb* proceso = evt->proceso;
 
         // mandar al modulo de io la solic (con todos los datos que haya en t_evt_sleep, en este caso seria el tiempo de sleep)
@@ -98,28 +100,15 @@ void atender_io_stdin(t_io* io){
         t_list* lista_paquete = recibir_paquete(io->fd);
 
         char* contenido = list_get(lista_paquete, 0);
-        // TODO: enviar contenido a KM para que lo guarde en la dir_logica
-        // ...
 
-        pthread_mutex_lock(&evt->mutex);
+        t_paquete* paquete = crear_paquete(KM_WRITE);
+        agregar_a_paquete(paquete, &dir_logica, sizeof(dir_logica));
+        agregar_a_paquete(paquete, &nro_stick, sizeof(nro_stick));
+        agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
+        agregar_string_a_paquete(paquete, contenido);
+        agregar_a_paquete(paquete, &proceso->pid, sizeof(proceso->pid));
 
-        evt->syscall_finalizada = true;
-        pthread_cond_signal(&evt->cond);
-        
-        pthread_mutex_unlock(&evt->mutex);
-        
-        if(proceso->estado == BLOQUEADO){
-            log_info(logger, "## (<%d>) finalizó IO y pasa a READY", proceso->pid);
-            blocked_a_ready(proceso);
-        }else if(proceso->estado == SUSP_BLOQUEADO){
-            log_info(logger, "## (<%d>) finalizó IO y pasa a SUSP_READY", proceso->pid);
-            susp_blocked_a_susp_ready(proceso);
-        }
-        pthread_join(evt->hilo_timeout, NULL); 
-        pthread_mutex_destroy(&evt->mutex);
-        pthread_cond_destroy(&evt->cond);
-        free(evt->data_evt);
-        free(evt);
+        enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
     }
 }
 

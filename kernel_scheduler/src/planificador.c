@@ -198,7 +198,12 @@ void* hilo_timeout(void* arg){
 
     // timeout vencido o syscall finalizada
     log_debug(logger, "timeout vencido o syscall finalizada");
-    if(!evt->syscall_finalizada && proceso->estado == BLOQUEADO){
+
+    pthread_mutex_lock(&proceso->mutex);
+    bool suspender = !evt->syscall_finalizada && proceso->estado == BLOQUEADO;
+    pthread_mutex_unlock(&proceso->mutex);
+
+    if(suspender){
         log_debug(logger, "syscall no finalizo a tiempo, suspendiendo");
         blocked_a_susp_blocked(proceso);
     }

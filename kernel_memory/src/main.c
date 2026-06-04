@@ -183,14 +183,33 @@ void* atender_scheduler(void*){
                 int tamanio = *(int*) list_get(data, 1);
                 int nro_stick = *(int*) list_get(data, 2);
                 int pid =*(int*)  list_get(data, 3);
+                
+                log_debug(logger, "KM_WRITE | pid=%d | dir_fisica=%d | stick=%d | tamanio=%d", pid, dir_fisica, nro_stick, tamanio);
+                
                 char* datos_leidos = "Si esto anda soy una crack B)";
                 t_paquete* paquete = crear_paquete(RTA_READ);
                 agregar_a_paquete(paquete, &pid, sizeof(pid));
                 agregar_string_a_paquete(paquete, datos_leidos);
 
                 enviar_paquete_y_liberarlo(paquete, sch_fd);
-            }
-            default:
+                break;
+            }case KM_WRITE:{
+                int i = 0;
+                t_list* data = recibir_paquete(sch_fd);
+                int dir_fisica = *(int*) list_get(data, i++);
+                int nro_stick = *(int*) list_get(data, i++);
+                int tamanio = *(int*) list_get(data, i++);
+                char* datos_escritos = list_get(data, i++);
+                int pid =*(int*)  list_get(data, i++);
+                
+                log_debug(logger, "KM_WRITE | pid=%d | dir_fisica=%d | stick=%d | tamanio=%d | contenido=\"%.*s\"", pid, dir_fisica, nro_stick, tamanio, tamanio, datos_escritos);
+                
+                t_paquete* paquete = crear_paquete(RTA_WRITE);
+                agregar_a_paquete(paquete, &pid, sizeof(pid));
+
+                enviar_paquete_y_liberarlo(paquete, sch_fd);
+                break;
+            }default:
                 log_warning(logger, "atender_scheduler: Operacion desconocida, cod_op=%d", cod_op);
         }
     }

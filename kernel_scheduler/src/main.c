@@ -245,19 +245,6 @@ void atender_cpu_syscall_stdout(int tamanio, int dir_logica, int nro_stick, t_cp
     agregar_a_paquete(paquete, &pid, sizeof(pid));
 
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
-    // crear evento
-    // t_evt* evt = iniciar_evt_std_in(tamanio, dir_logica, proceso);
-
-    // evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout", logger);
-    // pthread_detach(evt->hilo_timeout);
-
-    // // agregar evt a lista de evts
-    // pthread_mutex_lock(&m_lista_evt_stdout);
-    // list_add(lista_evt_stdout, evt);
-    // pthread_mutex_unlock(&m_lista_evt_stdout);
-
-    // sem_post(&s_evt_stdout);
-    // log_debug(logger, "atender_cpu: sem_post(&s_evt_stdout)");
 }
 
 void atender_cpu_syscall_stdin(int tamanio, int dir_logica, t_cpu* cpu){ // TODO: Codigo muy parecido a atender_cpu_syscall_sleep, juntarlo
@@ -266,7 +253,8 @@ void atender_cpu_syscall_stdin(int tamanio, int dir_logica, t_cpu* cpu){ // TODO
     liberar_cpu(cpu);
     log_debug(logger, "tamanio a leer: %d, dir logica: %d", tamanio, dir_logica);
     // crear evento
-    t_evt* evt = iniciar_evt_std_in_out(tamanio, dir_logica, proceso);
+    t_evt* evt = iniciar_evt_std_in(tamanio, dir_logica, proceso);
+    cambiar_de_evt(proceso, evt);
     // crear el hilo de timeout para que dps del timeout se suspenda el proceso
     evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout", logger);
     
@@ -364,7 +352,9 @@ void* atender_km(void*){
                 char* datos_leidos = list_get(data, 1);
                 t_pcb* proceso = proceso_de_lista(pid, lista_blocked);
                 // crear evento
-                t_evt* evt = iniciar_evt_std_in(datos_leidos, proceso);
+                t_evt* evt = iniciar_evt_std_out(datos_leidos, proceso);
+                
+                cambiar_de_evt(proceso, evt);
 
                 evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout", logger);
                 pthread_detach(evt->hilo_timeout);
@@ -375,8 +365,38 @@ void* atender_km(void*){
                 pthread_mutex_unlock(&m_lista_evt_stdout);
 
                 sem_post(&s_evt_stdout);
-                log_debug(logger, "atender_cpu: sem_post(&s_evt_stdout)");            
-            }default: 
+                log_debug(logger, "atender_cpu: sem_post(&s_evt_stdout)");     
+                break;       
+            }case RTA_WRITE: {
+                log_debug(logger, "Llego data de WRITE completado");
+                t_list* data = recibir_paquete(conexion_kernel_memory);
+                int pid = *(int*) list_get(data, 0);
+                t_pcb* proceso = proceso_de_lista(pid, lista_blocked);
+                t_evt* evt = proceso->evt_actual;
+                pthread_mutex_lock(&evt->mutex);
+
+                evt->syscall_finalizada = true;
+                pthread_cond_signal(&evt->cond);
+                
+                pthread_mutex_unlock(&evt->mutex);
+                
+                if(proceso->estado == BLOQUEADO){
+                    log_info(logger, "## (<%d>) finalizó IO y pasa a READY", proceso->pid);
+                    blocked_a_ready(proceso);
+                }else if(proceso->estado == SUSP_BLOQUEADO){
+                    log_info(logger, "## (<%d>) finalizó IO y pasa a SUSP_READY", proceso->pid);
+                    susp_blocked_a_susp_ready(proceso);
+                }
+                pthread_join(evt->hilo_timeout, NULL); 
+                pthread_mutex_destroy(&evt->mutex);
+                pthread_cond_destroy(&evt->cond);
+                cambiar_de_evt(proceso, NULL);
+                free(evt->data_evt);
+                free(evt);
+                break;
+            }
+            
+            default: 
                 log_warning(logger, "Warning: Operacion desconocida, cod_op = %d",cod_op);
         }
     }

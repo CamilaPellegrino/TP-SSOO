@@ -56,6 +56,7 @@ typedef enum
 	CPU_KM__PCONTEXTO,
 	CPU_KM__ACTUALIZAR_PCB,
 	KM_READ,
+	KM_WRITE,
 	SCH_KM__EXIT,
 	SCH_KM__INIT_PROC,
 	CPU_KM__FETCH,
@@ -71,7 +72,8 @@ typedef enum
 	STICK_X__OK,
 	STICK_X__ERROR,
 	// confirmaciones de KM
-	RTA_READ
+	RTA_READ,
+	RTA_WRITE
 
 }op_code;
 
