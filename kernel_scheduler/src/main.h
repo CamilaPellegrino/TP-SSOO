@@ -67,7 +67,7 @@ void* atender_cliente(void *arg);
 void* atender_cpu(t_cpu* cpu);
 void atender_cpu_syscall_sleep(int tiempo_sleep, t_cpu* cpu);
 void atender_cpu_syscall_stdin(int tamanio, int dir_logica, t_cpu* cpu);
-void atender_cpu_syscall_stdout(int tamanio, int dir_logica, t_cpu* cpu);
+void atender_cpu_syscall_stdout(int tamanio, int dir_logica, int stick, t_cpu* cpu);
 void atender_cpu_syscall_mutex_create(char* nombre_mutex, t_cpu* cpu);
 void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu);
 void atender_cpu_syscall_mutex_unlock(char* nombre_mutex, t_cpu* cpu);

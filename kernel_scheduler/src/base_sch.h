@@ -26,6 +26,7 @@ typedef struct{
 	t_data_cond data_cond;
 	pthread_mutex_t mutex;
 } t_pcb;
+
 typedef struct
 {
 	int fd;
@@ -59,6 +60,11 @@ typedef struct{
     pthread_cond_t cond;
 	pthread_t hilo_timeout;
 } t_evt;
+
+typedef struct{
+	char* datos_leidos;
+}t_evt_std_in;
+
 typedef enum{
     CMN,
     FIFO,
@@ -139,7 +145,7 @@ t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
 t_pcb* iniciar_pcb(int pid, int ppid, int prioridad, t_tipo_estado estado);
 t_evt* iniciar_evt_sleep(int tiempo_sleep, t_pcb* proceso);
 t_evt* iniciar_evt_std_in_out(int tamanio, int dir_logica, t_pcb* proceso);
-
+t_evt* iniciar_evt_std_in(char* datos_leidos, t_pcb* proceso);
 // Funciones para modificar
 void cambiar_prioridad(t_pcb* proceso, int prioridad);
 
@@ -175,6 +181,10 @@ void sumar_milisegundos(struct timespec* ts, int milisegundos);
 void loguear_tamanio_listas_de_estado();
 t_planificacion algoritmo_de_proceso(t_pcb*);
  
+// obtener por clave
+
+t_pcb* proceso_de_lista(int pid, t_list* list);
+
 // liberar
 void liberar_cpu(t_cpu* cpu);     // liberar la cpu, osea que no tenga asignado ningun proceso (no le manda nada a la cpu, solo hace cpu->proceso=NULL)
 void liberar_pcb_de_exit(int pid);

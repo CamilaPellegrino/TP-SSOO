@@ -69,7 +69,9 @@ typedef enum
 	X_STICK__LECTURA,
 	// confirmaciones de sticks
 	STICK_X__OK,
-	STICK_X__ERROR
+	STICK_X__ERROR,
+	// confirmaciones de KM
+	RTA_READ
 
 }op_code;
 

@@ -42,18 +42,12 @@ void atender_io_stdout(t_io* io){
             continue;
         }
         t_pcb* proceso = evt->proceso;
-        t_evt_std_in_out* data = evt->data_evt;
-        int tamanio = data->tamanio;
-        // int dir_logica = data->dir_logica;
-        
-        // TODO: enviar contenido a KM para que lo guarde en la dir_logica
-        // ...
-        char* contenido = "Hola mundo!"; // reemplazar por lo que devuelva KM
-
+        t_evt_std_in* data = evt->data_evt;
+        char* datos_leidos = data->datos_leidos;
 
         t_paquete* paquete_sys = crear_paquete(SCH_IO__SOLICITUD);
         agregar_a_paquete(paquete_sys, &(proceso->pid), sizeof(proceso->pid));
-        agregar_string_a_paquete(paquete_sys, contenido);
+        agregar_string_a_paquete(paquete_sys, datos_leidos);
 
         atender_sys(io, paquete_sys, "stdout");
         pthread_mutex_lock(&evt->mutex);

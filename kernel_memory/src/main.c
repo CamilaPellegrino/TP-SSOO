@@ -177,6 +177,18 @@ void* atender_scheduler(void*){
                 agregar_a_paquete(paquete_conf, &ok, sizeof(bool));
                 enviar_paquete_y_liberarlo(paquete_conf, sch_fd);
                 break;
+            }case KM_READ:{
+                t_list* data = recibir_paquete(sch_fd);
+                int dir_fisica = *(int*) list_get(data, 0);
+                int tamanio = *(int*) list_get(data, 1);
+                int nro_stick = *(int*) list_get(data, 2);
+                int pid =*(int*)  list_get(data, 3);
+                char* datos_leidos = "Si esto anda soy una crack B)";
+                t_paquete* paquete = crear_paquete(RTA_READ);
+                agregar_a_paquete(paquete, &pid, sizeof(pid));
+                agregar_string_a_paquete(paquete, datos_leidos);
+
+                enviar_paquete_y_liberarlo(paquete, sch_fd);
             }
             default:
                 log_warning(logger, "atender_scheduler: Operacion desconocida, cod_op=%d", cod_op);

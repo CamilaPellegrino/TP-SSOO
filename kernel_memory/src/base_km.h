@@ -25,26 +25,6 @@ typedef enum
 
 typedef struct
 {
-	t_tipo_evt tipo;
-	t_cpu* cpu;
-	void* data;
-	pthread_mutex_t* mutex;
-}t_evt;
-
-typedef struct
-{
-	int base;
-	int tamanio;
-}t_data_lectura;
-
-typedef struct
-{
-	int base;
-	int bytes;
-}t_data_escritura;
-
-typedef struct
-{
 	int fd;
 	int id;
 } t_cpu;
@@ -79,6 +59,26 @@ typedef struct {
 	t_list* lista_segmentos;
 } t_proceso;
  
+ typedef struct
+{
+	t_tipo_evt tipo;
+	t_cpu* cpu;
+	void* data;
+	pthread_mutex_t* mutex;
+}t_evt;
+
+typedef struct
+{
+	int base;
+	int tamanio;
+}t_data_lectura;
+
+typedef struct
+{
+	int base;
+	int bytes;
+}t_data_escritura;
+
 // estructuras para manejo de memoria: 
 typedef struct {
     int id_segmento;

@@ -175,6 +175,18 @@ t_evt* iniciar_evt_std_in_out(int tamanio, int dir_logica, t_pcb* proceso){
     return evt;
 }
 
+t_evt* iniciar_evt_std_in(char* datos_leidos, t_pcb* proceso){
+    t_evt* evt = malloc(sizeof(t_evt));
+    evt->proceso = proceso;
+    evt->syscall_finalizada = false;
+    pthread_cond_init(&evt->cond, NULL);
+    pthread_mutex_init(&evt->mutex, NULL);
+    t_evt_std_in* evt_std_in_out = malloc(sizeof(*evt_std_in_out));
+    evt_std_in_out->datos_leidos = datos_leidos;
+    evt->data_evt = evt_std_in_out;
+    return evt;
+}
+
 // funciones para modificar
 void cambiar_prioridad(t_pcb* proceso, int prioridad){
     if(algoritmo != CMN || list_size(queues_algorithms)>prioridad){
@@ -422,6 +434,18 @@ void desbloquear_proceso(t_pcb* proceso){
         // si esta en blocked: mover a ready
         blocked_a_ready(proceso);
     }
+}
+
+// obtener por clave
+
+t_pcb* proceso_de_lista(int pid, t_list* list){
+    for(int i = 0; i < list_size(list); i++){
+        t_pcb* proceso = list_get(list, i);
+        if(proceso->pid == pid){
+            return proceso;
+        }
+    }
+    return NULL;
 }
 
 // liberar
