@@ -86,7 +86,7 @@ void atender_io_stdin(t_io* io){
         }
         t_evt_std_out* data_evt = evt->data_evt;
         int tamanio = data_evt->tamanio;
-        int dir_logica = data_evt->dir_logica;
+        int dir_fisica = data_evt->dir_fisica;
         int nro_stick = 0;
         t_pcb* proceso = evt->proceso;
 
@@ -102,7 +102,7 @@ void atender_io_stdin(t_io* io){
         void* contenido = list_get(lista_paquete, 0);
 
         t_paquete* paquete = crear_paquete(KM_WRITE);
-        agregar_a_paquete(paquete, &dir_logica, sizeof(dir_logica));
+        agregar_a_paquete(paquete, &dir_fisica, sizeof(dir_fisica));
         agregar_a_paquete(paquete, &nro_stick, sizeof(nro_stick));
         agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
         // agregar_string_a_paquete(paquete, contenido);

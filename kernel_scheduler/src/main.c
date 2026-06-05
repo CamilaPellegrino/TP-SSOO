@@ -141,16 +141,16 @@ void* atender_cpu(t_cpu* cpu){
             }case CPU_SCH__STDIN:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <STDIN>", cpu->proceso->pid);
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
-                int dir_logica = *(int*)list_get(lista_paquete, 0);
+                int dir_fisica = *(int*)list_get(lista_paquete, 0);
                 int tamanio = *(int*)list_get(lista_paquete, 1);
-                atender_cpu_syscall_stdin(tamanio, dir_logica, cpu);
+                atender_cpu_syscall_stdin(tamanio, dir_fisica, cpu);
                 break;
             }case CPU_SCH__STDOUT:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <STDOUT>", cpu->proceso->pid);
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
-                int dir_logica = *(int*)list_get(lista_paquete, 0); // TODO: cambiar nombre de la variable a dir_fisica
+                int dir_fisica = *(int*)list_get(lista_paquete, 0); // TODO: cambiar nombre de la variable a dir_fisica
                 int tamanio = *(int*)list_get(lista_paquete, 1);
-                atender_cpu_syscall_stdout(tamanio, dir_logica, 0, cpu);
+                atender_cpu_syscall_stdout(tamanio, dir_fisica, 0, cpu);
                 break;
             }case CPU_SCH__INIT_PROC:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <INIT_PROC>", cpu->proceso->pid);
@@ -231,15 +231,15 @@ void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu){
 
 }
 
-void atender_cpu_syscall_stdout(int tamanio, int dir_logica, int nro_stick, t_cpu* cpu){
+void atender_cpu_syscall_stdout(int tamanio, int dir_fisica, int nro_stick, t_cpu* cpu){
     t_pcb* proceso = cpu->proceso;
     int pid = proceso->pid;
     exec_a_blocked_cond_signal(proceso);
     liberar_cpu(cpu);
-    log_debug(logger, "tamanio a leer: %d, dir logica: %d", tamanio, dir_logica);
+    log_debug(logger, "tamanio a leer: %d, dir fisica: %d", tamanio, dir_fisica);
 
     t_paquete* paquete = crear_paquete(KM_READ);
-    agregar_a_paquete(paquete, &dir_logica, sizeof(dir_logica));
+    agregar_a_paquete(paquete, &dir_fisica, sizeof(dir_fisica));
     agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
     agregar_a_paquete(paquete, &nro_stick, sizeof(nro_stick));
     agregar_a_paquete(paquete, &pid, sizeof(pid));
@@ -247,13 +247,13 @@ void atender_cpu_syscall_stdout(int tamanio, int dir_logica, int nro_stick, t_cp
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
 }
 
-void atender_cpu_syscall_stdin(int tamanio, int dir_logica, t_cpu* cpu){ // TODO: Codigo muy parecido a atender_cpu_syscall_sleep, juntarlo
+void atender_cpu_syscall_stdin(int tamanio, int dir_fisica, t_cpu* cpu){ // TODO: Codigo muy parecido a atender_cpu_syscall_sleep, juntarlo
     t_pcb* proceso = cpu->proceso;
     exec_a_blocked_cond_signal(proceso);
     liberar_cpu(cpu);
-    log_debug(logger, "tamanio a leer: %d, dir logica: %d", tamanio, dir_logica);
+    log_debug(logger, "tamanio a leer: %d, dir fisica: %d", tamanio, dir_fisica);
     // crear evento
-    t_evt* evt = iniciar_evt_std_in(tamanio, dir_logica, proceso);
+    t_evt* evt = iniciar_evt_std_in(tamanio, dir_fisica, proceso);
     cambiar_de_evt(proceso, evt);
     // crear el hilo de timeout para que dps del timeout se suspenda el proceso
     evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout", logger);

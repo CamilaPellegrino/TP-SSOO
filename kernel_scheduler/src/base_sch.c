@@ -165,7 +165,7 @@ t_evt* iniciar_evt_sleep(int tiempo_sleep, t_pcb* proceso){
     evt->data_evt = evt_sleep;
     return evt;
 }
-t_evt* iniciar_evt_std_in(int tamanio, int dir_logica, t_pcb* proceso){
+t_evt* iniciar_evt_std_in(int tamanio, int dir_fisica, t_pcb* proceso){
     t_evt* evt = malloc(sizeof(t_evt));
     evt->proceso = proceso;
     evt->syscall_finalizada = false;
@@ -173,7 +173,7 @@ t_evt* iniciar_evt_std_in(int tamanio, int dir_logica, t_pcb* proceso){
     pthread_mutex_init(&evt->mutex, NULL);
     t_evt_std_out* evt_std_out = malloc(sizeof(*evt_std_out));
     evt_std_out->tamanio = tamanio;
-    evt_std_out->dir_logica = dir_logica;
+    evt_std_out->dir_fisica = dir_fisica;
     evt->data_evt = evt_std_out;
     return evt;
 }
