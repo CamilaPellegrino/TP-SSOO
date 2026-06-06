@@ -30,6 +30,7 @@ t_proceso* iniciar_proceso(t_pcb* pcb, t_list* instrucciones){
 	if(proceso == NULL){ return NULL; }
     proceso->pcb = pcb;
     proceso->instrucciones = instrucciones;
+    proceso->lista_segmentos = list_create();
     return proceso;
 }
 
@@ -127,7 +128,8 @@ bool guardar_nuevo_proceso(int pid, int ppid, char* ruta){
     }
     pcb->pid = pid;
     pcb->ppid = ppid;
-    t_list* instrucciones = instrucciones_de_ruta(ruta);
+    // t_list* instrucciones = instrucciones_de_ruta(ruta);
+    t_list* instrucciones = crear_lista_instr_test();
     t_proceso* proceso = iniciar_proceso(pcb, instrucciones);
     if(proceso == NULL){
         return false;
@@ -277,6 +279,17 @@ char* ruta_completa(char* base, char* nombre_archivo){
 }
 
 // Otros
+
+t_list* crear_lista_instr_test() {
+    t_list* lista = list_create();
+
+    list_add(lista, strdup("MEM_ALLOC 0 4"));
+    list_add(lista, strdup("MEM_ALLOC 1 32"));
+    list_add(lista, strdup("EXIT"));
+
+    return lista;
+}
+
 void imprimir_bytes(void* data, int tamanio){
     uint8_t* bytes = (uint8_t*) data;
         printf("Bytes: ");
@@ -290,14 +303,16 @@ void imprimir_bytes(void* data, int tamanio){
 void imprimir_huecos(){
     printf("HUECOS:\n");
     for(int i = 0; i < list_size(lista_huecos); i++){
+        log_debug(logger, "hueco %d", i);
         t_hueco* h = list_get(lista_huecos, i);
-        printf(
-            "Hueco %d -> base: %d | tam: %u | fin: %u\n",
-            i,
+        if(h == NULL){
+        }
+        printf(" -> base: %d | tam: %u",
             h->base,
             h->tamanio
         );
     }
+    printf("\n");
 }
 
 void imprimir_segmentos(){

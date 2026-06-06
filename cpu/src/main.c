@@ -21,10 +21,7 @@ void ejecutar_exit(t_instruccion_decodificada* instr);
 void esperar_a_poder_ejecutar(); 
 void ejecutar_init_proc(t_instruccion_decodificada* instr);
 void ejecutar_mem_alloc(t_instruccion_decodificada* instr);
-t_instruccion_decodificada* prox_instruccion_test();
-t_list* lista_instrucciones_test();
-t_instruccion_decodificada* crear_instruccion_exit();
-t_instruccion_decodificada* crear_instruccion_mem_alloc(int p1, int p2);
+
 
 // variables globales
 t_log* logger;
@@ -262,9 +259,8 @@ void ciclo_instruccion(t_pcb *pcb){
         }
         
         //DECODE
-        // t_instruccion_decodificada * instruccion_decodificada = malloc(sizeof(t_instruccion_decodificada));
-        // decode(instruccion, pcb, instruccion_decodificada);
-        t_instruccion_decodificada * instruccion_decodificada = prox_instruccion_test();
+        t_instruccion_decodificada * instruccion_decodificada = malloc(sizeof(t_instruccion_decodificada));
+        decode(instruccion, pcb, instruccion_decodificada);
         log_info(logger, "pc %i", pcb->registros.pc);
         log_info( logger, "Instruccion: %s", instruccion);
         int pc_antiguo = pcb->registros.pc;
@@ -423,6 +419,15 @@ void decode(char *instruccion, t_pcb *pcb,  t_instruccion_decodificada * instruc
         *prioridad = (int)strtol(partes[2], NULL, 10);
         list_add(instruccion_decodificada->registros, ruta_instr);
         list_add(instruccion_decodificada->registros, prioridad);
+    }
+    else if(string_equals_ignore_case(partes[0], "MEM_ALLOC")){
+        instruccion_decodificada->tipo = I_MEM_ALLOC;
+        int* id_segmento = malloc(sizeof(int));
+        *id_segmento = (int)strtol(partes[1], NULL, 10);
+        int* tamanio = malloc(sizeof(int));
+        *tamanio = (int)strtol(partes[2], NULL, 10);
+        list_add(instruccion_decodificada->registros, id_segmento);
+        list_add(instruccion_decodificada->registros, tamanio);
     }
     string_array_destroy(partes);
     return;
@@ -776,53 +781,4 @@ uint32_t leer_registro(especificacion_registro* reg){
     if(reg->tamanio ==sizeof(uint8_t))
         return*(uint8_t*)reg->ptro_reg;
     return*(uint32_t*)reg->ptro_reg;
-}
-
-t_instruccion_decodificada* crear_instruccion_mem_alloc(int p1, int p2) {
-    t_instruccion_decodificada* inst =
-        malloc(sizeof(t_instruccion_decodificada));
-
-    inst->tipo = I_MEM_ALLOC;
-    inst->registros = list_create();
-
-    int* param1 = malloc(sizeof(int));
-    int* param2 = malloc(sizeof(int));
-
-    *param1 = p1;
-    *param2 = p2;
-
-    list_add(inst->registros, param1);
-    list_add(inst->registros, param2);
-
-    return inst;
-}
-
-t_instruccion_decodificada* crear_instruccion_exit() {
-    t_instruccion_decodificada* inst =
-        malloc(sizeof(t_instruccion_decodificada));
-
-    inst->tipo = I_EXIT;
-    inst->registros = list_create();
-
-    return inst;
-}
-
-t_list* lista_instrucciones_test() {
-    t_list *ret = list_create();
-
-    list_add(ret, crear_instruccion_mem_alloc(0, 4));
-    list_add(ret, crear_instruccion_exit());
-
-    return ret;
-}
-t_instruccion_decodificada* prox_instruccion_test() {
-    static int i = 0;
-    static t_list* instrucciones = NULL;
-    if (instrucciones == NULL) {
-        instrucciones = lista_instrucciones_test();
-    }
-    if (i >= list_size(instrucciones)) {
-        return NULL;
-    }
-    return list_get(instrucciones, i++);
 }

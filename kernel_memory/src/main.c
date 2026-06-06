@@ -49,6 +49,7 @@ void* atender_cliente(void *arg){
             
             t_stick* nuevo_stick = iniciar_stick(ip, puerto, tamanio, cliente_fd);
             
+            agregar_espacio_mem(nuevo_stick->tamanio);
             agregar_stick(nuevo_stick);
 
             enviar_nuevo_stick_a_scheduler(nuevo_stick, sch_fd);
@@ -236,11 +237,17 @@ void atender_sch_mem_alloc(t_list* data){
     log_info(logger, "## Atendiendo syscall MEM_ALLOC %d %d", id_segmento, tamanio);
     t_proceso* p = proceso_de_pid(pid);
     t_status_op status = OK;
-    t_segmento* segmento = crear_segmento(p, id_segmento, tamanio);
-    if(segmento == NULL){
+    if(p == NULL){
+        log_debug(logger, "Proceso NULL");
         status = ERROR;
+    }else{
+        log_debug(logger, "Proceso no nulo, pid: %d", p->pcb->pid);
+        imprimir_huecos();
+        t_segmento* segmento = crear_segmento(p, id_segmento, tamanio);
+        if(segmento == NULL){
+            status = ERROR;
+        }
     }
-    
     t_paquete* paquete = crear_paquete(KM_SCH__RTA_MEM_ALLOC);
     agregar_a_paquete(paquete, &pid, sizeof(pid));
     agregar_a_paquete(paquete, &status, sizeof(status));

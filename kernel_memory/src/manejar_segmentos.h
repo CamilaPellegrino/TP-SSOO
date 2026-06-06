@@ -14,4 +14,6 @@ uint32_t direccion_final(t_hueco* h);
 void fusionar_huecos_contiguos();
 void compactar_memoria();
 t_hueco* crear_hueco(int32_t base, uint32_t tamanio);
+void agregar_espacio_mem(int bytes);
+
 #endif /* MANEJAR_SEGMENTOS_H_ */

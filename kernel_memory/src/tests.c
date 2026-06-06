@@ -13,6 +13,7 @@ void assert_eq_u32(uint32_t a, uint32_t b, const char* msg);
 
 t_proceso* crear_proceso_test(int pid);
 void resetear_contexto_tests();
+void test_cami();
 void test_compactacion_sin_fragmentacion();
 void test_compactacion_basica();
 void test_compactacion_multiple();
@@ -20,10 +21,11 @@ void test_compactacion_integral();
 
 void testear(){
     log_info(logger, "==== INICIANDO TESTS ====");
-    test_compactacion_sin_fragmentacion();
-    test_compactacion_basica();
-    test_compactacion_multiple();
-    test_compactacion_integral();
+    test_cami();
+    // test_compactacion_sin_fragmentacion();
+    // test_compactacion_basica();
+    // test_compactacion_multiple();
+    // test_compactacion_integral();
     log_info(logger, "==== FIN TESTS ====");
     exit(EXIT_SUCCESS);
 }
@@ -79,6 +81,15 @@ void imprimir_estado_error(){
     imprimir_segmentos();
     printf("HUECOS:\n");
     imprimir_huecos();
+}
+
+void test_cami(){
+    agregar_espacio_mem(512);
+    imprimir_huecos();
+    imprimir_segmentos();
+    t_proceso* p1 = crear_proceso_test(1);
+    t_segmento* segA = crear_segmento(p1, 1, 4);
+    print_ok("TEST CAMI");
 }
 
 // TEST 1

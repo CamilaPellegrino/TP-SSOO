@@ -70,9 +70,13 @@ bool achicar_hueco(t_hueco* hueco, uint32_t seg_tam){
 }
 
 t_segmento* crear_segmento(t_proceso* proceso, uint32_t id_segmento, uint32_t tamanio){
+    imprimir_huecos();
     t_hueco* hueco_disp = ubicacion_de_proximo_segmento(tamanio);
     if(hueco_disp == NULL){
         log_error(logger, "Error en crear_segmento: No se encontró hueco disponible");
+        if(tamanio_total_mem >= tamanio){
+            log_debug(logger, "## Iniciando compactacion de memoria");
+        }
         return NULL;
     }
     t_segmento* segmento = malloc(sizeof(t_segmento));
@@ -255,30 +259,9 @@ void compactar_memoria(){
     h->tamanio += tamanio;
 }
 
-
-
-/*
-
-void pedido_escritura_stick(int fd, int base, int tamanio){
-    t_paquete* paquete = crear_paquete(X_STICK__ESCRITURA);
-    agregar_a_paquete(paquete, &base, sizeof(base));
-    agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
-    enviar_paquete_y_liberarlo(paquete, fd);
-
-    op_code cod_op = recibir_operacion(fd);
-    switch(cod_op){
-        case STICK_X__OK:{
-            
-        }case STICK_X__ERROR:{
-
-        }default:{
-            log_warning(logger, "Operacion invalida, op = %d", cod_op);
-        }
-    }
+void agregar_espacio_mem(int bytes){
+    crear_hueco(tamanio_total_mem, bytes);
+    fusionar_huecos_contiguos();
+    imprimir_huecos();
+    imprimir_segmentos();
 }
-
-void pedido_lectura_stick(int fd){
-    t_paquete* paquete = crear_paquete(X_STICK__LECTURA);
-}
-
-*/

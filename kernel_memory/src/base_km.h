@@ -153,6 +153,8 @@ char* ruta_completa(char* base, char* nombre_archivo);
 t_list* instrucciones_de_ruta(char* ruta);
 
 // Otros
+
+t_list* crear_lista_instr_test();
 void imprimir_bytes(void* data, int tamanio);
 void imprimir_huecos();
 void imprimir_segmentos();
