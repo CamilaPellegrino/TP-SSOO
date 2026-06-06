@@ -286,3 +286,29 @@ void imprimir_bytes(void* data, int tamanio){
 
     printf("\n");
 }
+
+void imprimir_huecos(){
+    printf("HUECOS:\n");
+    for(int i = 0; i < list_size(lista_huecos); i++){
+        t_hueco* h = list_get(lista_huecos, i);
+        printf(
+            "Hueco %d -> base: %d | tam: %u | fin: %u\n",
+            i,
+            h->base,
+            h->tamanio
+        );
+    }
+}
+
+void imprimir_segmentos(){
+    printf("SEGMENTOS:\n");
+    for(int i = 0; i < list_size(lista_segmentos_global); i++){
+        t_segmento* s = list_get(lista_segmentos_global, i);
+        printf(
+            "Segmento %d -> base: %d | tam: %u\n",
+            s->id_segmento,
+            s->base,
+            s->tamanio
+        );
+    }
+}

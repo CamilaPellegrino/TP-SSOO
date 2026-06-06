@@ -154,5 +154,6 @@ t_list* instrucciones_de_ruta(char* ruta);
 
 // Otros
 void imprimir_bytes(void* data, int tamanio);
-
+void imprimir_huecos();
+void imprimir_segmentos();
 #endif

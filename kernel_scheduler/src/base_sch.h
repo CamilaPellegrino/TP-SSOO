@@ -167,6 +167,7 @@ void new_a_ready(t_pcb* pid);
 void exec_a_blocked_cond_signal(t_pcb* proceso);
 void exec_a_ready_cond_signal(t_pcb* proceso);
 void exec_a_exit(t_pcb* proceso);
+void x_a_exit(t_pcb* proceso); 
 void agregar_a_ready(t_pcb* proceso);
 bool eliminar_de_ready(t_pcb* proceso);
 void agregar_a_ready_CMN(t_pcb* proceso);
@@ -183,7 +184,7 @@ void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
 void sumar_milisegundos(struct timespec* ts, int milisegundos);
 void loguear_tamanio_listas_de_estado();
 t_planificacion algoritmo_de_proceso(t_pcb*);
- 
+void manejar_status_op(t_pcb* proceso, t_status_op status);
 // obtener por clave
 
 t_pcb* proceso_de_lista(int pid, t_list* list);

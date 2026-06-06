@@ -76,7 +76,7 @@ typedef enum {
 typedef struct {
     instrucciones tipo;
 
-    t_list * registros; // void*
+    t_list * registros; 
 
 } t_instruccion_decodificada;
 

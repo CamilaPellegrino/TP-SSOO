@@ -31,6 +31,7 @@ typedef enum
 	KM_SCH__BSOD,
 	KM_SCH__EXIT_OK,
 	KM_SCH__INIT_PROC_RESP,
+	KM_SCH__RTA_MEM_ALLOC,
 	KM_SCH__LECTURA,
 	CPU_SCH__INIT_PROC,
 	CPU_SCH__SLEEP,
@@ -39,6 +40,8 @@ typedef enum
 	CPU_SCH__MUTEX_CREATE,
 	CPU_SCH__MUTEX_LOCK,
 	CPU_SCH__MUTEX_UNLOCK,
+	CPU_SCH__MEM_ALLOC,
+	CPU_SCH__MEM_FREE,
 	CPU_SCH__EXIT,
 	CPU_SCH__EJECUCION_DETENIDA,
 	IO_SCH__OK,
@@ -59,6 +62,7 @@ typedef enum
 	KM_WRITE,
 	SCH_KM__EXIT,
 	SCH_KM__INIT_PROC,
+	SCH_KM__MEM_ALLOC,
 	CPU_KM__FETCH,
 	// mensajes con destino a IO
 	SCH_IO__SOLICITUD,
@@ -74,8 +78,12 @@ typedef enum
 	// confirmaciones de KM
 	RTA_READ,
 	RTA_WRITE
-
 }op_code;
+
+typedef enum{
+	OK,
+	ERROR
+} t_status_op;
 
 typedef struct
 {
@@ -158,4 +166,4 @@ t_log* iniciar_logger_log_level_string(char*, char*, char*);
 pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo, t_log* logger);
 
 
-#endif  /* UTILS_H_ */ 
+#endif  /* UTILS_H_ */

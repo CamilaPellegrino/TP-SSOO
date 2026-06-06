@@ -320,6 +320,61 @@ void exec_a_exit(t_pcb* proceso){
     log_obligatorio_cambio_de_estado(proceso->pid, "EXEC", "EXIT");
 }
 
+void x_a_exit(t_pcb* proceso){
+    pthread_mutex_lock(&proceso->mutex);
+    t_tipo_estado estado_actual = proceso->estado;
+
+    switch(estado_actual){
+        case NUEVO:
+            pthread_mutex_lock(&m_lista_new);
+            list_remove_element(lista_new, proceso);
+            pthread_mutex_unlock(&m_lista_new);
+            break;
+
+        case LISTO:
+            pthread_mutex_lock(&m_lista_ready);
+            list_remove_element(lista_ready, proceso);
+            pthread_mutex_unlock(&m_lista_ready);
+            break;
+
+        case EJECUTANDO:
+            pthread_mutex_lock(&m_lista_exec);
+            list_remove_element(lista_exec, proceso);
+            pthread_mutex_unlock(&m_lista_exec);
+            break;
+
+        case BLOQUEADO:
+            pthread_mutex_lock(&m_lista_blocked);
+            list_remove_element(lista_blocked, proceso);
+            pthread_mutex_unlock(&m_lista_blocked);
+            break;
+
+        case SUSP_LISTO:
+            pthread_mutex_lock(&m_lista_susp_ready);
+            list_remove_element(lista_susp_ready, proceso);
+            pthread_mutex_unlock(&m_lista_susp_ready);
+            break;
+
+        case SUSP_BLOQUEADO:
+            pthread_mutex_lock(&m_lista_susp_blocked);
+            list_remove_element(lista_susp_blocked, proceso);
+            pthread_mutex_unlock(&m_lista_susp_blocked);
+            break;
+
+        case FINALIZADO:
+            pthread_mutex_unlock(&proceso->mutex);
+            return;
+    }
+
+    proceso->estado = FINALIZADO;
+
+    pthread_mutex_lock(&m_lista_exit);
+    list_add(lista_exit, proceso);
+    pthread_mutex_unlock(&m_lista_exit);
+
+    pthread_mutex_unlock(&proceso->mutex);
+}
+
 void proceso_a_new(t_pcb* proceso){
     agregar_proceso_a_lista(lista_new, proceso, NUEVO, &m_lista_new);
     log_info(logger, "## (<%d>) Se crea el proceso - Estado: NEW", proceso->pid);
@@ -440,6 +495,20 @@ void desbloquear_proceso(t_pcb* proceso){
     }else if(estado == BLOQUEADO){
         // si esta en blocked: mover a ready
         blocked_a_ready(proceso);
+    }
+}
+
+void manejar_status_op(t_pcb* proceso, t_status_op status){
+    switch (status){
+        case OK:{
+            desbloquear_proceso(proceso);
+            
+            break;
+        
+        }case ERROR:{
+            x_a_exit(proceso);
+            break;
+        }
     }
 }
 

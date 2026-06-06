@@ -19,8 +19,12 @@ void ejecutar_m_lock(t_instruccion_decodificada* instr);
 void ejecutar_m_unlock(t_instruccion_decodificada* instr);
 void ejecutar_exit(t_instruccion_decodificada* instr);
 void esperar_a_poder_ejecutar(); 
-void ejecutar_exit(t_instruccion_decodificada* instr);
 void ejecutar_init_proc(t_instruccion_decodificada* instr);
+void ejecutar_mem_alloc(t_instruccion_decodificada* instr);
+t_instruccion_decodificada* prox_instruccion_test();
+t_list* lista_instrucciones_test();
+t_instruccion_decodificada* crear_instruccion_exit();
+t_instruccion_decodificada* crear_instruccion_mem_alloc(int p1, int p2);
 
 // variables globales
 t_log* logger;
@@ -258,8 +262,9 @@ void ciclo_instruccion(t_pcb *pcb){
         }
         
         //DECODE
-        t_instruccion_decodificada * instruccion_decodificada = malloc(sizeof(t_instruccion_decodificada));
-        decode(instruccion, pcb, instruccion_decodificada);
+        // t_instruccion_decodificada * instruccion_decodificada = malloc(sizeof(t_instruccion_decodificada));
+        // decode(instruccion, pcb, instruccion_decodificada);
+        t_instruccion_decodificada * instruccion_decodificada = prox_instruccion_test();
         log_info(logger, "pc %i", pcb->registros.pc);
         log_info( logger, "Instruccion: %s", instruccion);
         int pc_antiguo = pcb->registros.pc;
@@ -424,6 +429,7 @@ void decode(char *instruccion, t_pcb *pcb,  t_instruccion_decodificada * instruc
 }
 
 bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
+    log_debug(logger, "tipo: %d", instruccion->tipo);
     switch (instruccion->tipo){
         case I_NOOP:
             break;
@@ -481,6 +487,9 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
             return true;
         case I_INIT_PROC:
             ejecutar_init_proc(instruccion);
+            break;
+        case I_MEM_ALLOC:
+            ejecutar_mem_alloc(instruccion);
             break;
         default:
             log_warning(logger, "Instruccion no implementada, tipo %d", instruccion->tipo);
@@ -571,6 +580,18 @@ void esperar_a_poder_ejecutar(){
 }
 
 // syscalls: 
+void ejecutar_mem_alloc(t_instruccion_decodificada* instr){
+    detener_ejecucion(); 
+    int id_segmento = *(int*)list_get(instr->registros, 0);
+    int tamanio = *(int*)list_get(instr->registros, 1);
+    log_debug(logger, "Ejecutando MEM_ALLOC %d %d", id_segmento, tamanio);
+    t_paquete* paquete = crear_paquete(CPU_SCH__MEM_ALLOC);
+    agregar_a_paquete(paquete, &id_segmento, sizeof(id_segmento));
+    agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+    log_debug(logger, "paquete enviado");
+}
+
 void ejecutar_init_proc(t_instruccion_decodificada* instr){
     log_debug(logger, "Ejecutando INIT_PROC");
     char* ruta_archivo_instrucciones = list_get(instr->registros, 0);
@@ -755,4 +776,53 @@ uint32_t leer_registro(especificacion_registro* reg){
     if(reg->tamanio ==sizeof(uint8_t))
         return*(uint8_t*)reg->ptro_reg;
     return*(uint32_t*)reg->ptro_reg;
+}
+
+t_instruccion_decodificada* crear_instruccion_mem_alloc(int p1, int p2) {
+    t_instruccion_decodificada* inst =
+        malloc(sizeof(t_instruccion_decodificada));
+
+    inst->tipo = I_MEM_ALLOC;
+    inst->registros = list_create();
+
+    int* param1 = malloc(sizeof(int));
+    int* param2 = malloc(sizeof(int));
+
+    *param1 = p1;
+    *param2 = p2;
+
+    list_add(inst->registros, param1);
+    list_add(inst->registros, param2);
+
+    return inst;
+}
+
+t_instruccion_decodificada* crear_instruccion_exit() {
+    t_instruccion_decodificada* inst =
+        malloc(sizeof(t_instruccion_decodificada));
+
+    inst->tipo = I_EXIT;
+    inst->registros = list_create();
+
+    return inst;
+}
+
+t_list* lista_instrucciones_test() {
+    t_list *ret = list_create();
+
+    list_add(ret, crear_instruccion_mem_alloc(0, 4));
+    list_add(ret, crear_instruccion_exit());
+
+    return ret;
+}
+t_instruccion_decodificada* prox_instruccion_test() {
+    static int i = 0;
+    static t_list* instrucciones = NULL;
+    if (instrucciones == NULL) {
+        instrucciones = lista_instrucciones_test();
+    }
+    if (i >= list_size(instrucciones)) {
+        return NULL;
+    }
+    return list_get(instrucciones, i++);
 }

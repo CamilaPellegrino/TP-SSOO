@@ -92,7 +92,8 @@ t_segmento* crear_segmento(t_proceso* proceso, uint32_t id_segmento, uint32_t ta
     segmento->tamanio = tamanio;
 
     agregar_segmento_a_proceso(segmento, proceso);
-
+    imprimir_segmentos();
+    imprimir_huecos();
     return segmento;
 }
 

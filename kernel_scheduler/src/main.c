@@ -160,6 +160,17 @@ void* atender_cpu(t_cpu* cpu){
                 t_pcb* pcb = nuevo_proc(prioridad, cpu->proceso->pid, instrucciones);
                 list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
+            }case CPU_SCH__MEM_ALLOC:{
+                log_info(logger, "## (<%d>) - Solicito syscall: <MEM_ALLOC>", cpu->proceso->pid);
+                t_list* data = recibir_paquete(cpu_fd);
+                int id_segmento = *(int*)list_get(data, 0);
+                int tamanio = *(int*)list_get(data, 1);
+                atender_cpu_syscall_mem_alloc(id_segmento, tamanio, cpu);
+                break;
+            }case CPU_SCH__MEM_FREE:{
+                log_warning(logger, "## (<%d>) - Solicito syscall: <MEM_FREE> no implementada", cpu->proceso->pid);
+                
+                break;
             }case CPU_SCH__EXIT:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <EXIT>", cpu->proceso->pid);
                 t_pcb* proceso_exit = cpu->proceso;
@@ -188,6 +199,20 @@ void* atender_cpu(t_cpu* cpu){
         loguear_tamanio_listas_de_estado();
     }
     return NULL;
+}
+       
+void atender_cpu_syscall_mem_alloc(int id_segmento, int tamanio, t_cpu* cpu){
+    t_pcb* proceso = cpu->proceso;
+    exec_a_blocked_cond_signal(proceso);
+    liberar_cpu(cpu);
+    log_debug(logger, "Id segmento: %d, tamanio: %d", id_segmento, tamanio);
+    
+    t_paquete* paquete = crear_paquete(SCH_KM__MEM_ALLOC);
+    agregar_a_paquete(paquete, &proceso->pid, sizeof(proceso->pid));
+    agregar_a_paquete(paquete, &id_segmento, sizeof(id_segmento));
+    agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
+
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
 }
 
 void atender_cpu_syscall_mutex_unlock(char* nombre_mutex, t_cpu* cpu){
@@ -247,18 +272,16 @@ void atender_cpu_syscall_stdout(int tamanio, int dir_fisica, int nro_stick, t_cp
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
 }
 
-void atender_cpu_syscall_stdin(int tamanio, int dir_fisica, t_cpu* cpu){ // TODO: Codigo muy parecido a atender_cpu_syscall_sleep, juntarlo
+void atender_cpu_syscall_stdin(int tamanio, int dir_fisica, t_cpu* cpu){
     t_pcb* proceso = cpu->proceso;
     exec_a_blocked_cond_signal(proceso);
     liberar_cpu(cpu);
     log_debug(logger, "tamanio a leer: %d, dir fisica: %d", tamanio, dir_fisica);
-    // crear evento
+
     t_evt* evt = iniciar_evt_std_in(tamanio, dir_fisica, proceso);
     cambiar_de_evt(proceso, evt);
-    // crear el hilo de timeout para que dps del timeout se suspenda el proceso
     evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout", logger);
     
-    // agregar evt a lista de evts
     pthread_mutex_lock(&m_lista_evt_stdin);
     list_add(lista_evt_stdin, evt);
     pthread_mutex_unlock(&m_lista_evt_stdin);
@@ -300,7 +323,6 @@ void atender_cpu_syscall_mutex_create(char* nombre_mutex, t_cpu* cpu){
     enviar_operacion(cpu_fd, SCH_CPU__REANUDAR_EJECUCION); // reanuda la ejecucion con el mismo pcb que tenia cargado. Solo para este caso creo, porque no desaloja el, cpu espera (ver issues)
 }
 
-// Atender modulo KM
 void* atender_km(void*){
     while(1){
         op_code cod_op = recibir_operacion(conexion_kernel_memory);
@@ -345,12 +367,20 @@ void* atender_km(void*){
                 }
                 list_destroy_and_destroy_elements(paquete, free);
                 break;
+            }case KM_SCH__RTA_MEM_ALLOC:{
+                log_debug(logger, "Syscall finalizada: MEM_ALLOC");
+                t_list* data = recibir_paquete(conexion_kernel_memory);
+                int pid = *(int*)list_get(data, 0);
+                t_status_op status = *(t_status_op*)list_get(data, 1);
+                t_pcb* proceso = proceso_de_lista(pid, lista_blocked);
+                manejar_status_op(proceso, status);
+                break;
             }case RTA_READ: {
                 t_list* data = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*) list_get(data, 0);
                 char* datos_leidos = list_get(data, 1);
                 t_pcb* proceso = proceso_de_lista(pid, lista_blocked);
-                // crear evento
+
                 t_evt* evt = iniciar_evt_std_out(datos_leidos, proceso);
                 
                 cambiar_de_evt(proceso, evt);
