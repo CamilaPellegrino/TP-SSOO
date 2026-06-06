@@ -60,7 +60,7 @@ pthread_mutex_t m_proximo_pid;
 int conexion_kernel_memory;
 
 /*
- * Declaracion de funcioens
+ * Declaracion de funciones
 */
 // atender_x
 void* atender_cliente(void *arg);
@@ -72,9 +72,7 @@ void atender_cpu_syscall_mutex_create(char* nombre_mutex, t_cpu* cpu);
 void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu);
 void atender_cpu_syscall_mutex_unlock(char* nombre_mutex, t_cpu* cpu);
 void atender_cpu_syscall_mem_alloc(int id_segmento, int tamanio, t_cpu* cpu);
+void atender_cpu_syscall_mem_free(int id_segmento,t_cpu* cpu);
 void* atender_km(void*);
-
-// otras
-t_planificacion algoritmo_str_a_enum(char *algoritmo_str);
 
 #endif  /* SCHEDULER_H_ */ 

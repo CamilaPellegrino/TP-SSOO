@@ -13,6 +13,7 @@ void assert_eq_u32(uint32_t a, uint32_t b, const char* msg);
 
 t_proceso* crear_proceso_test(int pid);
 void resetear_contexto_tests();
+void imprimir_estado_error();
 void test_cami();
 void test_compactacion_sin_fragmentacion();
 void test_compactacion_basica();
@@ -21,7 +22,7 @@ void test_compactacion_integral();
 
 void testear(){
     log_info(logger, "==== INICIANDO TESTS ====");
-    test_cami();
+    // test_cami();
     // test_compactacion_sin_fragmentacion();
     // test_compactacion_basica();
     // test_compactacion_multiple();

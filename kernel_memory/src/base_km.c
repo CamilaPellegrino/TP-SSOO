@@ -115,6 +115,23 @@ t_proceso* proceso_de_pid(int pid){
     }
     return NULL;
 }
+
+t_segmento* segmento_de_id(int id_segmento){
+    pthread_mutex_lock(&m_lista_segmentos_global);
+
+    for(int i = 0; i < list_size(lista_segmentos_global); i++){
+        t_segmento* s = list_get(lista_segmentos_global, i);
+
+        if(s->id_segmento == id_segmento){
+            pthread_mutex_unlock(&m_lista_segmentos_global);
+            return s;
+        }
+    }
+
+    pthread_mutex_unlock(&m_lista_segmentos_global);
+    return NULL;
+}
+
 t_stick* stick_por_id(int nro_stick){
     if(nro_stick >= list_size(lista_sticks)){
         return NULL;
@@ -128,8 +145,7 @@ bool guardar_nuevo_proceso(int pid, int ppid, char* ruta){
     }
     pcb->pid = pid;
     pcb->ppid = ppid;
-    // t_list* instrucciones = instrucciones_de_ruta(ruta);
-    t_list* instrucciones = crear_lista_instr_test();
+    t_list* instrucciones = instrucciones_de_ruta(ruta);
     t_proceso* proceso = iniciar_proceso(pcb, instrucciones);
     if(proceso == NULL){
         return false;
@@ -280,15 +296,6 @@ char* ruta_completa(char* base, char* nombre_archivo){
 
 // Otros
 
-t_list* crear_lista_instr_test() {
-    t_list* lista = list_create();
-
-    list_add(lista, strdup("MEM_ALLOC 0 4"));
-    list_add(lista, strdup("MEM_ALLOC 1 32"));
-    list_add(lista, strdup("EXIT"));
-
-    return lista;
-}
 
 void imprimir_bytes(void* data, int tamanio){
     uint8_t* bytes = (uint8_t*) data;
@@ -300,17 +307,18 @@ void imprimir_bytes(void* data, int tamanio){
     printf("\n");
 }
 
+void imprimir_estado_mem(){
+    imprimir_segmentos();
+    imprimir_huecos();
+}
+
 void imprimir_huecos(){
     printf("HUECOS:\n");
     for(int i = 0; i < list_size(lista_huecos); i++){
-        log_debug(logger, "hueco %d", i);
         t_hueco* h = list_get(lista_huecos, i);
         if(h == NULL){
         }
-        printf(" -> base: %d | tam: %u",
-            h->base,
-            h->tamanio
-        );
+        printf("Hueco %d -> base: %d | tam: %u", i, h->base, h->tamanio);
     }
     printf("\n");
 }

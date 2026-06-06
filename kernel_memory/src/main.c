@@ -173,7 +173,13 @@ void* atender_scheduler(void*){
                 t_list* data = recibir_paquete(sch_fd);
                 atender_sch_mem_alloc(data);
                 break;
-            }default:
+            }
+            case SCH_KM__MEM_FREE:{
+                t_list* data = recibir_paquete(sch_fd);
+                atender_sch_mem_free(data);
+                break;
+            }
+            default:
                 log_warning(logger, "atender_scheduler: Operacion desconocida, cod_op=%d", cod_op);
         }
     }
@@ -221,7 +227,7 @@ void atender_sch_init_proc(t_list* data){
     list_destroy_and_destroy_elements(data, free);
 
     bool ok = guardar_nuevo_proceso(pid, ppid, ruta_instrucciones);
-    // enviar confirmacion a sch: 
+
     t_paquete* paquete_conf = crear_paquete(KM_SCH__INIT_PROC_RESP);
     agregar_a_paquete(paquete_conf, &pid, sizeof(int));
     agregar_a_paquete(paquete_conf, &ok, sizeof(bool));
@@ -234,21 +240,41 @@ void atender_sch_mem_alloc(t_list* data){
     int pid = *(int*)list_get(data, i++);
     int id_segmento = *(int*)list_get(data, i++);
     int tamanio = *(int*)list_get(data, i++);
-    log_info(logger, "## Atendiendo syscall MEM_ALLOC %d %d", id_segmento, tamanio);
     t_proceso* p = proceso_de_pid(pid);
     t_status_op status = OK;
     if(p == NULL){
         log_debug(logger, "Proceso NULL");
         status = ERROR;
     }else{
-        log_debug(logger, "Proceso no nulo, pid: %d", p->pcb->pid);
-        imprimir_huecos();
+        log_info(logger, "## <%d> Atendiendo syscall MEM_ALLOC %d %d", pid, id_segmento, tamanio);
         t_segmento* segmento = crear_segmento(p, id_segmento, tamanio);
         if(segmento == NULL){
             status = ERROR;
         }
     }
     t_paquete* paquete = crear_paquete(KM_SCH__RTA_MEM_ALLOC);
+    agregar_a_paquete(paquete, &pid, sizeof(pid));
+    agregar_a_paquete(paquete, &status, sizeof(status));
+
+    enviar_paquete_y_liberarlo(paquete, sch_fd);
+}
+
+void atender_sch_mem_free(t_list* data){
+    int i = 0;
+    int pid = *(int*)list_get(data, i++);
+    int id_segmento = *(int*)list_get(data, i++);
+    
+    t_proceso* p = proceso_de_pid(pid);
+    t_segmento* segmento = segmento_de_id(id_segmento);
+    t_status_op status = OK;
+    if(p == NULL || segmento == NULL){
+        log_debug(logger, "Proceso o segmento no encontrados");
+        status = ERROR;
+    }else{
+        log_info(logger, "## <%d> Atendiendo syscall MEM_FREE %d", pid, id_segmento);
+        eliminar_segmento(segmento, p);
+    }
+    t_paquete* paquete = crear_paquete(KM_SCH__RTA_MEM_FREE);
     agregar_a_paquete(paquete, &pid, sizeof(pid));
     agregar_a_paquete(paquete, &status, sizeof(status));
 

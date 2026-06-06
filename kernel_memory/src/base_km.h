@@ -135,6 +135,7 @@ t_evt* iniciar_evt_write(int pid, int base, int tamanio, void* bytes);
 
 // ...
 t_proceso* proceso_de_pid(int pid);
+t_segmento* segmento_de_id(int id_segmento);
 t_stick* stick_por_id(int nro_stick);
 bool guardar_nuevo_proceso(int pid, int ppid, char* ruta_instrucciones);
 
@@ -149,13 +150,13 @@ void recibir_pcb_actualizado(t_list* valores);
 void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p); 
 
 // Manejo de rutas
-char* ruta_completa(char* base, char* nombre_archivo);
 t_list* instrucciones_de_ruta(char* ruta);
+char* ruta_completa(char* base, char* nombre_archivo);
 
 // Otros
 
-t_list* crear_lista_instr_test();
 void imprimir_bytes(void* data, int tamanio);
+void imprimir_estado_mem();
 void imprimir_huecos();
 void imprimir_segmentos();
 #endif

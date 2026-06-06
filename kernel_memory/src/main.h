@@ -15,6 +15,7 @@ void atender_sch_read(t_list* data);
 void atender_sch_write(t_list* data);
 void atender_sch_init_proc(t_list* data);
 void atender_sch_mem_alloc(t_list* data);
+void atender_sch_mem_free(t_list* data);
 // variables globales
 
 t_log *logger;

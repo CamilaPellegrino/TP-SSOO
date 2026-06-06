@@ -21,7 +21,7 @@ void ejecutar_exit(t_instruccion_decodificada* instr);
 void esperar_a_poder_ejecutar(); 
 void ejecutar_init_proc(t_instruccion_decodificada* instr);
 void ejecutar_mem_alloc(t_instruccion_decodificada* instr);
-
+void ejecutar_mem_free(instr);
 
 // variables globales
 t_log* logger;
@@ -31,8 +31,6 @@ bool v_desalojado_por_sch;
 bool v_ejecutar;
 pthread_cond_t cond_ejecutar;
 pthread_mutex_t m_ejecutar;
-
-// pthread_mutex_t m_desalojado_por_sch;
 
 int pid_pendiente;
 pthread_mutex_t m_pid_pendiente;
@@ -429,6 +427,12 @@ void decode(char *instruccion, t_pcb *pcb,  t_instruccion_decodificada * instruc
         list_add(instruccion_decodificada->registros, id_segmento);
         list_add(instruccion_decodificada->registros, tamanio);
     }
+    else if(string_equals_ignore_case(partes[0], "MEM_FREE")){
+        instruccion_decodificada->tipo = I_MEM_FREE;
+        int* id_segmento = malloc(sizeof(int));
+        *id_segmento = (int)strtol(partes[1], NULL, 10);
+        list_add(instruccion_decodificada->registros, id_segmento);
+    }
     string_array_destroy(partes);
     return;
 }
@@ -495,6 +499,9 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
             break;
         case I_MEM_ALLOC:
             ejecutar_mem_alloc(instruccion);
+            break;
+        case I_MEM_FREE:
+            ejecutar_mem_free(instruccion);
             break;
         default:
             log_warning(logger, "Instruccion no implementada, tipo %d", instruccion->tipo);
@@ -585,6 +592,16 @@ void esperar_a_poder_ejecutar(){
 }
 
 // syscalls: 
+void ejecutar_mem_free(t_instruccion_decodificada* instr){
+    detener_ejecucion();
+    int id_segmento = *(int*)list_get(instr->registros, 0);
+    log_debug(logger, "Ejecutando MEM_FREE %d", id_segmento);
+    t_paquete* paquete = crear_paquete(CPU_SCH__MEM_FREE);
+    agregar_a_paquete(paquete, &id_segmento, sizeof(id_segmento));
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+    log_debug(logger, "paquete enviado");
+}
+
 void ejecutar_mem_alloc(t_instruccion_decodificada* instr){
     detener_ejecucion(); 
     int id_segmento = *(int*)list_get(instr->registros, 0);

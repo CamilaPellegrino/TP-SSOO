@@ -70,7 +70,8 @@ bool achicar_hueco(t_hueco* hueco, uint32_t seg_tam){
 }
 
 t_segmento* crear_segmento(t_proceso* proceso, uint32_t id_segmento, uint32_t tamanio){
-    imprimir_huecos();
+    printf("Antes: \n");
+    imprimir_estado_mem();
     t_hueco* hueco_disp = ubicacion_de_proximo_segmento(tamanio);
     if(hueco_disp == NULL){
         log_error(logger, "Error en crear_segmento: No se encontró hueco disponible");
@@ -96,8 +97,8 @@ t_segmento* crear_segmento(t_proceso* proceso, uint32_t id_segmento, uint32_t ta
     segmento->tamanio = tamanio;
 
     agregar_segmento_a_proceso(segmento, proceso);
-    imprimir_segmentos();
-    imprimir_huecos();
+    printf("Despues: \n");
+    imprimir_estado_mem();
     return segmento;
 }
 
@@ -127,6 +128,8 @@ void insertar_ordenado_por_base(t_list* lista, t_segmento* segmento){
 }
 
 bool eliminar_segmento(t_segmento* segmento, t_proceso* proceso){
+    printf("Antes: \n");
+    imprimir_estado_mem();
     if(!segmento_del_proceso(segmento, proceso)){
         return false;
     }
@@ -147,6 +150,8 @@ bool eliminar_segmento(t_segmento* segmento, t_proceso* proceso){
     crear_hueco(segmento->base, segmento->tamanio);
     free(segmento);
     fusionar_huecos_contiguos();
+    printf("Despues: \n");
+    imprimir_estado_mem();
     return true;
 }
 
@@ -262,6 +267,5 @@ void compactar_memoria(){
 void agregar_espacio_mem(int bytes){
     crear_hueco(tamanio_total_mem, bytes);
     fusionar_huecos_contiguos();
-    imprimir_huecos();
-    imprimir_segmentos();
+    imprimir_estado_mem();
 }

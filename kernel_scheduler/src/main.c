@@ -169,7 +169,9 @@ void* atender_cpu(t_cpu* cpu){
                 break;
             }case CPU_SCH__MEM_FREE:{
                 log_warning(logger, "## (<%d>) - Solicito syscall: <MEM_FREE> no implementada", cpu->proceso->pid);
-                
+                t_list* data = recibir_paquete(cpu_fd);
+                int id_segmento = *(int*)list_get(data, 0);
+                atender_cpu_syscall_mem_free(id_segmento, cpu);
                 break;
             }case CPU_SCH__EXIT:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <EXIT>", cpu->proceso->pid);
@@ -199,6 +201,19 @@ void* atender_cpu(t_cpu* cpu){
         loguear_tamanio_listas_de_estado();
     }
     return NULL;
+}
+
+void atender_cpu_syscall_mem_free(int id_segmento,t_cpu* cpu){
+    t_pcb* proceso = cpu->proceso;
+    exec_a_blocked_cond_signal(proceso);
+    liberar_cpu(cpu);
+    log_debug(logger, "Id segmento: %d, pid: %d", id_segmento, proceso->pid);
+    
+    t_paquete* paquete = crear_paquete(SCH_KM__MEM_FREE);
+    agregar_a_paquete(paquete, &proceso->pid, sizeof(proceso->pid));
+    agregar_a_paquete(paquete, &id_segmento, sizeof(id_segmento));
+
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
 }
        
 void atender_cpu_syscall_mem_alloc(int id_segmento, int tamanio, t_cpu* cpu){
@@ -375,7 +390,16 @@ void* atender_km(void*){
                 t_pcb* proceso = proceso_de_lista(pid, lista_blocked);
                 manejar_status_op(proceso, status);
                 break;
-            }case RTA_READ: {
+            }case KM_SCH__RTA_MEM_FREE: {
+                log_debug(logger, "Syscall finalizada: MEM_FREE");
+                t_list* data = recibir_paquete(conexion_kernel_memory);
+                int pid = *(int*)list_get(data, 0);
+                t_status_op status = *(t_status_op*)list_get(data, 1);
+                t_pcb* proceso = proceso_de_lista(pid, lista_blocked);
+                manejar_status_op(proceso, status);
+                break;
+            }
+            case RTA_READ: {
                 t_list* data = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*) list_get(data, 0);
                 char* datos_leidos = list_get(data, 1);

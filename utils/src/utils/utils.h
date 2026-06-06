@@ -32,6 +32,7 @@ typedef enum
 	KM_SCH__EXIT_OK,
 	KM_SCH__INIT_PROC_RESP,
 	KM_SCH__RTA_MEM_ALLOC,
+	KM_SCH__RTA_MEM_FREE,
 	KM_SCH__LECTURA,
 	CPU_SCH__INIT_PROC,
 	CPU_SCH__SLEEP,
@@ -63,6 +64,7 @@ typedef enum
 	SCH_KM__EXIT,
 	SCH_KM__INIT_PROC,
 	SCH_KM__MEM_ALLOC,
+	SCH_KM__MEM_FREE,
 	CPU_KM__FETCH,
 	// mensajes con destino a IO
 	SCH_IO__SOLICITUD,
