@@ -328,10 +328,6 @@ void atender_cpu_syscall_mutex_create(char* nombre_mutex, t_cpu* cpu){
     int cpu_fd = cpu->fd;
     t_mutex* mutex = m_create(nombre_mutex);
     
-    pthread_mutex_lock(&m_lista_mutex);
-    list_add(lista_mutex, mutex);
-    pthread_mutex_unlock(&m_lista_mutex);
-
     log_debug(logger, "nuevo mutex agregado, tamaño lista ahora: %d", list_size(lista_mutex));
 
     // mandar a CPU confirmacion de que se termino la syscall (esta no es bloqueante)

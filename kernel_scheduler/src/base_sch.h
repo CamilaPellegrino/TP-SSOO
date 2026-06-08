@@ -7,6 +7,7 @@
 
 typedef struct t_evt t_evt;
 typedef struct t_pcb t_pcb;
+typedef struct t_mutex t_mutex;
 
 typedef struct
 {
@@ -20,13 +21,16 @@ typedef struct
 	t_list* sublista;
 	pthread_mutex_t mutex;
 } t_sublista_ready;
+
 struct t_pcb{
     int pid;
     int ppid;
-    int prioridad;
+    int prioridad_base;
+	int prioridad_actual;
 	t_tipo_estado estado;
 	t_data_cond data_cond;
 	pthread_mutex_t mutex;
+	t_mutex* mutex_esperado;
 	t_evt* evt_actual; 
 };
 
@@ -75,13 +79,13 @@ typedef enum{
 } t_planificacion;
 
 // para t_mutex
-typedef struct{
+ struct t_mutex{
     char* nombre;
     int mutex_id;
     t_pcb* duenio;
     t_list* procesos_en_espera; // procesos que esperan por el mutex, en orden
     pthread_mutex_t lock;
-} t_mutex;
+};
 
 // variables globales 
 extern t_log* logger;

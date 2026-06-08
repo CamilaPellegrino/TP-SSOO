@@ -137,14 +137,17 @@ t_io* iniciar_io(t_tipo_io tipo, int io_fd){
 }
 
 t_pcb* iniciar_pcb(int pid, int ppid, int prioridad, t_tipo_estado estado){
+    log_debug(logger, "Prior:%d", prioridad);
 	t_pcb* nuevo_pcb = malloc(sizeof(t_pcb));
     if(nuevo_pcb != NULL){
         nuevo_pcb->estado = NUEVO;
         nuevo_pcb->pid = pid;
         nuevo_pcb->ppid = ppid;
-        nuevo_pcb->prioridad = prioridad;
+        nuevo_pcb->prioridad_base = prioridad;
+        nuevo_pcb->prioridad_actual = prioridad;
         nuevo_pcb->estado = estado;   
         nuevo_pcb->data_cond.cond_val = false;
+        nuevo_pcb->mutex_esperado = NULL;
         pthread_mutex_init(&nuevo_pcb->data_cond.mutex_cond, NULL);
         pthread_cond_init(&nuevo_pcb->data_cond.cond, NULL);
 
@@ -192,9 +195,14 @@ t_evt* iniciar_evt_std_out(char* datos_leidos, t_pcb* proceso){
 
 // funciones para modificar
 void cambiar_prioridad(t_pcb* proceso, int prioridad){
-    if(algoritmo != CMN || list_size(queues_algorithms)>prioridad){
+    if(algoritmo != CMN){
+        log_debug(logger, "Algoritmo no es CMN, no aplica el cambio de prioridad");
+        return;
+    }
+    if(list_size(queues_algorithms)>prioridad){
+        log_info(logger, "## <%d> Herencia de prioridad: Pasa de %d a %d", proceso->pid, proceso->prioridad_actual, prioridad);
         pthread_mutex_lock(&proceso->mutex);
-        proceso->prioridad = prioridad;
+        proceso->prioridad_actual = prioridad;
         pthread_mutex_unlock(&proceso->mutex);
     }else{
         log_error(logger, "Error: Intento de pasar al proceso <%d> a una prioridad invalida (%d)", proceso->pid, prioridad);
@@ -400,7 +408,7 @@ void agregar_a_ready_CMN(t_pcb* proceso){
         return;
     }
     
-    t_sublista_ready* cola_prioridad = sublista_ready_de_prioridad(proceso->prioridad);
+    t_sublista_ready* cola_prioridad = sublista_ready_de_prioridad(proceso->prioridad_actual);
     agregar_proceso_a_lista(cola_prioridad->sublista, proceso, LISTO, &cola_prioridad->mutex);
 }
 
@@ -421,8 +429,7 @@ bool eliminar_de_ready(t_pcb* proceso){
 }
 
 bool eliminar_de_ready_CMN(t_pcb* proceso){
-    // t_list* cola = list_get(lista_ready, proceso->prioridad);
-    t_sublista_ready* cola = sublista_ready_de_prioridad(proceso->prioridad);
+    t_sublista_ready* cola = sublista_ready_de_prioridad(proceso->prioridad_actual);
     bool eliminado = eliminar_proceso_de_lista(cola->sublista, proceso, "cola de prioridad de ready", &cola->mutex);
 
     return eliminado;
@@ -605,6 +612,6 @@ t_planificacion algoritmo_de_proceso(t_pcb* proceso){
         return algoritmo;
     }
     // para CMN:
-    t_planificacion algo = *(t_planificacion*)list_get(queues_algorithms, proceso->prioridad);
+    t_planificacion algo = *(t_planificacion*)list_get(queues_algorithms, proceso->prioridad_actual);
     return algo;
 }

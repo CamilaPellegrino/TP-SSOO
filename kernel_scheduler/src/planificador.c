@@ -66,8 +66,8 @@ t_cpu* cpu_a_desalojar_por_prioridad(t_pcb* p){
         if(c->desalojando){
             continue;
         }
-        if(c->proceso->prioridad > p->prioridad){
-            if(peor_cpu == NULL || c->proceso->prioridad > peor_cpu->proceso->prioridad){
+        if(c->proceso->prioridad_actual > p->prioridad_actual){
+            if(peor_cpu == NULL || c->proceso->prioridad_actual > peor_cpu->proceso->prioridad_actual){
                 peor_cpu = c;
             }
         }
