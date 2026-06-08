@@ -29,7 +29,6 @@ void inicializar_variables_globales(t_config* config){
 
     // inicializar semaforos
     sem_init(&s_intentar_planificar, 0, 0);
-    sem_init(&s_nuevo_proceso_new, 0, 0);
     sem_init(&s_evt_sleep, 0, 0);
     sem_init(&s_evt_stdin, 0, 0);
     sem_init(&s_evt_stdout, 0, 0);
@@ -559,7 +558,24 @@ void liberar_pcb_de_exit(int pid){
 }
 
 // funciones genericas
-
+t_cpu* cpu_que_ejecuta_pid(int pid){
+    t_cpu* cpu_encontrada = NULL;
+    pthread_mutex_lock(&m_lista_cpus);
+    log_debug(logger, "entre al mutex");
+    for(int i = 0; i < list_size(lista_cpus); i++){
+        t_cpu* c = list_get(lista_cpus, i);
+        pthread_mutex_lock(&c->mutex);
+        bool coincide = (c->proceso != NULL && c->proceso->pid == pid);
+        pthread_mutex_unlock(&c->mutex);
+        if(coincide){
+        log_debug(logger, "encontre cpu");
+            cpu_encontrada = c;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&m_lista_cpus);
+    return cpu_encontrada;
+}
 t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str){
     t_planificacion algo = algoritmo_str_a_enum(algoritmo_str);
     if(algo == -1){
