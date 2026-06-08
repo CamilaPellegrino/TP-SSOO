@@ -5,7 +5,7 @@
 
 // planificacion
 void* planificador_corto_plazo();
-void planificador_largo_plazo();
+void* planificador_largo_plazo();
 void manejar_proceso_exit(t_pcb* proceso);
 t_cpu* proxima_cpu();
 t_pcb* planificar_CMN();

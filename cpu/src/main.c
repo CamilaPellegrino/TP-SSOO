@@ -616,7 +616,6 @@ void ejecutar_mem_alloc(t_instruccion_decodificada* instr){
 
 void ejecutar_init_proc(t_instruccion_decodificada* instr){
     log_debug(logger, "Ejecutando INIT_PROC");
-    detener_ejecucion();
     char* ruta_archivo_instrucciones = list_get(instr->registros, 0);
     int prioridad = *(int*)list_get(instr->registros, 1);
     t_paquete* paquete = crear_paquete(CPU_SCH__INIT_PROC);

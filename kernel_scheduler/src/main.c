@@ -13,39 +13,49 @@ int main(int argc, char* argv[]) { // ejecucion con valgrind: valgrind --leak-ch
 
     t_config *config = iniciar_config(ruta_config); 
 
+    // leer de config
     char* ip = config_get_string_value (config, "IP");
     char* puerto_kernel_memory = config_get_string_value (config, "PUERTO_KERNEL_MEMORY");
     char* puerto_kernel_scheduler = config_get_string_value (config, "PUERTO_KERNEL_SCHEDULER");
 
-    inicializar_variables_globales(config);
+    inicializar_variables_globales(config); // tambien inicializa el logger con el log_level de la config
  
-    // testear(); // descomentar esto si solo queres testear 
+    // testear(); // descomentar esto si solo queres testear y defini el test en test.c
 
+    // conectar a kernel memory
     conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
     log_info(logger, "## Conectado a Kernel Memory");
     handshake_cliente(conexion_kernel_memory, logger);
 
+    // enviar mensaje a kernel memory
     enviar_mensaje("Hola, soy sche", conexion_kernel_memory, SCH_KM__CONEXION);
     
     pthread_t thread_km = crear_hilo_o_exit(atender_km, NULL, "thread_km", logger);
     pthread_detach(thread_km);
-
+    // iniciar servidor
     int kernel_scheduler_fd = iniciar_servidor_o_exit(puerto_kernel_scheduler, logger); 
 
+    // crear hilos de planificacion
+
+    pthread_t hilo_largo_plazo = crear_hilo_o_exit(planificador_largo_plazo, NULL, "hilo_largo_plazo", logger);
     pthread_t hilo_corto_plazo = crear_hilo_o_exit(planificador_corto_plazo, NULL, "hilo_corto_plazo", logger);
+    pthread_detach(hilo_largo_plazo);
     pthread_detach(hilo_corto_plazo);
 
     log_debug(logger, "hilos de planificacion creados");
 
+    // agregar el proceso de pid 0
     t_pcb* pcb_pid_0 = nuevo_proc(0, -1, instrucciones_pid_0);
     
+    // esperar clientes
     while(true){
         int *cliente_fd = esperar_cliente(kernel_scheduler_fd);
         log_info(logger, "Me llego un cliente, %d", *cliente_fd);
 
         handshake_servidor(*cliente_fd, logger);
         
+        // crear del hilo que atiende al cliente que se acaba de conectar
         pthread_t thread;
         pthread_create(&thread, NULL, atender_cliente, cliente_fd);
         pthread_detach(thread);
@@ -64,14 +74,14 @@ void* atender_cliente(void *arg){
             int id_cpu = *(int*)list_get(lista_paquete, 0);
             t_cpu* cpu = iniciar_cpu(id_cpu, cliente_fd); 
             pthread_mutex_lock(&m_lista_cpus);
-            list_add(lista_cpus, cpu);
+            list_add(lista_cpus, cpu); // la agrego a la lista
             pthread_mutex_unlock(&m_lista_cpus);
             atender_cpu(cpu);
             list_destroy_and_destroy_elements(lista_paquete, free);
             break;
             
         }case IO_SCH__CONEXION: { 
-            t_list *lista_paquete = recibir_paquete(cliente_fd);
+            t_list *lista_paquete = recibir_paquete(cliente_fd);   // recibo un paquete con el tipo de io
             t_tipo_io *tipo_io = list_get(lista_paquete, 0);
             log_info(logger, "Me llego io de tipo: %d", *tipo_io);
             t_io* io = iniciar_io(*tipo_io, cliente_fd);
@@ -90,6 +100,7 @@ void* atender_cpu(t_cpu* cpu){
     int cpu_fd = cpu->fd;
     int cpu_id = cpu->id;
     sem_post(&s_intentar_planificar);
+    // sem_post(&s_nueva_cpu_libre); 
     log_info(logger, "## CPU <%d> Conectada", cpu_id);
     while(1){
         op_code cod_op = recibir_operacion(cpu_fd);
@@ -137,7 +148,7 @@ void* atender_cpu(t_cpu* cpu){
             }case CPU_SCH__STDOUT:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <STDOUT>", cpu->proceso->pid);
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
-                int dir_fisica = *(int*)list_get(lista_paquete, 0);
+                int dir_fisica = *(int*)list_get(lista_paquete, 0); // TODO: cambiar nombre de la variable a dir_fisica
                 int tamanio = *(int*)list_get(lista_paquete, 1);
                 atender_cpu_syscall_stdout(tamanio, dir_fisica, 0, cpu);
                 break;
@@ -358,16 +369,10 @@ void* atender_km(void*){
             }case KM_SCH__INIT_PROC_RESP:{
                 t_list* paquete = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*)list_get(paquete, 0);
-                int ppid = *(int*)list_get(paquete, 1);
-                bool ok = *(bool*)list_get(paquete, 2);
+                bool ok = *(bool*)list_get(paquete,1);
                 if(ok){
                     log_debug(logger, "Init proc de pid %d OK", pid);
-                    planificador_largo_plazo();
-                    t_cpu* cpu = cpu_que_ejecuta_pid(ppid);
-                    if(cpu != NULL){
-                        log_debug(logger, "cpu no es null");
-                        enviar_operacion(cpu->fd, SCH_CPU__REANUDAR_EJECUCION);
-                    }
+                    sem_post(&s_nuevo_proceso_new);
                 }else{
                     log_error(logger, "error en init_proc de pid %d: Ruta invalida", pid);
                 }

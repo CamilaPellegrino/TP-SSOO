@@ -34,6 +34,7 @@ t_list* lista_evt_stdout;
 t_list* lista_mutex;
 
 // semaforos
+sem_t s_nuevo_proceso_new;
 sem_t s_intentar_planificar;
 sem_t s_planificar_corto;
 sem_t s_evt_sleep;

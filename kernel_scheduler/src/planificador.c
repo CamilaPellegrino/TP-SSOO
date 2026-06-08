@@ -77,6 +77,7 @@ t_cpu* cpu_a_desalojar_por_prioridad(t_pcb* p){
     return peor_cpu;
 }
 
+
 void asignar_proceso(t_pcb* proceso, t_cpu* cpu){
     // marcar que la cpu esta ocupada 
     cpu->proceso = proceso;
@@ -96,17 +97,20 @@ void asignar_proceso(t_pcb* proceso, t_cpu* cpu){
     }
 }
 
-void planificador_largo_plazo(){
-    log_info(logger, "planificador_largo_plazo: ejecutando");
-    pthread_mutex_lock(&m_lista_new);
-    if(list_is_empty(lista_new)){
-    pthread_mutex_unlock(&m_lista_new);
-        log_warning(logger, "planificador_largo_plazo: no habia nada en new (raro que esto pase)");
-        return;
+void * planificador_largo_plazo(){
+    while(1){
+        sem_wait(&s_nuevo_proceso_new);
+        log_info(logger, "planificador_largo_plazo: ejecutando");
+        pthread_mutex_lock(&m_lista_new);
+        if(list_is_empty(lista_new)){
+        pthread_mutex_unlock(&m_lista_new);
+            log_warning(logger, "planificador_largo_plazo: no habia nada en new (raro que esto pase)");
+            continue;
+        }
+        pthread_mutex_unlock(&m_lista_new);
+        t_pcb* proceso_new = list_get(lista_new, 0);
+        new_a_ready(proceso_new);
     }
-    pthread_mutex_unlock(&m_lista_new);
-    t_pcb* proceso_new = list_get(lista_new, 0);
-    new_a_ready(proceso_new);
 }
 
 void manejar_proceso_exit(t_pcb* proceso){

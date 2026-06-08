@@ -230,7 +230,6 @@ void atender_sch_init_proc(t_list* data){
 
     t_paquete* paquete_conf = crear_paquete(KM_SCH__INIT_PROC_RESP);
     agregar_a_paquete(paquete_conf, &pid, sizeof(int));
-    agregar_a_paquete(paquete_conf, &ppid, sizeof(int));
     agregar_a_paquete(paquete_conf, &ok, sizeof(bool));
     enviar_paquete_y_liberarlo(paquete_conf, sch_fd);
 

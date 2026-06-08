@@ -38,7 +38,7 @@ typedef struct
 { 
 	int fd;
 	int id;
-	t_pcb* proceso; 
+	t_pcb* proceso; // proceso que esta ejecutando (NULL si no esta ejecutando nada)
 	bool desalojando;
 	pthread_mutex_t mutex;
 } t_cpu;
@@ -117,6 +117,7 @@ extern t_list* lista_mutex;        // mutexs creados por los procesos (tiene cos
 // semaforos
 
 extern sem_t s_intentar_planificar;
+extern sem_t s_nuevo_proceso_new;
 extern sem_t s_evt_sleep;       // cuando hay una nueva solic de sleep
 extern sem_t s_evt_stdin;
 extern sem_t s_evt_stdout;
@@ -182,7 +183,6 @@ t_sublista_ready* sublista_ready_de_prioridad(int prioridad);
 void desbloquear_proceso(t_pcb* proceso);
 
 // funciones genericas
-t_cpu* cpu_que_ejecuta_pid(int pid);
 t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str);
 void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
 void sumar_milisegundos(struct timespec* ts, int milisegundos);
