@@ -103,15 +103,16 @@ extern int suspension_timeout;
 extern int quantum;
 extern int procesos_en_ready;
 
+extern t_lista_estado* estado_new;
+extern t_lista_estado* estado_ready;
+extern t_lista_estado* estado_blocked;
+extern t_lista_estado* estado_exec;
+extern t_lista_estado* estado_susp_blocked;
+extern t_lista_estado* estado_susp_ready;
+extern t_lista_estado* estado_exit;
+
 extern t_list* lista_cpus;
 extern t_list* lista_io;
-extern t_list* lista_new;
-extern t_list* lista_ready;        // lista procesos en ready
-extern t_list* lista_exec;         // lista de procesos en exec
-extern t_list* lista_blocked;      // procesos en blocked
-extern t_list* lista_susp_blocked;
-extern t_list* lista_susp_ready;
-extern t_list* lista_exit;
 
 extern t_list* queues_algorithms;  // algoritmo que usa cada cola cuando es CMN
 
@@ -135,13 +136,6 @@ extern sem_t s_evt_stdout;
 extern pthread_mutex_t m_lista_evt_sleep;
 extern pthread_mutex_t m_lista_evt_stdin;
 extern pthread_mutex_t m_lista_evt_stdout;
-extern pthread_mutex_t m_lista_new;
-extern pthread_mutex_t m_lista_ready;
-extern pthread_mutex_t m_lista_exec;
-extern pthread_mutex_t m_lista_blocked;
-extern pthread_mutex_t m_lista_susp_blocked;
-extern pthread_mutex_t m_lista_susp_ready;
-extern pthread_mutex_t m_lista_exit;
 extern pthread_mutex_t m_lista_cpus;
 extern pthread_mutex_t m_lista_mutex;
 extern pthread_mutex_t m_procesos_en_ready;
@@ -156,6 +150,7 @@ extern int conexion_kernel_memory;
 // funciones para inicializar cosas
 void inicializar_variables_globales(t_config* config);
 void inicializar_parametros_de_config(t_config* config);
+t_lista_estado* inicializar_lista_estado(char* nombre, t_list* lista, bool init_m);
 t_list* queues_algorithms_a_t_list(char** queues_algorithms_str);
 t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
@@ -192,6 +187,7 @@ t_sublista_ready* sublista_ready_de_prioridad(int prioridad);
 void desbloquear_proceso(t_pcb* proceso);
 
 // funciones genericas
+t_cpu* cpu_de_pid(int pid);
 void generica_transicion_de_estados(t_pcb* proceso, t_list* remove, t_list* add, pthread_mutex_t* m_rem, pthread_mutex_t* m_add, t_tipo_estado estado, char* nombre_list);
 t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str);
 void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
@@ -207,5 +203,4 @@ t_pcb* proceso_de_lista(int pid, t_list* list);
 // liberar
 void liberar_cpu(t_cpu* cpu);     // liberar la cpu, osea que no tenga asignado ningun proceso (no le manda nada a la cpu, solo hace cpu->proceso=NULL)
 void liberar_pcb_de_exit(int pid);
-
 #endif /* BASE_SCH_H_ */

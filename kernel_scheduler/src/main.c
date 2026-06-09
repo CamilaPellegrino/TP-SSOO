@@ -125,12 +125,14 @@ void* atender_cpu(t_cpu* cpu){
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 char* nombre_mutex = (char*)list_get(lista_paquete, 0);
                 atender_cpu_syscall_mutex_create(nombre_mutex, cpu);
+                list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
             }case CPU_SCH__MUTEX_LOCK:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <MUTEX_LOCK>", cpu->proceso->pid);
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 char* nombre_mutex = (char*)list_get(lista_paquete, 0);
                 atender_cpu_syscall_mutex_lock(nombre_mutex, cpu);
+                list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
             }case CPU_SCH__MUTEX_UNLOCK:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <MUTEX_UNLOCK>", cpu->proceso->pid);
@@ -195,7 +197,6 @@ void* atender_cpu(t_cpu* cpu){
                 if(proceso != NULL){
                     exec_a_ready_cond_signal(proceso);
                 }
-                sem_post(&s_intentar_planificar);
                 break;
             }default:
                 log_warning(logger, "operacion desconocida en hilo que atiende a cpu id: %d, cod_op: %d", cpu_id, cod_op);
@@ -371,10 +372,14 @@ void* atender_km(void*){
             }case KM_SCH__INIT_PROC_RESP:{
                 t_list* paquete = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*)list_get(paquete, 0);
-                bool ok = *(bool*)list_get(paquete,1);
+                bool ok = *(bool*)list_get(paquete, 1);
                 if(ok){
                     log_debug(logger, "Init proc de pid %d OK", pid);
                     sem_post(&s_nuevo_proceso_new);
+                    // t_cpu* cpu = cpu_de_pid(ppid);
+                    // if(cpu != NULL){
+                    // enviar_operacion(cpu->fd, SCH_CPU__REANUDAR_EJECUCION);
+                    // }
                 }else{
                     log_error(logger, "error en init_proc de pid %d: Ruta invalida", pid);
                 }
@@ -385,7 +390,7 @@ void* atender_km(void*){
                 t_list* data = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*)list_get(data, 0);
                 t_status_op status = *(t_status_op*)list_get(data, 1);
-                t_pcb* proceso = proceso_de_lista(pid, lista_blocked);
+                t_pcb* proceso = proceso_de_lista(pid, estado_blocked->sublista);
                 manejar_status_op(proceso, status);
                 break;
             }case KM_SCH__RTA_MEM_FREE: {
@@ -393,7 +398,7 @@ void* atender_km(void*){
                 t_list* data = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*)list_get(data, 0);
                 t_status_op status = *(t_status_op*)list_get(data, 1);
-                t_pcb* proceso = proceso_de_lista(pid, lista_blocked);
+                t_pcb* proceso = proceso_de_lista(pid, estado_blocked->sublista);
                 manejar_status_op(proceso, status);
                 break;
             }
@@ -401,7 +406,7 @@ void* atender_km(void*){
                 t_list* data = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*) list_get(data, 0);
                 char* datos_leidos = list_get(data, 1);
-                t_pcb* proceso = proceso_de_lista(pid, lista_blocked);
+                t_pcb* proceso = proceso_de_lista(pid, estado_blocked->sublista);
 
                 t_evt* evt = iniciar_evt_std_out(datos_leidos, proceso);
                 
@@ -422,7 +427,7 @@ void* atender_km(void*){
                 log_debug(logger, "Llego data de WRITE completado");
                 t_list* data = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*) list_get(data, 0);
-                t_pcb* proceso = proceso_de_lista(pid, lista_blocked);
+                t_pcb* proceso = proceso_de_lista(pid, estado_blocked->sublista);
                 t_evt* evt = proceso->evt_actual;
                 pthread_mutex_lock(&evt->mutex);
 

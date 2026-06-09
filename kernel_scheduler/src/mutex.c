@@ -9,7 +9,7 @@ t_mutex* m_create(char* nombre){
         return NULL;
     }
     t_mutex* m = malloc(sizeof(t_mutex));
-    m->nombre = nombre;
+    m->nombre = strdup(nombre);
     m->mutex_id = proximo_mutex_id++;
     m->duenio = NULL;
     m->procesos_en_espera = list_create();

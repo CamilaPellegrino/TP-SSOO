@@ -9,16 +9,16 @@
 #include "test.h"
 
 // variables globales 
+t_lista_estado* estado_new;
+t_lista_estado* estado_ready;
+t_lista_estado* estado_blocked;
+t_lista_estado* estado_exec;
+t_lista_estado* estado_susp_blocked;
+t_lista_estado* estado_susp_ready;
+t_lista_estado* estado_exit;
 
 t_list* lista_cpus;
 t_list* lista_io;
-t_list* lista_new;
-t_list* lista_ready;         // lista procesos en ready
-t_list* lista_exec;          // lista de procesos en exec
-t_list* lista_blocked;       // procesos en blocked
-t_list* lista_susp_blocked;
-t_list* lista_susp_ready;
-t_list* lista_exit;
 
 t_log * logger;
 t_planificacion algoritmo;
@@ -46,13 +46,6 @@ sem_t s_evt_stdout;
 pthread_mutex_t m_lista_evt_sleep;
 pthread_mutex_t m_lista_evt_stdin;
 pthread_mutex_t m_lista_evt_stdout;
-pthread_mutex_t m_lista_new;
-pthread_mutex_t m_lista_ready;
-pthread_mutex_t m_lista_exec;
-pthread_mutex_t m_lista_blocked;
-pthread_mutex_t m_lista_susp_blocked;
-pthread_mutex_t m_lista_susp_ready;
-pthread_mutex_t m_lista_exit;
 pthread_mutex_t m_lista_cpus;
 pthread_mutex_t m_lista_mutex;
 
