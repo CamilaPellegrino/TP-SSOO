@@ -173,6 +173,8 @@ void exec_a_ready_cond_signal(t_pcb* proceso);
 void exec_a_exit(t_pcb* proceso);
 void x_a_exit(t_pcb* proceso); 
 void agregar_a_ready(t_pcb* proceso);
+t_pcb* planificar_CMN();
+t_pcb* planificar_RR_y_FIFO();
 bool eliminar_de_ready(t_pcb* proceso);
 void agregar_a_ready_CMN(t_pcb* proceso);
 bool eliminar_de_ready_CMN(t_pcb* proceso);
@@ -181,6 +183,7 @@ bool eliminar_proceso_de_lista(t_list* lista, t_pcb* proceso, char* nombre_lista
 t_pcb* nuevo_proc(int prioridad, int ppid, char* instrucciones);
 t_sublista_ready* sublista_ready_de_prioridad(int prioridad);
 void desbloquear_proceso(t_pcb* proceso);
+void agregar_a_ready_al_frente(t_pcb* proceso);
 
 // funciones genericas
 t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str);
@@ -189,6 +192,7 @@ void sumar_milisegundos(struct timespec* ts, int milisegundos);
 void loguear_tamanio_listas_de_estado();
 t_planificacion algoritmo_de_proceso(t_pcb*);
 void manejar_status_op(t_pcb* proceso, t_status_op status);
+// void agregar_a_ready_al_frente(t_pcb* proceso);
 // obtener por clave
 
 t_pcb* proceso_de_lista(int pid, t_list* list);

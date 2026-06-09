@@ -223,10 +223,10 @@ void atender_sch_init_proc(t_list* data){
     int pid = *(int*)list_get(data, i++);
     int ppid = *(int*)list_get(data, i++);
 
-    char* ruta_instrucciones = strdup((char*)list_get(data, i++));
+    char* ruta_instrucciones = (char*)list_get(data, i++);
+    bool ok = guardar_nuevo_proceso(pid, ppid, ruta_instrucciones);
     list_destroy_and_destroy_elements(data, free);
 
-    bool ok = guardar_nuevo_proceso(pid, ppid, ruta_instrucciones);
 
     t_paquete* paquete_conf = crear_paquete(KM_SCH__INIT_PROC_RESP);
     agregar_a_paquete(paquete_conf, &pid, sizeof(int));

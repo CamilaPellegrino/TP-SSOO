@@ -388,6 +388,7 @@ void proceso_a_new(t_pcb* proceso){
     log_info(logger, "## (<%d>) Se crea el proceso - Estado: NEW", proceso->pid);
 }
 
+
 void agregar_a_ready(t_pcb* proceso){
     if(algoritmo == CMN){
         agregar_a_ready_CMN(proceso);
@@ -402,12 +403,10 @@ void agregar_a_ready(t_pcb* proceso){
 }
 
 void agregar_a_ready_CMN(t_pcb* proceso){
-
     if(proceso == NULL){
         log_error(logger, "proceso NULL en agregar_a_ready_CMN");
         return;
     }
-    
     t_sublista_ready* cola_prioridad = sublista_ready_de_prioridad(proceso->prioridad_actual);
     agregar_proceso_a_lista(cola_prioridad->sublista, proceso, LISTO, &cola_prioridad->mutex);
 }
@@ -427,12 +426,79 @@ bool eliminar_de_ready(t_pcb* proceso){
 
     return eliminado;
 }
+t_pcb* planificar_CMN(){
+    pthread_mutex_lock(&m_lista_ready);
+    int size = list_size(lista_ready);
+    for(int i = 0; i < size; i++){
+        t_sublista_ready* actual = list_get(lista_ready, i);
+        pthread_mutex_lock(&actual->mutex);
+        if(!list_is_empty(actual->sublista)){
+            t_pcb* proceso = list_remove(actual->sublista, 0);
+            pthread_mutex_lock(&m_procesos_en_ready);
+            procesos_en_ready--;
+            pthread_mutex_unlock(&m_procesos_en_ready);        
+            pthread_mutex_unlock(&actual->mutex);
+            pthread_mutex_unlock(&m_lista_ready);
+            return proceso;
+        }
+        pthread_mutex_unlock(&actual->mutex);
+    }
+    pthread_mutex_unlock(&m_lista_ready);
+
+    return NULL;
+}
+void agregar_a_ready_al_frente(t_pcb* proceso){
+    if(proceso == NULL){
+        return;
+    }
+    switch(algoritmo){
+        case FIFO:
+        case RR: {
+            pthread_mutex_lock(&m_lista_ready);
+            list_add_in_index(lista_ready, 0, proceso);
+            
+            pthread_mutex_unlock(&m_lista_ready);
+            break;
+        }
+        case CMN: {
+            t_sublista_ready* sublista = sublista_ready_de_prioridad(proceso->prioridad_actual);
+            pthread_mutex_lock(&m_lista_ready);
+            pthread_mutex_lock(&sublista->mutex);
+            list_add_in_index(sublista->sublista, 0, proceso);
+            pthread_mutex_lock(&m_procesos_en_ready);
+            procesos_en_ready++;
+            pthread_mutex_unlock(&m_procesos_en_ready);
+            pthread_mutex_unlock(&sublista->mutex);
+            pthread_mutex_unlock(&m_lista_ready);
+            break;
+        }
+        default:
+            log_error(logger, "Algoritmo desconocido");
+            exit(EXIT_FAILURE);
+    }
+    log_debug(logger, "Hice sem_post de s_nuevo_proceso_ready");
+}
+
+t_pcb* planificar_RR_y_FIFO(){
+    pthread_mutex_lock(&m_lista_ready);
+
+    if(list_is_empty(lista_ready)){
+        pthread_mutex_unlock(&m_lista_ready);
+        return NULL;
+    }
+    t_pcb* proceso = list_remove(lista_ready, 0);
+
+    pthread_mutex_unlock(&m_lista_ready);
+    pthread_mutex_lock(&m_procesos_en_ready);
+    procesos_en_ready--;
+    pthread_mutex_unlock(&m_procesos_en_ready);
+    return proceso;
+}
+
 
 bool eliminar_de_ready_CMN(t_pcb* proceso){
     t_sublista_ready* cola = sublista_ready_de_prioridad(proceso->prioridad_actual);
-    bool eliminado = eliminar_proceso_de_lista(cola->sublista, proceso, "cola de prioridad de ready", &cola->mutex);
-
-    return eliminado;
+    return eliminar_proceso_de_lista(cola->sublista, proceso, "cola de prioridad de ready", &cola->mutex);
 }
 
 bool eliminar_proceso_de_lista(t_list* lista, t_pcb* proceso, char* nombre_lista, pthread_mutex_t* m){

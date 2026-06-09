@@ -175,7 +175,9 @@ void* atender_cpu(t_cpu* cpu){
                 break;
             }case CPU_SCH__EXIT:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <EXIT>", cpu->proceso->pid);
+                pthread_mutex_lock(&cpu->mutex);
                 t_pcb* proceso_exit = cpu->proceso;
+                pthread_mutex_unlock(&cpu->mutex);
                 liberar_cpu(cpu);
                 manejar_proceso_exit(proceso_exit);
                 break;

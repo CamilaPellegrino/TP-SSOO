@@ -56,7 +56,6 @@ bool m_wait(t_mutex* mutex, t_pcb* proceso){
         pthread_mutex_unlock(&mutex->lock);
         return true;
     }
-    // list_add(mutex->procesos_en_espera, proceso);
 
     log_info(logger, "## (<%d>) Bloqueado por Mutex <%s>", proceso->pid, mutex->nombre);
     proceso->mutex_esperado = mutex;
