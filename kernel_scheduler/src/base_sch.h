@@ -22,6 +22,14 @@ typedef struct
 	pthread_mutex_t mutex;
 } t_sublista_ready;
 
+typedef struct
+{
+	t_list* sublista;
+	pthread_mutex_t mutex;
+	char* nombre;
+} t_lista_estado;
+
+
 struct t_pcb{
     int pid;
     int ppid;
@@ -93,6 +101,7 @@ extern t_planificacion algoritmo;  // CMN, FIFO o RR
 extern int proximo_pid;
 extern int suspension_timeout;
 extern int quantum;
+extern int procesos_en_ready;
 
 extern t_list* lista_cpus;
 extern t_list* lista_io;
@@ -135,6 +144,7 @@ extern pthread_mutex_t m_lista_susp_ready;
 extern pthread_mutex_t m_lista_exit;
 extern pthread_mutex_t m_lista_cpus;
 extern pthread_mutex_t m_lista_mutex;
+extern pthread_mutex_t m_procesos_en_ready;
 
 extern pthread_mutex_t m_proximo_pid;
 
@@ -171,10 +181,7 @@ void new_a_ready(t_pcb* pid);
 void exec_a_blocked_cond_signal(t_pcb* proceso);
 void exec_a_ready_cond_signal(t_pcb* proceso);
 void exec_a_exit(t_pcb* proceso);
-void x_a_exit(t_pcb* proceso); 
 void agregar_a_ready(t_pcb* proceso);
-t_pcb* planificar_CMN();
-t_pcb* planificar_RR_y_FIFO();
 bool eliminar_de_ready(t_pcb* proceso);
 void agregar_a_ready_CMN(t_pcb* proceso);
 bool eliminar_de_ready_CMN(t_pcb* proceso);
@@ -183,9 +190,9 @@ bool eliminar_proceso_de_lista(t_list* lista, t_pcb* proceso, char* nombre_lista
 t_pcb* nuevo_proc(int prioridad, int ppid, char* instrucciones);
 t_sublista_ready* sublista_ready_de_prioridad(int prioridad);
 void desbloquear_proceso(t_pcb* proceso);
-void agregar_a_ready_al_frente(t_pcb* proceso);
 
 // funciones genericas
+void generica_transicion_de_estados(t_pcb* proceso, t_list* remove, t_list* add, pthread_mutex_t* m_rem, pthread_mutex_t* m_add, t_tipo_estado estado, char* nombre_list);
 t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str);
 void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
 void sumar_milisegundos(struct timespec* ts, int milisegundos);

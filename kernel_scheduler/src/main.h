@@ -26,6 +26,7 @@ t_list* queues_algorithms;
 int proximo_pid;
 int suspension_timeout;
 int quantum;
+int procesos_en_ready;
 
 // listas de cosas de syscalls
 t_list* lista_evt_sleep;
@@ -56,6 +57,7 @@ pthread_mutex_t m_lista_cpus;
 pthread_mutex_t m_lista_mutex;
 
 pthread_mutex_t m_proximo_pid;
+pthread_mutex_t m_procesos_en_ready;
 // sockets
 int conexion_kernel_memory;
 

@@ -163,6 +163,75 @@ t_pcb* proximo_proceso(){ // no elimina el proceso de la lista, solamente devuel
     return pcb;
 }
 
+t_pcb* planificar_CMN(){
+    pthread_mutex_lock(&m_lista_ready);
+    int size = list_size(lista_ready);
+    for(int i = 0; i < size; i++){
+        t_sublista_ready* actual = list_get(lista_ready, i);
+        pthread_mutex_lock(&actual->mutex);
+        if(!list_is_empty(actual->sublista)){
+            t_pcb* proceso = list_remove(actual->sublista, 0);
+            pthread_mutex_lock(&m_procesos_en_ready);
+            procesos_en_ready--;
+            pthread_mutex_unlock(&m_procesos_en_ready);        
+            pthread_mutex_unlock(&actual->mutex);
+            pthread_mutex_unlock(&m_lista_ready);
+            return proceso;
+        }
+        pthread_mutex_unlock(&actual->mutex);
+    }
+    pthread_mutex_unlock(&m_lista_ready);
+
+    return NULL;
+}
+
+void agregar_a_ready_al_frente(t_pcb* proceso){
+    if(proceso == NULL){
+        return;
+    }
+    switch(algoritmo){
+        case FIFO:
+        case RR: {
+            pthread_mutex_lock(&m_lista_ready);
+            list_add_in_index(lista_ready, 0, proceso);
+            
+            pthread_mutex_unlock(&m_lista_ready);
+            break;
+        }
+        case CMN: {
+            t_sublista_ready* sublista = sublista_ready_de_prioridad(proceso->prioridad_actual);
+            pthread_mutex_lock(&m_lista_ready);
+            pthread_mutex_lock(&sublista->mutex);
+            list_add_in_index(sublista->sublista, 0, proceso);
+            pthread_mutex_lock(&m_procesos_en_ready);
+            procesos_en_ready++;
+            pthread_mutex_unlock(&m_procesos_en_ready);
+            pthread_mutex_unlock(&sublista->mutex);
+            pthread_mutex_unlock(&m_lista_ready);
+            break;
+        }
+        default:
+            log_error(logger, "Algoritmo desconocido");
+            exit(EXIT_FAILURE);
+    }
+}
+
+t_pcb* planificar_RR_y_FIFO(){
+    pthread_mutex_lock(&m_lista_ready);
+
+    if(list_is_empty(lista_ready)){
+        pthread_mutex_unlock(&m_lista_ready);
+        return NULL;
+    }
+    t_pcb* proceso = list_remove(lista_ready, 0);
+
+    pthread_mutex_unlock(&m_lista_ready);
+    pthread_mutex_lock(&m_procesos_en_ready);
+    procesos_en_ready--;
+    pthread_mutex_unlock(&m_procesos_en_ready);
+    return proceso;
+}
+
 void* hilo_timeout(void* arg){
     t_evt* evt = (t_evt*)arg;
     t_pcb* proceso = evt->proceso;
