@@ -7,10 +7,12 @@ void* planificador_corto_plazo(){
     while(1){
         log_debug(logger, "esperando");
         sem_wait(&s_intentar_planificar);
+        pthread_mutex_lock(&m_transicionar);
         log_debug(logger, "planificador_corto_plazo: despertado");
         t_pcb* proceso = proximo_proceso();
         if(proceso == NULL){
             log_debug(logger, "planificador_corto_plazo: no hay procesos en ready");
+            pthread_mutex_unlock(&m_transicionar);
             continue;
         }
         pthread_mutex_lock(&m_lista_cpus);
@@ -19,6 +21,7 @@ void* planificador_corto_plazo(){
             pthread_mutex_unlock(&m_lista_cpus);
             log_debug(logger, "planificador_corto_plazo: asignando cpu %d a proceso %d", cpu->id, proceso->pid);
             asignar_proceso(proceso, cpu);
+            pthread_mutex_unlock(&m_transicionar);
             continue;
         }
         pthread_mutex_unlock(&m_lista_cpus);
@@ -31,8 +34,10 @@ void* planificador_corto_plazo(){
                     cpu_desalojable->desalojando = true;
                     enviar_operacion(cpu_desalojable->fd, SCH_CPU__DETENER_EJECUCION);
                     log_info(logger, "## desalojando cpu %d", cpu_desalojable->id);
+                    agregar_a_ready_al_frente(proceso);
                     pthread_mutex_unlock(&cpu_desalojable->mutex);
                     pthread_mutex_unlock(&m_lista_cpus);
+                    pthread_mutex_unlock(&m_transicionar);
                     continue;
                 }
                 pthread_mutex_unlock(&cpu_desalojable->mutex);
@@ -40,6 +45,7 @@ void* planificador_corto_plazo(){
             }
         }
         agregar_a_ready_al_frente(proceso);
+        pthread_mutex_unlock(&m_transicionar);
         continue;
     }
     return NULL;

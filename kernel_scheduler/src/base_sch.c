@@ -36,7 +36,7 @@ void inicializar_variables_globales(t_config* config){
 
     pthread_mutex_init(&m_lista_mutex, NULL);
     pthread_mutex_init(&m_lista_cpus, NULL);
-
+    pthread_mutex_init(&m_transicionar, NULL);
     estado_new = inicializar_lista_estado("lista_new", NULL, true);
     estado_exec = inicializar_lista_estado("lista_exec", NULL, true);
     estado_blocked = inicializar_lista_estado("lista_blocked", NULL, true);
@@ -229,6 +229,7 @@ void destroy_pcb(t_pcb* pcb){ free(pcb); }
 
 // mover entre estados
 void generica_transicion_de_estados(t_pcb* proceso, t_list* remove, t_list* add, pthread_mutex_t* m_rem, pthread_mutex_t* m_add, t_tipo_estado estado, char* nombre_list){
+    pthread_mutex_lock(&m_transicionar);
     pthread_mutex_lock(&proceso->mutex);
 
     bool eliminado = eliminar_proceso_de_lista(remove, proceso, nombre_list, m_rem);
@@ -236,6 +237,7 @@ void generica_transicion_de_estados(t_pcb* proceso, t_list* remove, t_list* add,
         agregar_proceso_a_lista(add, proceso, estado, m_add);
     }
     pthread_mutex_unlock(&proceso->mutex);
+    pthread_mutex_unlock(&m_transicionar);
 }
 
 void blocked_a_susp_blocked(t_pcb* proceso){
@@ -247,6 +249,7 @@ void susp_blocked_a_susp_ready(t_pcb* proceso){
 }
 
 void susp_ready_a_ready(t_pcb* proceso){
+    pthread_mutex_lock(&m_transicionar);
     pthread_mutex_lock(&proceso->mutex);
     bool eliminado = eliminar_proceso_de_lista(estado_susp_ready->sublista, proceso, "estado_susp_ready->sublista", &estado_susp_ready->mutex);
 
@@ -255,9 +258,11 @@ void susp_ready_a_ready(t_pcb* proceso){
         log_obligatorio_cambio_de_estado(proceso->pid, "SUSP_READY", "READY");
     }
     pthread_mutex_unlock(&proceso->mutex);
+    pthread_mutex_unlock(&m_transicionar);
 }
 
 void ready_a_exec(t_pcb* proceso){
+    pthread_mutex_lock(&m_transicionar);
     pthread_mutex_lock(&proceso->mutex);
     bool eliminado = eliminar_de_ready(proceso);
     if(eliminado){
@@ -265,9 +270,11 @@ void ready_a_exec(t_pcb* proceso){
         log_obligatorio_cambio_de_estado(proceso->pid, "READY", "EXEC");
     }
     pthread_mutex_unlock(&proceso->mutex);
+    pthread_mutex_unlock(&m_transicionar);
 }
 
 void blocked_a_ready(t_pcb* proceso){
+    pthread_mutex_lock(&m_transicionar);
     pthread_mutex_lock(&proceso->mutex);
     bool eliminado = eliminar_proceso_de_lista(estado_blocked->sublista, proceso, "lista_blocked", &estado_blocked->mutex);
 
@@ -276,6 +283,7 @@ void blocked_a_ready(t_pcb* proceso){
         log_obligatorio_cambio_de_estado(proceso->pid, "BLOCKED", "READY");
     }
     pthread_mutex_unlock(&proceso->mutex);
+    pthread_mutex_unlock(&m_transicionar);
 }
 
 void exec_a_blocked(t_pcb* proceso){
@@ -297,6 +305,7 @@ void exec_a_blocked_cond_signal(t_pcb* proceso){
 }
 
 void exec_a_ready(t_pcb* proceso){
+    pthread_mutex_lock(&m_transicionar);
     pthread_mutex_lock(&proceso->mutex);
     bool eliminado = eliminar_proceso_de_lista(estado_exec->sublista, proceso, "lista_exec", &estado_exec->mutex);
     if(eliminado){
@@ -304,6 +313,7 @@ void exec_a_ready(t_pcb* proceso){
         log_obligatorio_cambio_de_estado(proceso->pid, "EXEC", "READY");
     }
     pthread_mutex_unlock(&proceso->mutex);
+    pthread_mutex_unlock(&m_transicionar);
 }
 
 void exec_a_ready_cond_signal(t_pcb* proceso){
@@ -317,6 +327,7 @@ void exec_a_ready_cond_signal(t_pcb* proceso){
 }
 
 void new_a_ready(t_pcb* proceso){
+    pthread_mutex_lock(&m_transicionar);
     pthread_mutex_lock(&proceso->mutex);
     bool eliminado = eliminar_proceso_de_lista(estado_new->sublista, proceso, "lista_new", &estado_new->mutex);
 
@@ -325,6 +336,7 @@ void new_a_ready(t_pcb* proceso){
         log_obligatorio_cambio_de_estado(proceso->pid, "NEW", "READY");
     }
     pthread_mutex_unlock(&proceso->mutex);
+    pthread_mutex_unlock(&m_transicionar);
 }
 
 void exec_a_exit(t_pcb* proceso){
@@ -332,10 +344,12 @@ void exec_a_exit(t_pcb* proceso){
 }
 
 void proceso_a_new(t_pcb* proceso){
+    pthread_mutex_lock(&m_transicionar);
     pthread_mutex_lock(&proceso->mutex);
     agregar_proceso_a_lista(estado_new->sublista, proceso, NUEVO, &estado_new->mutex);
     log_info(logger, "## (<%d>) Se crea el proceso - Estado: NEW", proceso->pid);
     pthread_mutex_unlock(&proceso->mutex);
+    pthread_mutex_unlock(&m_transicionar);
 }
 
 void agregar_a_ready_thread_safe(t_pcb* proceso){
@@ -575,14 +589,16 @@ void log_obligatorio_cambio_de_estado(int pid, char* estado_anterior, char* esta
 }
 
 void loguear_tamanio_listas_de_estado(){
-    log_debug(logger, "new: %d, ready: %d, exec: %d, blocked: %d, susp_blocked: %d, susp_ready: %d, exit: %d"
-                    , list_size(estado_new->sublista)
-                    , procesos_en_ready
-                    , list_size(estado_exec->sublista)
-                    , list_size(estado_blocked->sublista)
-                    , list_size(estado_susp_blocked->sublista)
-                    , list_size(estado_susp_ready->sublista)
-                    , list_size(estado_exit->sublista));
+    // log_debug(logger, "new: %d, ready: %d, exec: %d, blocked: %d, susp_blocked: %d, susp_ready: %d, exit: %d"
+    //                 , list_size(estado_new->sublista)
+    //                 , procesos_en_ready
+    //                 , list_size(estado_exec->sublista)
+    //                 , list_size(estado_blocked->sublista)
+    //                 , list_size(estado_susp_blocked->sublista)
+    //                 , list_size(estado_susp_ready->sublista)
+    //                 , list_size(estado_exit->sublista));
+    imprimir_estado_procesos();
+
 }
 
 t_planificacion algoritmo_de_proceso(t_pcb* proceso){
@@ -592,4 +608,87 @@ t_planificacion algoritmo_de_proceso(t_pcb* proceso){
     // para CMN:
     t_planificacion algo = *(t_planificacion*)list_get(queues_algorithms, proceso->prioridad_actual);
     return algo;
+}
+
+
+
+void imprimir_estado_procesos()
+{
+    pthread_mutex_lock(&m_transicionar);
+
+    char* msg = string_new();
+
+    string_append(&msg, "\n========== ESTADO DE PROCESOS ==========\n");
+
+    string_append(&msg, "NEW: ");
+    for(int i = 0; i < list_size(estado_new->sublista); i++){
+        t_pcb* p = list_get(estado_new->sublista, i);
+        string_append_with_format(&msg, "%d ", p->pid);
+    }
+    string_append(&msg, "\n");
+
+    string_append(&msg, "READY: ");
+    if(algoritmo == CMN){
+        for(int i = 0; i < list_size(estado_ready->sublista); i++){
+            t_sublista_ready* sub = list_get(estado_ready->sublista, i);
+
+            string_append_with_format(&msg, "[P%d: ", i);
+
+            for(int j = 0; j < list_size(sub->sublista); j++){
+                t_pcb* p = list_get(sub->sublista, j);
+                string_append_with_format(&msg, "%d ", p->pid);
+            }
+
+            string_append(&msg, "] ");
+        }
+    } else {
+        for(int i = 0; i < list_size(estado_ready->sublista); i++){
+            t_pcb* p = list_get(estado_ready->sublista, i);
+            string_append_with_format(&msg, "%d ", p->pid);
+        }
+    }
+    string_append(&msg, "\n");
+
+    string_append(&msg, "EXEC: ");
+    for(int i = 0; i < list_size(estado_exec->sublista); i++){
+        t_pcb* p = list_get(estado_exec->sublista, i);
+        string_append_with_format(&msg, "%d ", p->pid);
+    }
+    string_append(&msg, "\n");
+
+    string_append(&msg, "BLOCKED: ");
+    for(int i = 0; i < list_size(estado_blocked->sublista); i++){
+        t_pcb* p = list_get(estado_blocked->sublista, i);
+        string_append_with_format(&msg, "%d ", p->pid);
+    }
+    string_append(&msg, "\n");
+
+    string_append(&msg, "SUSP_BLOCKED: ");
+    for(int i = 0; i < list_size(estado_susp_blocked->sublista); i++){
+        t_pcb* p = list_get(estado_susp_blocked->sublista, i);
+        string_append_with_format(&msg, "%d ", p->pid);
+    }
+    string_append(&msg, "\n");
+
+    string_append(&msg, "SUSP_READY: ");
+    for(int i = 0; i < list_size(estado_susp_ready->sublista); i++){
+        t_pcb* p = list_get(estado_susp_ready->sublista, i);
+        string_append_with_format(&msg, "%d ", p->pid);
+    }
+    string_append(&msg, "\n");
+
+    string_append(&msg, "EXIT: ");
+    for(int i = 0; i < list_size(estado_exit->sublista); i++){
+        t_pcb* p = list_get(estado_exit->sublista, i);
+        string_append_with_format(&msg, "%d ", p->pid);
+    }
+    string_append(&msg, "\n");
+
+    string_append(&msg, "========================================");
+
+    log_info(logger, "%s", msg);
+
+    free(msg);
+
+    pthread_mutex_unlock(&m_transicionar);
 }

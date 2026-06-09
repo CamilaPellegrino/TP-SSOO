@@ -48,7 +48,7 @@ pthread_mutex_t m_lista_evt_stdin;
 pthread_mutex_t m_lista_evt_stdout;
 pthread_mutex_t m_lista_cpus;
 pthread_mutex_t m_lista_mutex;
-
+pthread_mutex_t m_transicionar;
 pthread_mutex_t m_proximo_pid;
 pthread_mutex_t m_procesos_en_ready;
 // sockets

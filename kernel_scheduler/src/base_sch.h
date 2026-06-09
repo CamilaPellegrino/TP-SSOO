@@ -133,19 +133,19 @@ extern sem_t s_evt_stdin;
 extern sem_t s_evt_stdout;
 
 // mutexs
+extern pthread_mutex_t m_transicionar;
 extern pthread_mutex_t m_lista_evt_sleep;
 extern pthread_mutex_t m_lista_evt_stdin;
 extern pthread_mutex_t m_lista_evt_stdout;
 extern pthread_mutex_t m_lista_cpus;
 extern pthread_mutex_t m_lista_mutex;
 extern pthread_mutex_t m_procesos_en_ready;
-
 extern pthread_mutex_t m_proximo_pid;
 
 // sockets
 extern int conexion_kernel_memory;
 
-
+void imprimir_estado_procesos();
 
 // funciones para inicializar cosas
 void inicializar_variables_globales(t_config* config);
