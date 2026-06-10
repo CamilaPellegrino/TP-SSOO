@@ -199,7 +199,7 @@ void manejar_status_op(t_pcb* proceso, t_status_op status);
 // obtener por clave
 
 t_pcb* proceso_de_lista(int pid, t_list* list);
-
+void log_obligatorio_cambio_de_estado(int pid, char* estado_anterior, char* estado_actual);
 // liberar
 void liberar_cpu(t_cpu* cpu);     // liberar la cpu, osea que no tenga asignado ningun proceso (no le manda nada a la cpu, solo hace cpu->proceso=NULL)
 void liberar_pcb_de_exit(int pid);

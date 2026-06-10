@@ -73,6 +73,13 @@ typedef enum {
     I_EXIT          // sys  no bloqueante
 } instrucciones;
 
+typedef enum{
+    EXEC,
+    LIBRE,
+    WAIT_SYS,
+    WAIT_SYS_Y_PROX_DESALOJO
+} t_estado_cpu;
+
 typedef struct {
     instrucciones tipo;
 

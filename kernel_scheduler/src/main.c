@@ -372,14 +372,15 @@ void* atender_km(void*){
             }case KM_SCH__INIT_PROC_RESP:{
                 t_list* paquete = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*)list_get(paquete, 0);
-                bool ok = *(bool*)list_get(paquete, 1);
+                int ppid = *(int*)list_get(paquete, 1);
+                bool ok = *(bool*)list_get(paquete, 2);
                 if(ok){
                     log_debug(logger, "Init proc de pid %d OK", pid);
                     sem_post(&s_nuevo_proceso_new);
-                    // t_cpu* cpu = cpu_de_pid(ppid);
-                    // if(cpu != NULL){
-                    // enviar_operacion(cpu->fd, SCH_CPU__REANUDAR_EJECUCION);
-                    // }
+                    t_cpu* cpu = cpu_de_pid(ppid);
+                    if(cpu != NULL){
+                    enviar_operacion(cpu->fd, SCH_CPU__REANUDAR_EJECUCION);
+                    }
                 }else{
                     log_error(logger, "error en init_proc de pid %d: Ruta invalida", pid);
                 }

@@ -2,6 +2,14 @@
 #include <utils/utils.h>
 #include "base_cpu.h"
 #include <semaphore.h>
+void transicion_desde_wait_sys(op_code cod_op, t_list* data);
+void transicion_desde_exec(op_code cod_op, t_list* data);
+void transicion_desde_wait_sys_y_prox_desalojo(op_code cod_op, t_list* data);
+void transicion_desde_libre(op_code cod_op, t_list* data);
+void transicionar(t_estado_cpu estado);
+void transicionar_thread_safe(t_estado_cpu estado);
+void enviar_confirmacion();
+void procesar_evento(op_code cod_op, t_list* datas);
 
 void conectarse_a_stick(char* ip, char* puerto, uint32_t tamanio);
 void recibir_sticks_de_km();
@@ -27,15 +35,14 @@ void ejecutar_mem_free(instr);
 t_log* logger;
 t_list* lista_sticks;  // lista global para guardar los memory sticks a los que me conecte
 
-bool v_desalojado_por_sch;
-bool v_ejecutar;
+bool v_pedido_de_desalojo;
 pthread_cond_t cond_ejecutar;
-pthread_mutex_t m_ejecutar;
 
 int pid_pendiente;
 pthread_mutex_t m_pid_pendiente;
 
-
+t_estado_cpu estado_cpu;
+pthread_mutex_t m_estado_cpu;
 // otros
 int conexion_kernel_scheduler;
 int conexion_kernel_memory;
@@ -118,34 +125,16 @@ int main(int argc, char* argv[]){
             log_error(logger, "Error: se desconecto scheduler"); 
             break; 
         }
+        t_list* data = NULL;
+        if(cod_op == SCH_CPU__PID){
+            log_debug(logger, "Recibiendo pid");
+            data = recibir_paquete(conexion_kernel_scheduler);
+            pthread_mutex_lock(&m_pid_pendiente);
+            int prox_pid = *(int*)list_get(data, 0);
+            pid_pendiente = prox_pid;
+            pthread_mutex_unlock(&m_pid_pendiente);
+        }
         switch(cod_op){
-            case SCH_CPU__PID:{ // ej: al principio, o despues de haber desalojado cuando le asigna otro proceso
-                log_debug(logger, "hilo principal: nuevo_pid");
-                pthread_mutex_lock(&m_pid_pendiente);
-                t_list* lista_paquete = recibir_paquete(conexion_kernel_scheduler);
-                int* nuevo_pid = list_get(lista_paquete, 0);
-                pid_pendiente = *nuevo_pid;
-                reanudar_ejecucion();
-                pthread_mutex_unlock(&m_pid_pendiente);
-                list_destroy_and_destroy_elements(lista_paquete, free);
-                break;
-            }
-            case SCH_CPU__DETENER_EJECUCION:{ // ej cuando hace un MUTEX_LOCK y se bloquea, o cuando se desaloja
-                log_debug(logger, "hilo principal: detener_ejecucion");
-                detener_ejecucion();
-                // pthread_mutex_lock(&m_desalojado_por_sch);
-                pthread_mutex_lock(&m_ejecutar);
-                v_desalojado_por_sch = true;
-                pthread_cond_signal(&cond_ejecutar);
-                pthread_mutex_unlock(&m_ejecutar);
-                // pthread_mutex_unlock(&m_desalojado_por_sch);
-                break;
-            }
-            case SCH_CPU__REANUDAR_EJECUCION:{ // cuando hace MUTEX_LOCK y estaba el semaforo disponible, no bloquea el proceso
-                log_debug(logger, "hilo principal: Reanudar ejecucion");
-                reanudar_ejecucion();
-                break;
-            }
             case SCH_CPU__NUEVO_STICK: {
                 log_info(logger, "Conexion de modulo stick");
                 t_list * lista_del_paquete = recibir_paquete(conexion_kernel_scheduler);
@@ -169,9 +158,11 @@ int main(int argc, char* argv[]){
                 list_destroy_and_destroy_elements(lista_del_paquete, free);
                 break;
             }
-            default:
-                log_warning(logger, "Warning: Operacion desconocida, cod_op = %d", cod_op);
+            default:{
+                log_debug(logger, "Procesando evento");
+                procesar_evento(cod_op, data);
                 break;
+            }
         }
     }
     
@@ -183,6 +174,154 @@ int main(int argc, char* argv[]){
     return 0;
 }
 
+// ===================== Atender al scheduler( maquina de estados y pedidos de desalojo) =====================
+
+void procesar_evento(op_code cod_op, t_list* data){
+    pthread_mutex_lock(&m_estado_cpu);  
+    switch(estado_cpu){
+        case EXEC:{
+            transicion_desde_exec(cod_op, data);
+            break;
+        }
+        case WAIT_SYS:{
+            transicion_desde_wait_sys(cod_op, data);
+            break;
+        }
+        case WAIT_SYS_Y_PROX_DESALOJO:{
+            transicion_desde_wait_sys_y_prox_desalojo(cod_op, data);
+            break;
+        }
+        case LIBRE:{
+            transicion_desde_libre(cod_op, data);
+            break;
+        }
+        default:{
+            log_warning(logger, "Warning: Operacion desconocida, cod_op = %d", cod_op);
+            break;        
+        }
+    }
+    pthread_mutex_unlock(&m_estado_cpu);
+}
+
+void transicion_desde_exec(op_code cod_op, t_list* data){
+    switch(cod_op){
+        case SCH_CPU__DETENER_EJECUCION:{
+            v_pedido_de_desalojo = true;
+            break;
+        }
+        case SCH_CPU__PID:{
+            v_pedido_de_desalojo = false;
+            break;
+        }
+        default:{
+            // nada
+        }
+    }
+}
+
+void transicion_desde_wait_sys(op_code cod_op, t_list* data){
+    switch(cod_op){
+        case SCH_CPU__DETENER_EJECUCION:{ // despues cambiar nombre a SCH_CPU__PEDIDO_DESALOJO
+            transicionar(WAIT_SYS_Y_PROX_DESALOJO);
+            break;
+        }
+        case SCH_CPU__REANUDAR_EJECUCION:{ // cambiar nombre a SCH_CPU__FIN_SYSCALL
+            transicionar(EXEC);
+            v_pedido_de_desalojo = false;
+            pthread_cond_signal(&cond_ejecutar);
+            break;
+        }
+        case SCH_CPU__SYS_BLOQUEANTE:{
+            transicionar(LIBRE);
+            break;
+        }
+        default:{
+            // nada
+        }
+    }
+}
+
+void transicion_desde_wait_sys_y_prox_desalojo(op_code cod_op, t_list* data){
+    switch(cod_op){
+        case SCH_CPU__REANUDAR_EJECUCION:{ // cambiar nombre a SCH_CPU__FIN_SYSCALL
+            transicionar(LIBRE);
+            enviar_confirmacion();
+            break;
+        }
+        default:{
+            // nada
+        }
+    }
+}
+
+void transicion_desde_libre(op_code cod_op, t_list* data){
+    switch(cod_op){
+        case SCH_CPU__PID:{
+            transicionar(EXEC);
+            v_pedido_de_desalojo = false;
+            pthread_cond_signal(&cond_ejecutar);
+            break;
+        }
+        case SCH_CPU__DETENER_EJECUCION:{
+            enviar_confirmacion();
+            break;
+        }
+        default:{
+            // nada
+        }
+    }
+}
+
+void transicionar(t_estado_cpu estado){
+    estado_cpu = estado;
+    log_debug(logger, "NUEVO ESTADO: %d", estado);
+}
+
+void transicionar_thread_safe(t_estado_cpu estado){
+    pthread_mutex_lock(&m_estado_cpu);
+    transicionar(estado);
+    pthread_mutex_unlock(&m_estado_cpu);
+}
+
+void enviar_confirmacion(){
+    enviar_operacion(conexion_kernel_scheduler, CPU_SCH__EJECUCION_DETENIDA);
+}
+
+void esperar_a_poder_ejecutar(){
+    pthread_mutex_lock(&m_estado_cpu);
+    if(v_pedido_de_desalojo){
+        log_debug(logger, "Pedido de desalojo detectado, pasando a LIBRE");
+        v_pedido_de_desalojo = false;
+        transicionar(LIBRE);
+        enviar_confirmacion();
+    }
+    while(estado_cpu != EXEC){
+        pthread_cond_wait(&cond_ejecutar, &m_estado_cpu);
+    }
+    pthread_mutex_unlock(&m_estado_cpu);
+}
+// otras 
+void detener_ejecucion(){
+    pthread_mutex_lock(&m_estado_cpu);
+
+    v_pedido_de_desalojo = true;
+    log_debug(logger, "detener: ejecucion frenada");
+
+    pthread_mutex_unlock(&m_estado_cpu);
+}
+
+void reanudar_ejecucion(){
+    pthread_mutex_lock(&m_estado_cpu);
+    v_pedido_de_desalojo = false;
+    pthread_cond_signal(&cond_ejecutar);
+    log_debug(logger, "Reanudar");
+    pthread_mutex_unlock(&m_estado_cpu);
+}
+
+
+
+
+// ===================== Conexion con sticks =====================
 void conectarse_a_stick(char* ip, char* puerto, uint32_t tamanio){
     // conectar a memory stick
     int conexion_memory_stick = crear_conexion(ip, puerto);
@@ -226,18 +365,102 @@ void recibir_sticks_de_km(){
     list_destroy_and_destroy_elements(paquete, free);
 }
 
+
+
+
+// ===================== Conexion con KM =====================
+void pedir_contexto(int pid, t_pcb* pcb){
+    t_paquete *paquete = crear_paquete(CPU_KM__PCONTEXTO);
+    agregar_a_paquete(paquete, &pid, sizeof(int));
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
+    
+    op_code cod_op = recibir_operacion(conexion_kernel_memory);
+
+    if(cod_op != KM_CPU__RTA_CONTEXTO) {
+        printf("ERROR CONTEXTO\n");
+        exit(EXIT_FAILURE);
+    }
+    log_debug(logger, "recibiendo pcb");
+    t_list* lista_contexto = recibir_paquete(conexion_kernel_memory);
+
+    int i = 0;
+    pcb->pid = *(int*) list_get(lista_contexto, i++);
+    pcb->ppid = *(int*)list_get(lista_contexto, i++);
+    pcb->priodidad = *(int*)list_get(lista_contexto, i++);
+
+    pcb->registros.pc = *(uint32_t*) list_get(lista_contexto, i++);
+
+    pcb->registros.ax = *(uint8_t*) list_get(lista_contexto, i++);
+    pcb->registros.bx = *(uint8_t*) list_get(lista_contexto, i++);
+    pcb->registros.cx = *(uint8_t*) list_get(lista_contexto, i++);
+    pcb->registros.dx = *(uint8_t*) list_get(lista_contexto, i++);
+
+    pcb->registros.eax = *(uint32_t*) list_get(lista_contexto, i++);
+    pcb->registros.ebx = *(uint32_t*) list_get(lista_contexto, i++);
+    pcb->registros.ecx = *(uint32_t*) list_get(lista_contexto, i++);
+    pcb->registros.edx = *(uint32_t*) list_get(lista_contexto, i++);
+
+    pcb->registros.si = *(uint32_t*) list_get(lista_contexto, i++);
+    pcb->registros.di = *(uint32_t*) list_get(lista_contexto, i++);
+
+    log_debug(logger, "ya cargue el nuevo pcb");
+    list_destroy_and_destroy_elements(lista_contexto, free);
+}
+
+void enviar_pcb_actualizado_a_km(t_pcb* pcb){
+    if(pcb == NULL){
+        return;
+    }
+    log_debug(logger, "<%d> Enviando contexto actualizado a KM", pcb->pid);
+    t_paquete* p = crear_paquete(CPU_KM__ACTUALIZAR_PCB);
+    agregar_pcb_al_paquete(pcb, p);
+
+    enviar_paquete_y_liberarlo(p, conexion_kernel_memory);
+}
+
+void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p){
+    // datos del pcb
+    agregar_a_paquete(p, &pcb->pid, sizeof(pcb->pid));
+    agregar_a_paquete(p, &pcb->ppid, sizeof(pcb->ppid));
+    agregar_a_paquete(p, &pcb->priodidad, sizeof(pcb->priodidad));
+
+    // registros
+    agregar_a_paquete(p, &pcb->registros.pc, sizeof(pcb->registros.pc));
+
+    agregar_a_paquete(p, &pcb->registros.ax, sizeof(pcb->registros.ax));
+    agregar_a_paquete(p, &pcb->registros.bx, sizeof(pcb->registros.bx));
+    agregar_a_paquete(p, &pcb->registros.cx, sizeof(pcb->registros.cx));
+    agregar_a_paquete(p, &pcb->registros.dx, sizeof(pcb->registros.dx));
+
+    agregar_a_paquete(p, &pcb->registros.eax, sizeof(pcb->registros.eax));
+    agregar_a_paquete(p, &pcb->registros.ebx, sizeof(pcb->registros.ebx));
+    agregar_a_paquete(p, &pcb->registros.ecx, sizeof(pcb->registros.ecx));
+    agregar_a_paquete(p, &pcb->registros.edx, sizeof(pcb->registros.edx));
+
+    agregar_a_paquete(p, &pcb->registros.si, sizeof(pcb->registros.si));
+    agregar_a_paquete(p, &pcb->registros.di, sizeof(pcb->registros.di));
+
+}
+
+
+
+
+// ===================== Ciclo de instruccion =====================
+
 void* ejecutar(){
     t_instruccion_decodificada* prox_instruccion;
     t_pcb* pcb = malloc(sizeof(t_pcb));
+    pcb->pid = -1;
     while(1){
         esperar_a_poder_ejecutar(); 
         log_debug(logger, "ya puedo ejecutar");
         pthread_mutex_lock(&m_pid_pendiente);
 
-        if(pid_pendiente >= 0){ // significa que tengo que cambiar de proceso
-            // reemplazar pcb actual por el pendiente (recibirlo de km)
+        if(pid_pendiente >= 0){ 
             log_debug(logger, "prox pid: %d", pid_pendiente);
-            enviar_pcb_actualizado_a_km(pcb);
+            if(pcb->pid >= 0){
+                enviar_pcb_actualizado_a_km(pcb);
+            }
             pedir_contexto(pid_pendiente, pcb);
             log_debug(logger, "ejecutar: pidiendo nuevo pcb de pid %d a km y cargandolo", pid_pendiente);
             pid_pendiente = -1;
@@ -510,90 +733,10 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
     return false;
 }
 
-void pedir_contexto(int pid, t_pcb* pcb){
-    t_paquete *paquete = crear_paquete(CPU_KM__PCONTEXTO);
-    agregar_a_paquete(paquete, &pid, sizeof(int));
-    enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
-    
-    op_code cod_op = recibir_operacion(conexion_kernel_memory);
-
-    if(cod_op != KM_CPU__RTA_CONTEXTO) {
-        printf("ERROR CONTEXTO\n");
-        exit(EXIT_FAILURE);
-    }
-    log_debug(logger, "recibiendo pcb");
-    t_list* lista_contexto = recibir_paquete(conexion_kernel_memory);
-
-    int i = 0;
-    pcb->pid = *(int*) list_get(lista_contexto, i++);
-    pcb->ppid = *(int*)list_get(lista_contexto, i++);
-    pcb->priodidad = *(int*)list_get(lista_contexto, i++);
-
-    pcb->registros.pc = *(uint32_t*) list_get(lista_contexto, i++);
-
-    pcb->registros.ax = *(uint8_t*) list_get(lista_contexto, i++);
-    pcb->registros.bx = *(uint8_t*) list_get(lista_contexto, i++);
-    pcb->registros.cx = *(uint8_t*) list_get(lista_contexto, i++);
-    pcb->registros.dx = *(uint8_t*) list_get(lista_contexto, i++);
-
-    pcb->registros.eax = *(uint32_t*) list_get(lista_contexto, i++);
-    pcb->registros.ebx = *(uint32_t*) list_get(lista_contexto, i++);
-    pcb->registros.ecx = *(uint32_t*) list_get(lista_contexto, i++);
-    pcb->registros.edx = *(uint32_t*) list_get(lista_contexto, i++);
-
-    pcb->registros.si = *(uint32_t*) list_get(lista_contexto, i++);
-    pcb->registros.di = *(uint32_t*) list_get(lista_contexto, i++);
-
-    log_debug(logger, "ya cargue el nuevo pcb");
-    list_destroy_and_destroy_elements(lista_contexto, free);
-}
-
-void enviar_pcb_actualizado_a_km(t_pcb* pcb){
-    t_paquete* p = crear_paquete(CPU_KM__ACTUALIZAR_PCB);
-    agregar_pcb_al_paquete(pcb, p);
-
-    enviar_paquete_y_liberarlo(p, conexion_kernel_memory);
-}
-
-void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p){
-    // datos del pcb
-    agregar_a_paquete(p, &pcb->pid, sizeof(pcb->pid));
-    agregar_a_paquete(p, &pcb->ppid, sizeof(pcb->ppid));
-    agregar_a_paquete(p, &pcb->priodidad, sizeof(pcb->priodidad));
-
-    // registros
-    agregar_a_paquete(p, &pcb->registros.pc, sizeof(pcb->registros.pc));
-
-    agregar_a_paquete(p, &pcb->registros.ax, sizeof(pcb->registros.ax));
-    agregar_a_paquete(p, &pcb->registros.bx, sizeof(pcb->registros.bx));
-    agregar_a_paquete(p, &pcb->registros.cx, sizeof(pcb->registros.cx));
-    agregar_a_paquete(p, &pcb->registros.dx, sizeof(pcb->registros.dx));
-
-    agregar_a_paquete(p, &pcb->registros.eax, sizeof(pcb->registros.eax));
-    agregar_a_paquete(p, &pcb->registros.ebx, sizeof(pcb->registros.ebx));
-    agregar_a_paquete(p, &pcb->registros.ecx, sizeof(pcb->registros.ecx));
-    agregar_a_paquete(p, &pcb->registros.edx, sizeof(pcb->registros.edx));
-
-    agregar_a_paquete(p, &pcb->registros.si, sizeof(pcb->registros.si));
-    agregar_a_paquete(p, &pcb->registros.di, sizeof(pcb->registros.di));
-
-}
-
-void esperar_a_poder_ejecutar(){
-    pthread_mutex_lock(&m_ejecutar);
-    while(!v_ejecutar){
-        if(v_desalojado_por_sch){
-            enviar_operacion(conexion_kernel_scheduler, CPU_SCH__EJECUCION_DETENIDA);
-            v_desalojado_por_sch = false;
-        }
-        pthread_cond_wait(&cond_ejecutar, &m_ejecutar);
-    }
-    pthread_mutex_unlock(&m_ejecutar);
-}
-
 // syscalls: 
 void ejecutar_mem_free(t_instruccion_decodificada* instr){
-    detener_ejecucion();
+    // detener_ejecucion();
+    transicionar_thread_safe(WAIT_SYS);
     int id_segmento = *(int*)list_get(instr->registros, 0);
     log_debug(logger, "Ejecutando MEM_FREE %d", id_segmento);
     t_paquete* paquete = crear_paquete(CPU_SCH__MEM_FREE);
@@ -603,7 +746,8 @@ void ejecutar_mem_free(t_instruccion_decodificada* instr){
 }
 
 void ejecutar_mem_alloc(t_instruccion_decodificada* instr){
-    detener_ejecucion(); 
+    // detener_ejecucion(); 
+    transicionar_thread_safe(WAIT_SYS);
     int id_segmento = *(int*)list_get(instr->registros, 0);
     int tamanio = *(int*)list_get(instr->registros, 1);
     log_debug(logger, "Ejecutando MEM_ALLOC %d %d", id_segmento, tamanio);
@@ -616,6 +760,7 @@ void ejecutar_mem_alloc(t_instruccion_decodificada* instr){
 
 void ejecutar_init_proc(t_instruccion_decodificada* instr){
     log_debug(logger, "Ejecutando INIT_PROC");
+    transicionar_thread_safe(WAIT_SYS);
     char* ruta_archivo_instrucciones = list_get(instr->registros, 0);
     int prioridad = *(int*)list_get(instr->registros, 1);
     t_paquete* paquete = crear_paquete(CPU_SCH__INIT_PROC);
@@ -626,12 +771,15 @@ void ejecutar_init_proc(t_instruccion_decodificada* instr){
 
 void ejecutar_exit(t_instruccion_decodificada* instr){
     log_debug(logger, "Ejecutando EXIT");
-    detener_ejecucion();
+    // detener_ejecucion();
+    transicionar_thread_safe(LIBRE);
+    log_debug(logger, "Hice transicionar_safe");
     enviar_operacion(conexion_kernel_scheduler, CPU_SCH__EXIT);
 }
 
 void ejecutar_m_unlock(t_instruccion_decodificada* instr){
-    detener_ejecucion(); // cpu tiene que esperar a que esta syscall se termine (puede ser instantaneo, o no, depende) para seguir ejecutando
+    // detener_ejecucion();
+    transicionar_thread_safe(WAIT_SYS);
     char* nombre = (char*)list_get(instr->registros, 0);
     log_debug(logger, "Ejecutando MUTEX_UNLOCK %s", nombre);
     t_paquete* paquete = crear_paquete(CPU_SCH__MUTEX_UNLOCK);
@@ -641,9 +789,9 @@ void ejecutar_m_unlock(t_instruccion_decodificada* instr){
 }
 
 void ejecutar_m_lock(t_instruccion_decodificada* instr){
-    detener_ejecucion(); // cpu tiene que esperar a que esta syscall se termine (puede ser instantaneo, o no, depende) para seguir ejecutando
+    // detener_ejecucion();
+    transicionar_thread_safe(WAIT_SYS);
     char * nombre = list_get(instr->registros, 0);
-    //char* nombre = instr->param1;
     log_debug(logger, "Ejecutando MUTEX_LOCK %d", *nombre);
     t_paquete* paquete = crear_paquete(CPU_SCH__MUTEX_LOCK);
     agregar_string_a_paquete(paquete, nombre);
@@ -651,7 +799,8 @@ void ejecutar_m_lock(t_instruccion_decodificada* instr){
 }
 
 void ejecutar_m_create(t_instruccion_decodificada* instr){
-    detener_ejecucion(); // cpu tiene que esperar a que esta syscall se termine (es instantaneo) para seguir ejecutando
+    // detener_ejecucion();
+    transicionar_thread_safe(WAIT_SYS);
     char * nombre = list_get(instr->registros, 0);
     log_debug(logger, "Ejecutando MUTEX_CREATE %d", *nombre);
     t_paquete* paquete = crear_paquete(CPU_SCH__MUTEX_CREATE);
@@ -660,7 +809,8 @@ void ejecutar_m_create(t_instruccion_decodificada* instr){
 }
 
 void ejecutar_stdout(t_instruccion_decodificada* instr){
-    detener_ejecucion(); // esta es bloqueante, obligatoriamente detiene la ejecucion hasta que scheduler le mande el proximo pid
+    // detener_ejecucion(); 
+    transicionar_thread_safe(LIBRE);
     especificacion_registro *param1 = list_get(instr->registros,0);
     especificacion_registro *param2 = list_get(instr->registros,1);
     uint32_t dir_logica = leer_registro(param1);
@@ -673,7 +823,8 @@ void ejecutar_stdout(t_instruccion_decodificada* instr){
 }
 
 void ejecutar_stdin(t_instruccion_decodificada* instr){
-    detener_ejecucion(); // esta es bloqueante, obligatoriamente detiene la ejecucion hasta que scheduler le mande el proximo pid
+    // detener_ejecucion(); 
+    transicionar_thread_safe(LIBRE);
     especificacion_registro *param1 = list_get(instr->registros,0);
     especificacion_registro *param2 = list_get(instr->registros,1);
     uint32_t dir_logica = leer_registro(param1);
@@ -686,40 +837,14 @@ void ejecutar_stdin(t_instruccion_decodificada* instr){
 }
 
 void ejecutar_sleep(t_instruccion_decodificada* instruccion){
-    detener_ejecucion(); // esta es bloqueante, obligatoriamente detiene la ejecucion hasta que scheduler le mande el proximo pid
+    // detener_ejecucion(); 
+    transicionar_thread_safe(LIBRE);
     int tiempo_sleep = *(int*)list_get(instruccion->registros, 0);
     log_debug(logger, "Ejecutando SLEEP %d", tiempo_sleep);
     t_paquete* paquete = crear_paquete(CPU_SCH__SLEEP);
     agregar_a_paquete(paquete, &tiempo_sleep, sizeof(tiempo_sleep));
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
     log_debug(logger, "paquete enviado");
-}
-
-// otras 
-void detener_ejecucion(){
-    pthread_mutex_lock(&m_ejecutar);
-
-    v_ejecutar = false;
-    log_debug(logger, "detener: ejecucion frenada");
-
-    pthread_mutex_unlock(&m_ejecutar);
-}
-
-void reanudar_ejecucion(){
-    pthread_mutex_lock(&m_ejecutar);
-    v_ejecutar = true;
-    pthread_cond_signal(&cond_ejecutar);
-    log_debug(logger, "Reanudar");
-    pthread_mutex_unlock(&m_ejecutar);
-}
-
-void inicializar_variables(){
-    v_desalojado_por_sch = false;
-    v_ejecutar = false;
-    pid_pendiente = -1;
-    lista_sticks = list_create();
-    pthread_mutex_init(&m_ejecutar, NULL);
-    pthread_cond_init(&cond_ejecutar, NULL);
 }
 
 especificacion_registro* obtener_registro(char* registro_crudo, t_pcb *pcb){
@@ -798,4 +923,14 @@ uint32_t leer_registro(especificacion_registro* reg){
     if(reg->tamanio ==sizeof(uint8_t))
         return*(uint8_t*)reg->ptro_reg;
     return*(uint32_t*)reg->ptro_reg;
+}
+
+
+void inicializar_variables(){
+    v_pedido_de_desalojo = false;
+    pid_pendiente = -1;
+    lista_sticks = list_create();
+    pthread_cond_init(&cond_ejecutar, NULL);
+    pthread_mutex_init(&m_estado_cpu, NULL);
+    transicionar(LIBRE);
 }

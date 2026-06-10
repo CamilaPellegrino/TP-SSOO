@@ -99,6 +99,7 @@ void asignar_proceso(t_pcb* proceso, t_cpu* cpu){
     log_debug(logger, "planificador_corto_plazo: Envie pid %d a cpu de fd %d", pid, cpu_fd); 
 
     agregar_proceso_a_lista(estado_exec->sublista, proceso, EJECUTANDO, &estado_exec->mutex);
+    log_obligatorio_cambio_de_estado(proceso->pid, "READY", "EXEC");
     if(algoritmo_de_proceso(proceso) == RR){
         log_debug(logger, "creando hilo_fin_quantum para proc %d", pid);
         crear_hilo_o_exit(hilo_fin_quantum, cpu, "hilo_fin_quantum", logger);
