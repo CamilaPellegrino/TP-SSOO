@@ -68,6 +68,7 @@ typedef enum
 	// mensajes con destino a Sticks
 	X_STICK__ESCRITURA,
 	X_STICK__LETURA,
+	STICK_X__ESCRITURA_RESP,
 
 }op_code;
 

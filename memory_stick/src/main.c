@@ -1,7 +1,7 @@
 #include <utils/hello.h>
 #include <utils/utils.h>
 #include "base_stick.h"
-void atender_pedido_escritura(int dir_fisica, void* contenido);
+void atender_pedido_escritura(int dir_fisica, void* contenido, int tamanio, int cliente_fd);
 void atender_pedido_lectura(int dir_fisica, int cliente_fd);
 void* atender_pedidos(void* arg);
 void* atender_cliente(void *arg);
@@ -9,9 +9,9 @@ void* atender_cliente(void *arg);
 t_log * logger;
 void* espacio_mem_principal=NULL;
 int conexion_kernel_memory;
-int tamanio;
+int tamanio_stick;
 void* memoria_reservada = NULL;
-
+char* memoria_principal = NULL;
 
 int main(int argc, char* argv[]) {
     // ejemplo para ejecutar: ./bin/memory_stick ./memory_stick.config 32
@@ -21,8 +21,9 @@ int main(int argc, char* argv[]) {
     }
 
     char *ruta_config = argv[1];
-    tamanio = atoi(argv[2]);
-    memoria_reservada = malloc(tamanio);
+    tamanio_stick = atoi(argv[2]);
+    memoria_reservada = malloc(tamanio_stick);
+    memoria_principal = (char*) memoria_reservada; //Para ir avanzando de a 1 byte
 
     logger = iniciar_logger("memory_stick.log", "ProcesoMemorySticks", LOG_LEVEL_INFO);
     
@@ -47,7 +48,7 @@ int main(int argc, char* argv[]) {
     
     // mandar info propia al kernel memory
     t_paquete *paquete = crear_paquete(STICK_KM__CONEXION);
-    agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
+    agregar_a_paquete(paquete, &tamanio_stick, sizeof(tamanio_stick));
     agregar_string_a_paquete(paquete, puerto);
     agregar_string_a_paquete(paquete, ip);
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
@@ -55,7 +56,7 @@ int main(int argc, char* argv[]) {
     int dir_fisica = 10;
     char contenido[]="Hola buenos dias";
     printf("contenido %ld\n", strlen(contenido));
-    atender_pedido_escritura(dir_fisica, &contenido);
+    //atender_pedido_escritura(dir_fisica, &contenido);
     
     // esperar clientes
     while(true){
@@ -87,8 +88,12 @@ void* atender_pedidos(void* arg){
         }
         switch(cod_op){
             case X_STICK__ESCRITURA:{
-                //Recibe los datos de quien quien hacer la escritura
-                //atender_pedido_escritura(dir_fisica, contenido);
+                //Recibe los datos para hacer la escritura
+                t_list* lista_paquete = recibir_paquete(cliente_fd);
+                int dir_fisica = *(int*)list_get(lista_paquete, 0);
+                void* contenido = list_get(lista_paquete, 1);
+                int tamanio_cont = *(int*)list_get(lista_paquete, 2);
+                atender_pedido_escritura(dir_fisica, contenido, tamanio_cont, cliente_fd);
                 break;
             }case X_STICK__LETURA:{
                 //atender_pedido_lectura(dir_fisica, &contenido);
@@ -101,31 +106,35 @@ void* atender_pedidos(void* arg){
     return NULL;
 }
 
-void atender_pedido_escritura(int dir_fisica, void* contenido) {
+void atender_pedido_escritura(int dir_fisica, void* contenido, int tamanio, int cliente_fd) {
     
     // Validar que la dirección + el contenido no se pase de la memoria total
-    if (dir_fisica + sizeof(&contenido) > tamanio) {
+    if (dir_fisica + tamanio > tamanio_stick) {
         log_error(logger, "Intento de escribir fuera de memoria.");
         return;
     }
     
-    void* destino = (char*)memoria_reservada + dir_fisica;
-    memcpy(destino, contenido, sizeof(&contenido));
-    log_info(logger, "## Escritura de <%ld> bytes", sizeof(contenido));
-
-    // Castear la memoria principal y el contenido a char* (punteros de 1 byte)
-    char* ram = (char*)memoria_reservada;
+    void* destino = memoria_principal + dir_fisica;
+    memcpy(destino, contenido, tamanio);
+    log_info(logger, "## Escritura de <%d> bytes", tamanio);
     
+    if (&memoria_principal[dir_fisica] == NULL){
+        log_error(logger, "No se escribio nada en memoria");
+        return;
+    }else{
+        enviar_mensaje("Escritura exitosa", cliente_fd, STICK_X__ESCRITURA_RESP);
+    }
     // 4. Leer la memoria para verificar (arreglado para no tirar Segmentation Fault)
-    //int* puntero_comprobacion = (int*)(&ram[dir_fisica]);
-    log_info(logger,"Comprobacion -> Leyendo el entero completo en dir %d: %s", dir_fisica, &ram[dir_fisica]);
+    //int* puntero_comprobacion = (int*)(&memoria_principal[dir_fisica]);
+    log_info(logger,"Comprobacion -> Leyendo el entero completo en dir %d: %d", dir_fisica, (int*)(&memoria_principal[dir_fisica]));
     
+    //FALTA PROBAR
     return;
 }
 
 void atender_pedido_lectura(int dir_fisica, int cliente_fd) {
     // 1. Validar que la dirección de inicio + lo que vamos a leer no se pase del límite
-    if ((dir_fisica + sizeof(int)) > tamanio) {
+    if ((dir_fisica + sizeof(int)) > tamanio_stick) {
         log_error(logger, "Segmentation fault! Intento de leer fuera de memoria. Dir: %d", dir_fisica);
         // Aquí podrías enviar un mensaje de error al CPU
         return;
