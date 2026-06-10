@@ -50,7 +50,7 @@ void* atender_cliente(void *arg){
             int tamanio = *(int*)list_get(lista_paquete, 0);
             char *puerto = list_get(lista_paquete, 1);
             char *ip = list_get(lista_paquete, 2);
-            log_info(logger, "Me llego un stick: %d, %s, %s", tamanio, puerto, ip);
+            log_info(logger, "   ## Memory Stick de <%d> bytes Conectada, %s, %s", tamanio, puerto, ip);
             
             // poner al stick en la lista de sticks
             t_stick* nuevo_stick = iniciar_stick(ip, puerto, tamanio, cliente_fd);
@@ -287,6 +287,7 @@ void* atender_scheduler(void*){
 bool guardar_nuevo_proceso(int pid, int ppid, char* ruta){
     t_pcb* pcb = calloc(1, sizeof(t_pcb));
     if (pcb == NULL) {
+        free(pcb);
         return NULL;
     }
     pcb->pid = pid;
@@ -294,6 +295,8 @@ bool guardar_nuevo_proceso(int pid, int ppid, char* ruta){
     t_list* instrucciones = instrucciones_de_ruta(ruta);
     t_proceso* proceso = iniciar_proceso(pcb, instrucciones);
     if(proceso == NULL){
+        free(pcb);
+        list_destroy_and_destroy_elements(instrucciones, free);
         return false;
     }
     list_add(lista_procesos, proceso);

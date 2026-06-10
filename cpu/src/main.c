@@ -3,7 +3,7 @@
 #include "base_cpu.h"
 #include <semaphore.h>
 
-void conectarse_a_stick(char* ip, char* puerto, uint32_t tamanio);
+void conectarse_a_stick(char* ip, char* puerto, uint32_t tamanio, int id_cpu);
 void recibir_sticks_de_km();
 void* ejecutar();
 void detener_ejecucion();
@@ -40,6 +40,7 @@ pthread_mutex_t m_pid_pendiente;
 // otros
 int conexion_kernel_scheduler;
 int conexion_kernel_memory;
+int conexion_memory_stick;
 
 ///////////////////Funciones ALAN///////////////////
 void pedir_contexto(int pid, t_pcb* pcb);
@@ -104,7 +105,7 @@ int main(int argc, char* argv[]){
     agregar_a_paquete(paquete_conexion_km, &id_cpu, sizeof(id_cpu));
     enviar_paquete_y_liberarlo(paquete_conexion_km, conexion_kernel_memory);
 
-    recibir_sticks_de_km();
+    recibir_sticks_de_km(id_cpu);
     
     // hilo que ejecuta instrucciones:
     pthread_t hilo_ejecucion;
@@ -184,9 +185,9 @@ int main(int argc, char* argv[]){
     return 0;
 }
 
-void conectarse_a_stick(char* ip, char* puerto, uint32_t tamanio){
+void conectarse_a_stick(char* ip, char* puerto, uint32_t tamanio, int id_cpu){
     // conectar a memory stick
-    int conexion_memory_stick = crear_conexion(ip, puerto);
+    conexion_memory_stick = crear_conexion(ip, puerto);
     exit_si_error_conexion(conexion_memory_stick, logger, "memory stick");
 
     handshake_cliente(conexion_memory_stick, logger);
@@ -195,12 +196,17 @@ void conectarse_a_stick(char* ip, char* puerto, uint32_t tamanio){
 
     // crear stick
     t_stick* stick = iniciar_stick(ip, puerto, tamanio, conexion_memory_stick);
-    enviar_operacion(conexion_memory_stick, CPU_STICK__CONEXION);
+
+    // enviar informacion propia al stick
+    t_paquete *paquete_cpu_stick = crear_paquete(CPU_STICK__CONEXION);
+    agregar_a_paquete(paquete_cpu_stick, &id_cpu, sizeof(id_cpu));
+    enviar_paquete_y_liberarlo(paquete_cpu_stick, conexion_memory_stick);
+    //enviar_operacion(conexion_memory_stick, CPU_STICK__CONEXION);
     // agregar a lista local
     list_add(lista_sticks, stick);
 }
 
-void recibir_sticks_de_km(){
+void recibir_sticks_de_km(int id_cpu){
     op_code cod_op = recibir_operacion(conexion_kernel_memory);
     if(cod_op != KM_CPU__STICKS){
         log_error(logger, "Error: Kernel Memory no envio las sticks");
@@ -222,7 +228,7 @@ void recibir_sticks_de_km(){
 
         log_info(logger, "Stick recibida -> tam: %u ip: %s puerto: %s", tamanio, ip, puerto);
         
-        conectarse_a_stick(ip, puerto, tamanio);
+        conectarse_a_stick(ip, puerto, tamanio, id_cpu);
     }
     list_destroy_and_destroy_elements(paquete, free);
 }
@@ -253,8 +259,8 @@ void ciclo_instruccion(t_pcb *pcb){
         //FECH
         char *instruccion = fetch(pcb);
         if(instruccion == NULL){
-        log_error(logger, "FETCH devolvio NULL");
-        return;
+            log_error(logger, "FETCH devolvio NULL");
+            return;
         }
         
         //DECODE
@@ -430,12 +436,12 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
         case I_SET://Asigna al registro el valor pasado como parámetro. SET ax 5
             especificacion_registro* reg =list_get(instruccion->registros,0);
             int *input  =list_get(instruccion->registros,1);
-            log_info(logger, "antes de set, valor: %p",reg->ptro_reg);
+            log_info(logger, "antes de set, valor: %d",*(int*)(reg->ptro_reg));
             escribir_registro(reg, *input);
-            log_info(logger, "despues de set, valor: %p",reg->ptro_reg);
+            log_info(logger, "despues de set, valor: %d",*(int*)(reg->ptro_reg));
             break;
         case I_SUM:
-            log_info(logger, "Ejecutando instruccion JNZ");
+            log_info(logger, "Ejecutando instruccion SUM");
             especificacion_registro *destino = list_get(instruccion->registros,0);
             especificacion_registro *origen = list_get(instruccion->registros,1);
             uint32_t suma =leer_registro(destino)+leer_registro(origen);

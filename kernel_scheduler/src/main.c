@@ -5,7 +5,7 @@ int main(int argc, char* argv[]) { // ejecucion con valgrind: valgrind --leak-ch
         printf("Se esperaban mas parametros. Ejemplo: ./bin/kernel_scheduler ./kernel_scheduler.config archivo.txt");
         exit(EXIT_FAILURE);
     }
-
+    
     saludar("kernel_scheduler");
     
     char *ruta_config = argv[1];

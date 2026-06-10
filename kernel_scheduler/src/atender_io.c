@@ -54,8 +54,8 @@ void atender_io_stdout(t_io* io){
         agregar_string_a_paquete(paquete_sys, contenido);
 
         atender_sys(io, paquete_sys, "stdout");
+        
         pthread_mutex_lock(&evt->mutex);
-
         evt->syscall_finalizada = true;
         pthread_cond_signal(&evt->cond);
         

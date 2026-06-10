@@ -24,27 +24,17 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
     t_config* config = iniciar_config(ruta_config);
-    
-    if(config == NULL){
-        printf("No se pudo cargar el config\n");
-        exit(EXIT_FAILURE);
-    }
-
-    //conexion a kernel scheduler
     ip = config_get_string_value (config, "IP");
     puerto_kernel_scheduler = config_get_string_value (config, "PUERTO_KERNEL_SCHEDULER");
-    
-    int conexion_kernel_scheduler = crear_conexion(ip, puerto_kernel_scheduler);
 
+
+    //conexion a kernel scheduler
+    int conexion_kernel_scheduler = crear_conexion(ip, puerto_kernel_scheduler);
     if(conexion_kernel_scheduler == -1){
         log_error(logger, "No se pudo conectar a kernel_scheduler");
         exit(EXIT_FAILURE);
     }
-
-    //Conexion scheduler
-    log_info(logger ," ## Conectado a Kerneñ Scheduler");
-
-    // handshake
+    log_info(logger ," ## Conectado a Kernel Scheduler");
     handshake_cliente(conexion_kernel_scheduler, logger);
 
 
@@ -60,13 +50,9 @@ int main(int argc, char* argv[]) {
             log_info(logger, "Se desconecto scheduler"); 
             break; 
         }
-
-
         t_list* paquete_datos = recibir_paquete(conexion_kernel_scheduler);
         int  pid = *(int*) list_get(paquete_datos,0);
-
         log_info(logger , " ## PID: %u - Inicio de IO" , pid);
-
         switch (tipo_io){
             case SLEEP: {
                 int tiempo = *(int*)list_get(paquete_datos , 1);
@@ -95,8 +81,6 @@ int main(int argc, char* argv[]) {
 
                 free(leido);
                 free(buffer);
-
-
             break;
             }
 

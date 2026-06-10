@@ -3,6 +3,7 @@
 #include "base_swap.h"
 
 char *puerto_kernel_memory;
+char* ip;
 t_log * logger;
 //declaro funciones 
 void atender_pedido_escritura();
@@ -15,18 +16,14 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
     char *ruta_config = argv[1];
-    t_config* config = iniciar_config(ruta_config);
-
-    //crear conexion con kernel memory
-    char* ip = config_get_string_value (config, "IP");
     
+    t_config* config = iniciar_config(ruta_config);
     inicializar_variables_globales(config);
-
+    
+    //crear conexion con kernel memory
     int conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory); 
     handshake_cliente(conexion_kernel_memory, logger);
-
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
-
     enviar_operacion(conexion_kernel_memory, SWAP_KM__CONEXION);
 
     while(1){
@@ -47,12 +44,6 @@ int main(int argc, char* argv[]) {
             }
         }
     }
-
-    // liberar logger, config y conexiones
-    log_destroy(logger);
-    config_destroy(config);
-    close(conexion_kernel_memory);
-
     return 0;
 }
 
@@ -67,6 +58,7 @@ void atender_pedido_lectura(){
 
 void inicializar_variables_globales(t_config* config){
     puerto_kernel_memory = config_get_string_value (config, "PUERTO_KERNEL_MEMORY");
+    ip = config_get_string_value (config, "IP");
     t_log_level log_level = log_level_from_string(config_get_string_value(config, "LOG_LEVEL")); 
     logger = iniciar_logger("swap.log", "ProcesoSWAP", log_level);
 }

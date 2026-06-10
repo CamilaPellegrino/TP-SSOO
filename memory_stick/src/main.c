@@ -10,9 +10,11 @@ t_log * logger;
 void* espacio_mem_principal=NULL;
 int conexion_kernel_memory;
 int tamanio;
+void* memoria_reservada = NULL;
+
 
 int main(int argc, char* argv[]) {
-    // ejemplo para ejecutar: ./bin/memory_stick "./memory_stick.config" 32
+    // ejemplo para ejecutar: ./bin/memory_stick ./memory_stick.config 32
     if(argc < 3){
         printf("Se esperaban mas parametros. Ejemplo: ./bin/memory_stick ./memory_stick.config 32");
         exit(EXIT_FAILURE);
@@ -20,9 +22,7 @@ int main(int argc, char* argv[]) {
 
     char *ruta_config = argv[1];
     tamanio = atoi(argv[2]);
-    espacio_mem_principal = malloc(tamanio * sizeof(int));
-
-    
+    memoria_reservada = malloc(tamanio);
 
     logger = iniciar_logger("memory_stick.log", "ProcesoMemorySticks", LOG_LEVEL_INFO);
     
@@ -33,7 +33,6 @@ int main(int argc, char* argv[]) {
     char *ip = config_get_string_value(config, "IP");
     char *puerto_kernel_memory = config_get_string_value(config, "PUERTO_KERNEL_MEMORY");
     conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
-    
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
     log_info(logger, "## Conectado a Kernel Memory");
     handshake_cliente(conexion_kernel_memory, logger);
@@ -43,7 +42,7 @@ int main(int argc, char* argv[]) {
     pthread_detach(hilo);
 
     //iniciar como servidor
-    char *puerto = config_get_string_value (config, "PUERTO_MEMORY_STICK"); //31551
+    char *puerto = config_get_string_value (config, "PUERTO_MEMORY_STICK");
     int memory_stick_fd = iniciar_servidor_o_exit(puerto, logger);
     
     // mandar info propia al kernel memory
@@ -52,12 +51,12 @@ int main(int argc, char* argv[]) {
     agregar_string_a_paquete(paquete, puerto);
     agregar_string_a_paquete(paquete, ip);
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
-
-    //pruebas caseras, ELIMINAR UNA VEZ FINALIZADO
-    int dir_fisica = 23;
-    int contenido = 1234;
+    
+    int dir_fisica = 10;
+    char contenido[]="Hola buenos dias";
+    printf("contenido %ld\n", strlen(contenido));
     atender_pedido_escritura(dir_fisica, &contenido);
-
+    
     // esperar clientes
     while(true){
         int *cliente_fd = esperar_cliente(memory_stick_fd);
@@ -74,7 +73,6 @@ void* atender_pedidos(void* arg){
     log_info(logger, "atendiendo pedidos de cliente");
     t_cliente* cliente = (t_cliente*) arg;
     int cliente_fd = cliente->fd;
-
     while(1){
         op_code cod_op = recibir_operacion(cliente_fd);
         if(cod_op == -1){
@@ -83,13 +81,14 @@ void* atender_pedidos(void* arg){
                 free(cliente);
                 exit(EXIT_FAILURE);
             }
-            log_warning(logger, "se desconecto CPU");
-            free(cliente);
-            break; // salgo del hilo
+        log_warning(logger, "se desconecto CPU");
+        free(cliente);
+        break; // salgo del hilo
         }
         switch(cod_op){
             case X_STICK__ESCRITURA:{
-                //atender_pedido_escritura(dir_fisica, &contenido);
+                //Recibe los datos de quien quien hacer la escritura
+                //atender_pedido_escritura(dir_fisica, contenido);
                 break;
             }case X_STICK__LETURA:{
                 //atender_pedido_lectura(dir_fisica, &contenido);
@@ -104,36 +103,22 @@ void* atender_pedidos(void* arg){
 
 void atender_pedido_escritura(int dir_fisica, void* contenido) {
     
-    // 1. Validar que la dirección de inicio + tamaño del int (4 bytes) no pase el límite
-    if ((dir_fisica + sizeof(int)) > tamanio) {
-        log_error(logger, "Segmentation fault! Intento de escribir fuera de memoria.");
+    // Validar que la dirección + el contenido no se pase de la memoria total
+    if (dir_fisica + sizeof(&contenido) > tamanio) {
+        log_error(logger, "Intento de escribir fuera de memoria.");
         return;
     }
+    
+    void* destino = (char*)memoria_reservada + dir_fisica;
+    memcpy(destino, contenido, sizeof(&contenido));
+    log_info(logger, "## Escritura de <%ld> bytes", sizeof(contenido));
 
-    // 2. Calculamos la dirección exacta apuntando al byte correcto
-    void* destino = (char*)espacio_mem_principal + dir_fisica;
+    // Castear la memoria principal y el contenido a char* (punteros de 1 byte)
+    char* ram = (char*)memoria_reservada;
     
-    // 3. Copiamos el tamaño EXACTO del entero (4 bytes)
-    // memcpy distribuirá estos 4 bytes automáticamente en dir_fisica, dir_fisica+1, etc.
-    memcpy(destino, contenido, sizeof(int));
-    
-    // 4. Log de éxito
-    log_info(logger, "Escritura exitosa de %zu bytes en la direccion %d", sizeof(int), dir_fisica);
-    
-    // --- VERIFICACIÓN DE LECTURA ---
-    
-    // Casteamos la RAM a unsigned char* para leerla estrictamente byte por byte (valores de 0 a 255)
-    unsigned char* ram = (unsigned char*)espacio_mem_principal;
-    
-    printf("\n--- Mostrando la RAM byte por byte (Posiciones %d a %d) ---\n", dir_fisica, dir_fisica + 3);
-    for(int i = dir_fisica; i < dir_fisica + sizeof(int); i++) {
-        printf("pos %d -> %d\n", i, ram[i]);
-    }
-    
-    // Para recuperar y leer el entero de forma completa (los 4 bytes unidos de nuevo):
-    int valor_recuperado;
-    memcpy(&valor_recuperado, destino, sizeof(int));
-    printf("\nEntero completo recuperado desde la pos %d: %d\n", dir_fisica, valor_recuperado);
+    // 4. Leer la memoria para verificar (arreglado para no tirar Segmentation Fault)
+    //int* puntero_comprobacion = (int*)(&ram[dir_fisica]);
+    log_info(logger,"Comprobacion -> Leyendo el entero completo en dir %d: %s", dir_fisica, &ram[dir_fisica]);
     
     return;
 }
@@ -171,7 +156,10 @@ void* atender_cliente(void *arg){
     op_code cod_op = recibir_operacion(cliente_fd);
     switch(cod_op){
         case CPU_STICK__CONEXION: {
-            log_info(logger, "Me llego el CPU");
+            t_list* lista_paquete = recibir_paquete(cliente_fd);
+            int* cpu_id = list_get(lista_paquete, 0);
+            log_info(logger, "## CPU <%d> Conectada", *cpu_id);
+            
             t_cliente* cliente_cpu = iniciar_cliente(cliente_fd, CLIENTE_CPU);
             atender_pedidos(cliente_cpu);
             break;
