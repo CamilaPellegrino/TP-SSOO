@@ -261,9 +261,7 @@ void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu){
         enviar_operacion(cpu->fd, SCH_CPU__REANUDAR_EJECUCION);
     }else{
         log_debug(logger, "atender_cpu_syscall_mutex_lock: mutex %s no disponible, bloqueando proceso y desalojando de cpu", nombre_mutex);
-        
-        // detener ejecucion de cpu
-        // enviar_operacion(cpu->fd, SCH_CPU__DETENER_EJECUCION);
+        enviar_operacion(cpu->fd, SCH_CPU__SYS_BLOQUEANTE);
         liberar_cpu(cpu);
         log_debug(logger, "test1: libero cpu");
         // bloquear proceso

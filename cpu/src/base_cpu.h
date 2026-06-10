@@ -74,8 +74,8 @@ typedef enum {
 } instrucciones;
 
 typedef enum{
-    EXEC,
     LIBRE,
+    EXEC,
     WAIT_SYS,
     WAIT_SYS_Y_PROX_DESALOJO
 } t_estado_cpu;

@@ -716,7 +716,7 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
             return true;
         case I_EXIT:
             ejecutar_exit(instruccion);
-            return true;
+            break;
         case I_INIT_PROC:
             ejecutar_init_proc(instruccion);
             break;
@@ -735,7 +735,6 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
 
 // syscalls: 
 void ejecutar_mem_free(t_instruccion_decodificada* instr){
-    // detener_ejecucion();
     transicionar_thread_safe(WAIT_SYS);
     int id_segmento = *(int*)list_get(instr->registros, 0);
     log_debug(logger, "Ejecutando MEM_FREE %d", id_segmento);
@@ -746,7 +745,6 @@ void ejecutar_mem_free(t_instruccion_decodificada* instr){
 }
 
 void ejecutar_mem_alloc(t_instruccion_decodificada* instr){
-    // detener_ejecucion(); 
     transicionar_thread_safe(WAIT_SYS);
     int id_segmento = *(int*)list_get(instr->registros, 0);
     int tamanio = *(int*)list_get(instr->registros, 1);
@@ -771,14 +769,12 @@ void ejecutar_init_proc(t_instruccion_decodificada* instr){
 
 void ejecutar_exit(t_instruccion_decodificada* instr){
     log_debug(logger, "Ejecutando EXIT");
-    // detener_ejecucion();
     transicionar_thread_safe(LIBRE);
     log_debug(logger, "Hice transicionar_safe");
     enviar_operacion(conexion_kernel_scheduler, CPU_SCH__EXIT);
 }
 
 void ejecutar_m_unlock(t_instruccion_decodificada* instr){
-    // detener_ejecucion();
     transicionar_thread_safe(WAIT_SYS);
     char* nombre = (char*)list_get(instr->registros, 0);
     log_debug(logger, "Ejecutando MUTEX_UNLOCK %s", nombre);
@@ -789,10 +785,9 @@ void ejecutar_m_unlock(t_instruccion_decodificada* instr){
 }
 
 void ejecutar_m_lock(t_instruccion_decodificada* instr){
-    // detener_ejecucion();
     transicionar_thread_safe(WAIT_SYS);
     char * nombre = list_get(instr->registros, 0);
-    log_debug(logger, "Ejecutando MUTEX_LOCK %d", *nombre);
+    log_debug(logger, "Ejecutando MUTEX_LOCK %s", nombre);
     t_paquete* paquete = crear_paquete(CPU_SCH__MUTEX_LOCK);
     agregar_string_a_paquete(paquete, nombre);
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
