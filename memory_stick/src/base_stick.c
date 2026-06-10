@@ -1,5 +1,12 @@
 #include "base_stick.h"
-
+t_cliente* iniciar_cliente(int fd, tipo_cliente_t tipo){
+	t_cliente* cliente = malloc(sizeof(t_cliente));
+	if(cliente != NULL){
+		cliente->fd = fd;
+		cliente->tipo = tipo;
+	}
+	return cliente;
+}
 t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd){
 	t_stick* nuevo_stick = malloc(sizeof(t_stick));
 	if (nuevo_stick != NULL) {

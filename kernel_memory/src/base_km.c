@@ -1,4 +1,37 @@
 #include "base_km.h"
+// inicializar cosas
+void inicializar_variables_globales(t_config* config){
+	puerto = config_get_string_value (config, "PUERTO_KERNEL_MEMORY");
+    scripts_basepath = config_get_string_value(config, "SCRIPTS_BASEPATH");
+
+    t_log_level log_level = log_level_from_string(config_get_string_value(config, "LOG_LEVEL"));
+    logger = iniciar_logger("kernel_memory.log", "ProcesoKernelMemory", log_level);
+    lista_sticks   = list_create();
+    lista_cpus     = list_create();
+
+    lista_segmentos_global = list_create();
+    lista_huecos = list_create();
+    lista_procesos = list_create();
+
+    algoritmo_fit = BEST_FIT;
+    tamanio_total_mem = 0;
+    // semaforos
+    // ...
+
+    // mutex
+    pthread_mutex_init(&m_lista_segmentos_global, NULL);
+    pthread_mutex_init(&m_lista_procesos, NULL);
+    pthread_mutex_init(&m_lista_huecos, NULL);
+}
+
+t_proceso* iniciar_proceso(t_pcb* pcb, t_list* instrucciones){
+	if(instrucciones == NULL || pcb == NULL){ return NULL; }
+    t_proceso* proceso = malloc(sizeof(t_proceso));
+	if(proceso == NULL){ return NULL; }
+    proceso->pcb = pcb;
+    proceso->instrucciones = instrucciones;
+    return proceso;
+}
 
 t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd){
 	t_stick* nuevo_stick = malloc(sizeof(t_stick));
@@ -31,4 +64,41 @@ t_io* iniciar_io(t_tipo_io tipo, int io_fd){
 		nueva_io->fd = io_fd;
 	}
 	return nueva_io;
+}
+
+
+char* ruta_completa(char* base, char* nombre_archivo){
+	size_t len1 = strlen(base);
+    size_t len2 = strlen(nombre_archivo);
+
+    char* resultado = malloc(len1 + len2 + 2);
+
+    if (resultado == NULL) {
+        return NULL;
+    }
+
+    sprintf(resultado, "%s/%s", base, nombre_archivo);
+    return resultado;
+}
+
+// ...
+t_proceso* proceso_de_pid(int pid){
+    for(int i = 0; i < list_size(lista_procesos); i++){
+        t_proceso* proceso = list_get(lista_procesos, i);
+        if(proceso->pcb->pid == pid){
+            return proceso;
+        }
+    }
+    return NULL;
+}
+
+void agregar_stick_a_paquete(t_paquete* paquete, t_stick* stick){
+    agregar_a_paquete(paquete, &(stick->tamanio), sizeof(int));
+    agregar_string_a_paquete(paquete, stick->puerto);
+    agregar_string_a_paquete(paquete, stick->ip);
+}
+
+void agregar_stick(t_stick* stick){
+    list_add(lista_sticks, stick);
+    tamanio_total_mem += stick->tamanio;
 }

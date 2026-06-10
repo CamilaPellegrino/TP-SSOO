@@ -23,7 +23,6 @@ typedef struct
 	t_tipo_io tipo;
 } t_io;
 
-
 typedef struct{
 	uint32_t pc;
 	uint8_t ax;
@@ -43,35 +42,44 @@ typedef struct
 	// identificadores del proceso
 	int pid;
 	int ppid;
-	int priodidad;
-	//t_tipo_estado estado;
+	int priodidad; // le sacamos la prioridad? solo la necesita scheduler y ya la tiene
 	t_registros registros;
-} t_pcb;
 
+} t_pcb;
 typedef struct{
 	void *ptro_reg;
 	int tamanio;
 } especificacion_registro;
-typedef enum{
-	I_NOOP,
-	I_SET,
-	I_SUM,
-	I_SUB,
-	I_JNZ,
-	I_COPY_MEM,
-	I_MOV_IN,
-	I_MOV_OUT,
-	I_MUTEX_CREATE,
-	I_MUTEX_LOCK,
-	I_MUTEX_UNLOCK,
-	I_MEM_ALLOC,
-	I_MEM_FREE,
-	I_SLEEP,
-	I_STDOUT,
-	I_STDIN,
-	I_INIT_PROC,
-	I_EXIT
+
+typedef enum {
+    I_NOOP,
+    I_SET,
+    I_SUM,
+    I_SUB,
+    I_JNZ,
+    I_SET_PC,
+    I_COPY_MEM,
+    I_MOV_IN,
+    I_MOV_OUT,
+    I_MUTEX_CREATE, // sys  no bloqueante
+    I_MUTEX_LOCK,   // sys  bloqueante
+    I_MUTEX_UNLOCK, // sys  no bloqueante
+    I_MEM_ALLOC,    // sys  
+    I_MEM_FREE,     // sys
+    I_SLEEP,        // sys  bloqueante
+    I_STDOUT,       // sys  bloqueante
+    I_STDIN,        // sys  bloqueante
+    I_INIT_PROC,    // sys  no bloqueante
+    I_EXIT          // sys  no bloqueante
 } instrucciones;
+
+typedef struct {
+    instrucciones tipo;
+
+    t_list * registros; // void*
+
+} t_instruccion_decodificada;
+
 
 typedef struct {
     instrucciones tipo;
