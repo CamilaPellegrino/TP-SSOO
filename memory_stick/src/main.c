@@ -2,7 +2,7 @@
 #include <utils/utils.h>
 #include "base_stick.h"
 void atender_pedido_escritura(int dir_fisica, void* contenido, int tamanio, int cliente_fd);
-void atender_pedido_lectura(int dir_fisica, int cliente_fd);
+void atender_pedido_lectura(int dir_fisica, int tamanio, int cliente_fd);
 void* atender_pedidos(void* arg);
 void* atender_cliente(void *arg);
 
@@ -53,9 +53,6 @@ int main(int argc, char* argv[]) {
     agregar_string_a_paquete(paquete, ip);
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
     
-    int dir_fisica = 10;
-    char contenido[]="Hola buenos dias";
-    printf("contenido %ld\n", strlen(contenido));
     //atender_pedido_escritura(dir_fisica, &contenido);
     
     // esperar clientes
@@ -95,8 +92,12 @@ void* atender_pedidos(void* arg){
                 int tamanio_cont = *(int*)list_get(lista_paquete, 2);
                 atender_pedido_escritura(dir_fisica, contenido, tamanio_cont, cliente_fd);
                 break;
-            }case X_STICK__LETURA:{
-                //atender_pedido_lectura(dir_fisica, &contenido);
+            }case X_STICK__LECTURA:{
+                //Recibe la direccion y tamanio a leer
+                t_list* lista_paquete = recibir_paquete(cliente_fd);
+                int dir_fisica = *(int*)list_get(lista_paquete, 0);
+                int tamanio_cont = *(int*)list_get(lista_paquete, 1);
+                atender_pedido_lectura(dir_fisica, tamanio_cont, cliente_fd);
                 break;
             }default:{
                 log_warning(logger, "Operacion desconocida, cod_op: %d", cod_op);
@@ -118,43 +119,30 @@ void atender_pedido_escritura(int dir_fisica, void* contenido, int tamanio, int 
     memcpy(destino, contenido, tamanio);
     log_info(logger, "## Escritura de <%d> bytes", tamanio);
     
-    if (&memoria_principal[dir_fisica] == NULL){
-        log_error(logger, "No se escribio nada en memoria");
-        return;
-    }else{
-        enviar_mensaje("Escritura exitosa", cliente_fd, STICK_X__ESCRITURA_RESP);
-    }
-    // 4. Leer la memoria para verificar (arreglado para no tirar Segmentation Fault)
-    //int* puntero_comprobacion = (int*)(&memoria_principal[dir_fisica]);
-    log_info(logger,"Comprobacion -> Leyendo el entero completo en dir %d: %d", dir_fisica, (int*)(&memoria_principal[dir_fisica]));
+    enviar_mensaje("Escritura exitosa", cliente_fd, STICK_X__ESCRITURA_RESP);
     
-    //FALTA PROBAR
+    //Comprueba si se escribio bien, despues borrar
+    log_info(logger,"Comprobacion -> Leyendo el entero completo en dir %d: %s", dir_fisica, &memoria_principal[dir_fisica]);
+
     return;
 }
 
-void atender_pedido_lectura(int dir_fisica, int cliente_fd) {
-    // 1. Validar que la dirección de inicio + lo que vamos a leer no se pase del límite
-    if ((dir_fisica + sizeof(int)) > tamanio_stick) {
+void atender_pedido_lectura(int dir_fisica, int tamanio, int cliente_fd) {
+    if ((dir_fisica + tamanio) > tamanio_stick) {
         log_error(logger, "Segmentation fault! Intento de leer fuera de memoria. Dir: %d", dir_fisica);
-        // Aquí podrías enviar un mensaje de error al CPU
         return;
     }
-    // 2. Calculamos la dirección exacta apuntando al byte correcto
-    void* origen = (char*)espacio_mem_principal + dir_fisica;
+    void* origen = memoria_principal + dir_fisica;
+    char* contenido_leido = NULL; //El contenido que se ingresa siempre es un string (?
+    memcpy(contenido_leido, origen, tamanio);
+    log_info(logger, "## Lectura de <%d> bytes", tamanio);
+    log_info(logger, "Se leyo el valor %s en la direccion %d", contenido_leido, dir_fisica);
     
-    // 3. Variable para guardar lo que leamos
-    int valor_leido;
-    
-    // 4. Copiamos el tamaño EXACTO de un entero desde la memoria a nuestra variable
-    memcpy(&valor_leido, origen, sizeof(int));
-    
-    // 5. Log de éxito
-    log_info(logger, "Lectura exitosa. Se leyo el valor %d en la direccion %d", valor_leido, dir_fisica);
-    
-    // 6. Enviar el valor leído de vuelta al CPU (Ejemplo conceptual)
-    // t_paquete* paquete_respuesta = crear_paquete(RESPUESTA_LECTURA_OK);
-    // agregar_a_paquete(paquete_respuesta, &valor_leido, sizeof(int));
-    // enviar_paquete_y_liberarlo(paquete_respuesta, cliente_fd);
+    t_paquete* paquete_respuesta = crear_paquete(STICK_X__LECTURA_RESP);
+    agregar_string_a_paquete(paquete_respuesta, contenido_leido);
+    enviar_paquete_y_liberarlo(paquete_respuesta, cliente_fd);
+
+    return;
 }
 
 void* atender_cliente(void *arg){

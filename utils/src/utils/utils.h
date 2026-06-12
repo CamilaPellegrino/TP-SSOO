@@ -67,9 +67,9 @@ typedef enum
 	KM_SWAP__LECTURA,
 	// mensajes con destino a Sticks
 	X_STICK__ESCRITURA,
-	X_STICK__LETURA,
+	X_STICK__LECTURA,
 	STICK_X__ESCRITURA_RESP,
-
+	STICK_X__LECTURA_RESP,
 }op_code;
 
 typedef struct

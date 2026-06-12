@@ -51,7 +51,18 @@ void* atender_cliente(void *arg){
             char *puerto = list_get(lista_paquete, 1);
             char *ip = list_get(lista_paquete, 2);
             log_info(logger, "   ## Memory Stick de <%d> bytes Conectada, %s, %s", tamanio, puerto, ip);
-            
+
+            //Pruebas de escritura
+            t_paquete* paquete = crear_paquete(X_STICK__ESCRITURA);
+            int direc_fisica = 10;
+            //int contenido = 45;
+            char* contenido = "Empieza el mundial";
+            int tamanio_cont= 18;
+            agregar_a_paquete(paquete, &direc_fisica, sizeof(direc_fisica));
+            agregar_string_a_paquete(paquete, contenido);
+            agregar_a_paquete(paquete, &tamanio_cont, sizeof(tamanio_cont));
+            enviar_paquete_y_liberarlo(paquete, cliente_fd);
+
             // poner al stick en la lista de sticks
             t_stick* nuevo_stick = iniciar_stick(ip, puerto, tamanio, cliente_fd);
             
