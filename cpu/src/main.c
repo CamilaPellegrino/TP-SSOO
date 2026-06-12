@@ -14,6 +14,8 @@ void transicion_desde_wait_mem_alloc_y_prox_desalojo(op_code cod_op, t_list* dat
 void transicionar(t_estado_cpu estado);
 void transicionar_thread_safe(t_estado_cpu estado);
 void enviar_confirmacion();
+int get_pid_actual();
+void cambiar_pid_actual(int);
 
 void conectarse_a_stick(char* ip, char* puerto, uint32_t tamanio);
 void recibir_sticks_de_km();
@@ -44,6 +46,9 @@ pthread_cond_t cond_ejecutar;
 
 int pid_pendiente;
 pthread_mutex_t m_pid_pendiente;
+
+int pid_actual;
+pthread_mutex_t m_pid_actual;
 
 t_estado_cpu estado_cpu;
 pthread_mutex_t m_estado_cpu;
@@ -288,6 +293,7 @@ void transicion_desde_wait_mem_alloc(op_code cod_op, t_list* data){
             break;
         }
         case SCH_CPU__COMPACTACION:{
+            cambiar_pid_actual(-1);
             transicionar(LIBRE);
             enviar_confirmacion();
             break;
@@ -299,6 +305,7 @@ void transicion_desde_wait_mem_alloc(op_code cod_op, t_list* data){
 void transicion_desde_wait_mem_alloc_y_prox_desalojo(op_code cod_op, t_list* data){
     switch(cod_op){
         case SCH_CPU__COMPACTACION:
+            cambiar_pid_actual(-1);
         case SCH_CPU__FIN_SYSCALL:{
             transicionar(LIBRE);
             enviar_confirmacion();
@@ -321,6 +328,20 @@ void transicionar_thread_safe(t_estado_cpu estado){
 
 void enviar_confirmacion(){
     enviar_operacion(conexion_kernel_scheduler, CPU_SCH__EJECUCION_DETENIDA);
+}
+
+void cambiar_pid_actual(int pid){
+    pthread_mutex_lock(&m_pid_actual);
+    pid_actual = pid;
+    pthread_mutex_unlock(&m_pid_actual);
+}
+
+int get_pid_actual(){
+    int ret = -1;
+    pthread_mutex_lock(&m_pid_actual);
+    ret = pid_actual;
+    pthread_mutex_unlock(&m_pid_actual);
+    return ret;
 }
 
 void esperar_a_poder_ejecutar(){
@@ -447,7 +468,7 @@ void enviar_pcb_actualizado_a_km(t_pcb* pcb){
     if(pcb == NULL){
         return;
     }
-    log_debug(logger, "<%d> Enviando contexto actualizado a KM", pcb->pid);
+    log_debug(logger, "<%d> Enviando contexto actualizado a KM, proximo pc: %d", pcb->pid, pcb->registros.pc);
     t_paquete* p = crear_paquete(CPU_KM__ACTUALIZAR_PCB);
     agregar_pcb_al_paquete(pcb, p);
 
@@ -482,7 +503,6 @@ void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p){
 
 
 // ===================== Ciclo de instruccion =====================
-
 void* ejecutar(){
     t_instruccion_decodificada* prox_instruccion;
     t_pcb* pcb = malloc(sizeof(t_pcb));
@@ -491,13 +511,16 @@ void* ejecutar(){
         esperar_a_poder_ejecutar(); 
         log_debug(logger, "ya puedo ejecutar");
         pthread_mutex_lock(&m_pid_pendiente);
+        
+        if(pcb->pid >= 0 && get_pid_actual() >=0){
+            enviar_pcb_actualizado_a_km(pcb);
+        }
 
-        if(pid_pendiente >= 0){ 
+        if(pid_pendiente >= 0){
             log_debug(logger, "prox pid: %d", pid_pendiente);
-            if(pcb->pid >= 0){
-                enviar_pcb_actualizado_a_km(pcb);
-            }
+            
             pedir_contexto(pid_pendiente, pcb);
+            cambiar_pid_actual(pid_pendiente);
             log_debug(logger, "ejecutar: pidiendo nuevo pcb de pid %d a km y cargandolo", pid_pendiente);
             pid_pendiente = -1;
         }
@@ -522,12 +545,12 @@ void ciclo_instruccion(t_pcb *pcb){
         log_info( logger, "Instruccion: %s", instruccion);
         int pc_antiguo = pcb->registros.pc;
         //execute
-        bool syscall_bloqueante = execute(instruccion_decodificada, pcb);
+        bool actualizar_contexto = execute(instruccion_decodificada, pcb);
         
         if(pcb->registros.pc == pc_antiguo)
             pcb->registros.pc++;
 
-        if(syscall_bloqueante){
+        if(actualizar_contexto){
             enviar_pcb_actualizado_a_km(pcb);
         } 
         list_destroy_and_destroy_elements(instruccion_decodificada->registros, free);
@@ -964,4 +987,6 @@ void inicializar_variables(){
     pthread_cond_init(&cond_ejecutar, NULL);
     pthread_mutex_init(&m_estado_cpu, NULL);
     transicionar(LIBRE);
+    pid_actual = -1;
+    pthread_mutex_init(&m_pid_actual, NULL);
 }
