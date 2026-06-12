@@ -10,15 +10,16 @@ typedef struct
     int fd;
     char* puerto;
     char* ip;
-	t_list* lista_evt;
-	pthread_mutex_t m_lista_evt;
-	sem_t s_list_evt;
+	// t_list* lista_evt;
+	// pthread_mutex_t m_lista_evt;
+	// sem_t s_list_evt;
 }t_stick;
 
 typedef enum
 {
 	SCH_LECTURA,
-	SCH_ESCRITURA // ,
+	SCH_ESCRITURA,
+	SCH_MOVER // ,
 	// SUSPENSION
 	// DESUSPENSION
 }t_tipo_evt;
@@ -82,14 +83,15 @@ typedef struct
 
 typedef struct
 {
-	int stick;//
+	int stick;
 	int base_leer;
 	int base_escribir;
 	int tamanio;
-}t_data_mov;
+}t_data_mover;
 
 // estructuras para manejo de memoria: 
 typedef struct {
+	int pid;
     int id_segmento;
     uint32_t base;  //dir fisica
     uint32_t tamanio;
@@ -115,6 +117,7 @@ extern int sch_fd;
 extern t_list *lista_segmentos_global;
 extern t_list *lista_procesos;
 extern t_list *lista_huecos;
+extern t_list *lista_eventos_stick; 
 
 // variables para cosas de segmentos
 extern t_fit algoritmo_fit;
@@ -129,6 +132,10 @@ extern char* puerto;
 extern pthread_mutex_t m_lista_segmentos_global;
 extern pthread_mutex_t m_lista_procesos;
 extern pthread_mutex_t m_lista_huecos;
+extern pthread_mutex_t m_lista_eventos_stick;
+
+extern sem_t s_lista_eventos_stick;
+extern sem_t s_fin_mover;
 
 // Funciones
 
@@ -141,6 +148,7 @@ t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
 t_evt* iniciar_evt_read(int pid, int base, int tamanio);
 t_evt* iniciar_evt_write(int pid, int base, int tamanio, void* bytes);
+t_evt* iniciar_evt_mover(int pid, int stick, int base_leer, int tamanio, int base_escribir);
 
 // ...
 t_proceso* proceso_de_pid(int pid);
@@ -167,5 +175,5 @@ char* ruta_completa(char* base, char* nombre_archivo);
 void imprimir_bytes(void* data, int tamanio);
 void imprimir_estado_mem();
 void imprimir_huecos();
-void imprimir_segmentos();
+void imprimir_segmentos(); 
 #endif

@@ -23,11 +23,11 @@ t_list *lista_sticks;
 t_list *lista_cpus;
 int sch_fd; 
 
-
 // listas para cosas de segmentos
 t_list *lista_segmentos_global;
 t_list *lista_procesos;
 t_list *lista_huecos;
+t_list *lista_eventos_stick;
 
 // variables para cosas de segmentos
 t_fit algoritmo_fit;
@@ -42,5 +42,8 @@ char* puerto;
 pthread_mutex_t m_lista_segmentos_global;
 pthread_mutex_t m_lista_procesos;
 pthread_mutex_t m_lista_huecos;
+pthread_mutex_t m_lista_eventos_stick;
 
+sem_t s_lista_eventos_stick;
+sem_t s_fin_mover;
 #endif /* KERNEL_MEMORY_H_ */

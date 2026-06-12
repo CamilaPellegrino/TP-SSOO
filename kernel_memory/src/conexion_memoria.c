@@ -4,41 +4,31 @@ void desconexion_por_bsod();
 
 // STICKS
 void* atender_stick(void* arg){
-    t_stick* stick = (t_stick*) arg;
-    int stick_fd = stick->fd;
-    int tamanio = stick->tamanio;
-    log_info(logger, "## Memory Stick de %d bytes Conectada", tamanio);
-    t_list* lista_evt = stick->lista_evt;
-
+    t_list* lista_evt = lista_eventos_stick;
     while(1){
-        sem_wait(&stick->s_list_evt);
-        log_debug(logger, "Alguien pidio algo a stick de fd %d, tamanio %d", stick_fd, tamanio);
+        sem_wait(&s_lista_eventos_stick);
+        log_debug(logger, "Pedido a sticks");
         
-        pthread_mutex_lock(&stick->m_lista_evt);
+        pthread_mutex_lock(&m_lista_eventos_stick);
         if(list_is_empty(lista_evt)){
-            pthread_mutex_unlock(&stick->m_lista_evt);
+            pthread_mutex_unlock(&m_lista_eventos_stick);
             continue;
         }
 
         t_evt* evt = list_remove(lista_evt, 0);
-        pthread_mutex_unlock(&stick->m_lista_evt);
+        pthread_mutex_unlock(&m_lista_eventos_stick);
 
         int pid = evt->pid;
         switch(evt->tipo){
             case SCH_LECTURA: {
                 log_debug(logger, "Caso de SCH_lectura");
                 t_data_read* data = (t_data_read*)evt->data;
-
-                // enviar_paquete(stick);
-                // recibir_operacion(stick);
-                
+                // ...
                 char* datos_leidos = "Si esto anda soy una crack B)";
                 t_paquete* paquete = crear_paquete(RTA_READ);
                 agregar_a_paquete(paquete, &pid, sizeof(pid));
                 agregar_string_a_paquete(paquete, datos_leidos);
-
                 enviar_paquete_y_liberarlo(paquete, sch_fd);
-
                 break;
             }
             case SCH_ESCRITURA: {
@@ -53,6 +43,15 @@ void* atender_stick(void* arg){
                 agregar_a_paquete(paquete, &pid, sizeof(pid));
                 enviar_paquete_y_liberarlo(paquete, sch_fd);
 
+                break;
+            }
+            case SCH_MOVER: {
+                t_data_mover* data = (t_data_mover*)evt->data;
+                
+                log_debug(logger, "Caso de SCH_MOVER, stick:%d, base_leer;%d, tamanio:%d, base_escribir:%d", data->stick, data->base_leer, data->tamanio, data->base_escribir);
+                usleep(1000);
+                // (...)
+                sem_post(&s_fin_mover);
                 break;
             }
             default: {

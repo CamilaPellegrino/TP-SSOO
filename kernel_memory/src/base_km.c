@@ -6,23 +6,27 @@ void inicializar_variables_globales(t_config* config){
 
     t_log_level log_level = log_level_from_string(config_get_string_value(config, "LOG_LEVEL"));
     logger = iniciar_logger("kernel_memory.log", "ProcesoKernelMemory", log_level);
-    lista_sticks   = list_create();
-    lista_cpus     = list_create();
 
+    lista_sticks           = list_create();
+    lista_cpus             = list_create();
     lista_segmentos_global = list_create();
-    lista_huecos = list_create();
-    lista_procesos = list_create();
+    lista_huecos           = list_create();
+    lista_procesos         = list_create();
+    lista_eventos_stick    = list_create();
 
     algoritmo_fit = BEST_FIT;
     tamanio_total_mem = 0;
     tamanio_total_libre = 0;
+    
     // semaforos
-    // ...
+    sem_init(&s_lista_eventos_stick, 0, 0);
+    sem_init(&s_fin_mover, 0, 0);
 
     // mutex
     pthread_mutex_init(&m_lista_segmentos_global, NULL);
     pthread_mutex_init(&m_lista_procesos, NULL);
     pthread_mutex_init(&m_lista_huecos, NULL);
+    pthread_mutex_init(&m_lista_eventos_stick, NULL);
 }
 
 t_proceso* iniciar_proceso(t_pcb* pcb, t_list* instrucciones){
@@ -42,9 +46,9 @@ t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd){
 		nuevo_stick->puerto = strdup(puerto);
 		nuevo_stick->fd = cliente_fd;
 		nuevo_stick->tamanio = tamanio;
-        nuevo_stick->lista_evt = list_create();
-        pthread_mutex_init(&nuevo_stick->m_lista_evt, NULL);
-        sem_init(&nuevo_stick->s_list_evt, 0, 0);
+        // nuevo_stick->lista_evt = list_create();
+        // pthread_mutex_init(&nuevo_stick->m_lista_evt, NULL);
+        // sem_init(&nuevo_stick->s_list_evt, 0, 0);
 	}
 	return nuevo_stick;
 }
@@ -106,6 +110,24 @@ t_evt* iniciar_evt_write(int pid, int base, int tamanio, void* bytes){
     return evt;
 }
 
+
+t_evt* iniciar_evt_mover(int pid, int stick, int base_leer, int tamanio, int base_escribir){
+    t_evt* evt = malloc(sizeof(t_evt));
+    evt->pid = pid;
+    evt->tipo = SCH_MOVER;
+
+    t_data_mover* data = malloc(sizeof(t_data_mover));
+    data->stick = stick;
+    data->base_leer = base_leer;
+    data->tamanio = tamanio;
+    data->base_escribir = base_escribir;
+    
+    evt->data = data;
+    
+    pthread_mutex_init(&evt->mutex, NULL);
+
+    return evt;
+}
 // ...
 t_proceso* proceso_de_pid(int pid){
     for(int i = 0; i < list_size(lista_procesos); i++){
@@ -162,10 +184,14 @@ void agregar_evt_a_stick(int nro_stick, t_evt* evt){
         log_error(logger, "Stick no encontrada, error de BSOD");
         exit(EXIT_FAILURE);
     }
-    pthread_mutex_lock(&stick->m_lista_evt);
-    list_add(stick->lista_evt, evt);
-    pthread_mutex_unlock(&stick->m_lista_evt);
-    sem_post(&stick->s_list_evt);
+    // pthread_mutex_lock(&stick->m_lista_evt);
+    // list_add(stick->lista_evt, evt);
+    // pthread_mutex_unlock(&stick->m_lista_evt);
+    // sem_post(&stick->s_list_evt);
+    pthread_mutex_lock(&m_lista_eventos_stick);
+    list_add(lista_eventos_stick, evt);
+    pthread_mutex_unlock(&m_lista_eventos_stick);
+    sem_post(&s_lista_eventos_stick);
 }
 
 void agregar_stick_a_paquete(t_paquete* paquete, t_stick* stick){

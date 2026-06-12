@@ -53,7 +53,8 @@ void* atender_cliente(void *arg){
             agregar_stick(nuevo_stick);
 
             enviar_nuevo_stick_a_scheduler(nuevo_stick, sch_fd);
-            
+            log_info(logger, "## Memory Stick de %d bytes Conectada", nuevo_stick->tamanio);
+          
             pthread_t thread_stick = crear_hilo_o_exit(atender_stick, nuevo_stick, "atender_stick", logger);
             pthread_detach(thread_stick);
 

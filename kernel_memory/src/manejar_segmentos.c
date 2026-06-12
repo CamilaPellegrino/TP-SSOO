@@ -47,7 +47,7 @@ void agregar_segmento_a_proceso(t_segmento* segmento, t_proceso* proceso){
     pthread_mutex_lock(&m_lista_segmentos_global);
     insertar_ordenado_por_base(lista_segmentos_global, segmento);
     pthread_mutex_unlock(&m_lista_segmentos_global);
-
+    segmento->pid = proceso->pcb->pid;
     insertar_ordenado_por_base(proceso->lista_segmentos, segmento);
 }
 
@@ -95,6 +95,7 @@ t_segmento* crear_segmento(t_proceso* proceso, uint32_t id_segmento, uint32_t ta
     segmento->base = base_hueco;
     segmento->id_segmento = id_segmento;
     segmento->tamanio = tamanio;
+    segmento->pid = proceso->pcb->pid;
 
     agregar_segmento_a_proceso(segmento, proceso);
     printf("Despues: \n");
@@ -245,10 +246,14 @@ bool compactar_memoria(){
     }
     for(; i < s_size; i++){
         t_segmento* s = list_get(lista_segmentos_global, i);
-        // leer contenido del segmento
-        // ...
-        // escribirlo a partir de prox_dir
-        // ...
+        int stick = 0;
+        t_evt* evt = iniciar_evt_mover(evt->pid, stick, s->base, s->tamanio, prox_base);
+        pthread_mutex_lock(&m_lista_eventos_stick);
+        list_add(lista_eventos_stick, evt);
+        pthread_mutex_unlock(&m_lista_eventos_stick);
+        sem_post(&s_lista_eventos_stick);
+        sem_wait(&s_fin_mover);
+
         // actualizar seg
         s->base = prox_base;
         prox_base += s->tamanio;
@@ -269,7 +274,7 @@ bool compactar_memoria(){
 
 t_list* eventos_para_enviar_por_compactacion(t_segmento* s, int prox_base){
     t_list* ret = list_create();
-    
+
 }
 
 

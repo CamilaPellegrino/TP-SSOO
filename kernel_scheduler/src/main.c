@@ -372,24 +372,39 @@ void* atender_km(void*){
                 agregar_a_paquete(paquete, tamanio_stick, sizeof(int));
                 enviar_paquete_a_todas_las_cpus(paquete);
                 break;
-            }case KM_SCH__BSOD: {
+            }
+            case KM_SCH__BSOD: {
                 log_error(logger, "BSOD, cerrando todo");
                 exit(EXIT_FAILURE);
-            }case KM_SCH__PEDIDO_COMPACTACION:{
+            }
+            case KM_SCH__PEDIDO_COMPACTACION:{
                 log_info(logger, "## Inicio de compactacion");
                 cambiar_estado_global(COMPACTANDO);
                 pedido_desalojo_a_todas_las_cpus(SCH_CPU__COMPACTACION);
                 break;
-            }case KM_SCH__COMPACTACION_COMPLETA:{
+            }
+            case KM_SCH__COMPACTACION_COMPLETA:{
                 log_info(logger, "## Compactacion completa");
                 t_list* data = recibir_paquete(conexion_kernel_memory);
+
+                cambiar_estado_global(PLANIF_ACTIVA);
+                
+                pthread_mutex_lock(&m_procesos_en_ready);
+                int size_ready = procesos_en_ready;
+                pthread_mutex_unlock(&m_procesos_en_ready);
+
+                for(int i = 0; i<size_ready; i++){
+                    intentar_planificar();
+                }
                 break;
-            }case KM_SCH__EXIT_OK: {
+            }
+            case KM_SCH__EXIT_OK: {
                 t_list* data_pcb = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*)list_get(data_pcb, 0);
                 liberar_pcb_de_exit(pid);
                 break;
-            }case KM_SCH__INIT_PROC_RESP:{
+            }
+            case KM_SCH__INIT_PROC_RESP:{
                 t_list* paquete = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*)list_get(paquete, 0);
                 int ppid = *(int*)list_get(paquete, 1);
