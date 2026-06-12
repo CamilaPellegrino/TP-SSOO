@@ -32,6 +32,7 @@ t_list *lista_huecos;
 // variables para cosas de segmentos
 t_fit algoritmo_fit;
 int tamanio_total_mem;
+int tamanio_total_libre;
 
 // De config
 char* scripts_basepath;

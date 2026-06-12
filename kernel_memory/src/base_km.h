@@ -80,6 +80,14 @@ typedef struct
 	void* bytes;
 }t_data_write;
 
+typedef struct
+{
+	int stick;//
+	int base_leer;
+	int base_escribir;
+	int tamanio;
+}t_data_mov;
+
 // estructuras para manejo de memoria: 
 typedef struct {
     int id_segmento;
@@ -111,6 +119,7 @@ extern t_list *lista_huecos;
 // variables para cosas de segmentos
 extern t_fit algoritmo_fit;
 extern int tamanio_total_mem;
+extern int tamanio_total_libre;
 
 // De config
 extern char* scripts_basepath;

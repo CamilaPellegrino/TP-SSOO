@@ -15,6 +15,7 @@ void inicializar_variables_globales(t_config* config){
 
     algoritmo_fit = BEST_FIT;
     tamanio_total_mem = 0;
+    tamanio_total_libre = 0;
     // semaforos
     // ...
 
@@ -176,6 +177,7 @@ void agregar_stick_a_paquete(t_paquete* paquete, t_stick* stick){
 void agregar_stick(t_stick* stick){
     list_add(lista_sticks, stick);
     tamanio_total_mem += stick->tamanio;
+    tamanio_total_libre += stick->tamanio;
 }
 
 void enviar_nuevo_stick_a_scheduler(t_stick* nuevo_stick, int sch_fd){

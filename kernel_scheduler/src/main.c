@@ -380,6 +380,10 @@ void* atender_km(void*){
                 cambiar_estado_global(COMPACTANDO);
                 pedido_desalojo_a_todas_las_cpus(SCH_CPU__COMPACTACION);
                 break;
+            }case KM_SCH__COMPACTACION_COMPLETA:{
+                log_info(logger, "## Compactacion completa");
+                t_list* data = recibir_paquete(conexion_kernel_memory);
+                break;
             }case KM_SCH__EXIT_OK: {
                 t_list* data_pcb = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*)list_get(data_pcb, 0);

@@ -184,6 +184,12 @@ void* atender_scheduler(void*){
             }
             case SCH_KM__COMENZAR_COMPACTACION:{
                 log_info(logger, "Iniciando compactacion");
+                bool ok = compactar_memoria();
+                log_info(logger, "Compactacion completa");
+                imprimir_estado_mem();
+                t_paquete* paquete = crear_paquete(KM_SCH__COMPACTACION_COMPLETA);
+                agregar_a_paquete(paquete, &ok, sizeof(ok));
+                enviar_paquete_y_liberarlo(paquete, sch_fd);
                 break;
             }
             default:
@@ -259,7 +265,7 @@ void atender_sch_mem_alloc(t_list* data){
         if(segmento == NULL){
             status = ERROR;
             if(hay_espacio_total(tamanio)){
-                log_info(logger, "## <%d> Se requiere compactación para realizar MEM_ALLOC", pid);
+                log_info(logger, "## <%d> Se requiere compactación para realizar MEM_ALLOC, tamanio libre: %d, tamanio a reservar: %d", pid, tamanio_total_libre, tamanio);
                 enviar_operacion(sch_fd, KM_SCH__PEDIDO_COMPACTACION);
                 return;
             }

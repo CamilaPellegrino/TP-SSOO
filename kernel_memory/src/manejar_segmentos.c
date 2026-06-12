@@ -75,7 +75,7 @@ t_segmento* crear_segmento(t_proceso* proceso, uint32_t id_segmento, uint32_t ta
     t_hueco* hueco_disp = ubicacion_de_proximo_segmento(tamanio);
     if(hueco_disp == NULL){
         log_error(logger, "Error en crear_segmento: No se encontró hueco disponible");
-        if(tamanio_total_mem >= tamanio){
+        if(tamanio_total_libre >= tamanio){
             log_debug(logger, "## Iniciando compactacion de memoria");
         }
         return NULL;
@@ -99,6 +99,7 @@ t_segmento* crear_segmento(t_proceso* proceso, uint32_t id_segmento, uint32_t ta
     agregar_segmento_a_proceso(segmento, proceso);
     printf("Despues: \n");
     imprimir_estado_mem();
+    tamanio_total_libre -= segmento->tamanio;
     return segmento;
 }
 
@@ -148,6 +149,7 @@ bool eliminar_segmento(t_segmento* segmento, t_proceso* proceso){
         return false;
     }
     crear_hueco(segmento->base, segmento->tamanio);
+    tamanio_total_libre += segmento->tamanio;
     free(segmento);
     fusionar_huecos_contiguos();
     printf("Despues: \n");
@@ -202,7 +204,7 @@ void fusionar_huecos_contiguos(){
 }
 
 bool hay_espacio_total(uint32_t tamanio){
-    return tamanio_total_mem >= tamanio;
+    return tamanio_total_libre >= tamanio;
 }
 
 int pos_segmento_que_comienza_en(int base){
@@ -226,9 +228,9 @@ bool segmento_adelante_de_dir(t_segmento* s, int dir){
     return s->base > dir;
 }
 
-void compactar_memoria(){
+bool compactar_memoria(){
     if(list_is_empty(lista_huecos)){
-        return;
+        return true;
     }
     t_hueco* prox_h = list_get(lista_huecos, 0);
     int prox_base = prox_h->base;
@@ -262,7 +264,14 @@ void compactar_memoria(){
     t_hueco* h = list_get(lista_huecos, 0);
     h->base = ult_dir;
     h->tamanio += tamanio;
+    return true;
 }
+
+t_list* eventos_para_enviar_por_compactacion(t_segmento* s, int prox_base){
+    t_list* ret = list_create();
+    
+}
+
 
 void agregar_espacio_mem(int bytes){
     crear_hueco(tamanio_total_mem, bytes);
