@@ -32,7 +32,7 @@ void* planificador_corto_plazo(){
                 pthread_mutex_lock(&cpu_desalojable->mutex);
                 if(!cpu_desalojable->desalojando && cpu_desalojable->proceso != proceso){
                     cpu_desalojable->desalojando = true;
-                    enviar_operacion(cpu_desalojable->fd, SCH_CPU__DETENER_EJECUCION);
+                    enviar_operacion(cpu_desalojable->fd, SCH_CPU__PEDIDO_DESALOJO);
                     log_info(logger, "## desalojando cpu %d", cpu_desalojable->id);
                     agregar_a_ready_al_frente(proceso);
                     pthread_mutex_unlock(&cpu_desalojable->mutex);
@@ -112,7 +112,7 @@ void* planificador_largo_plazo(){
         log_info(logger, "planificador_largo_plazo: ejecutando");
         pthread_mutex_lock(&estado_new->mutex);
         if(list_is_empty(estado_new->sublista)){
-        pthread_mutex_unlock(&estado_new->mutex);
+            pthread_mutex_unlock(&estado_new->mutex);
             log_warning(logger, "planificador_largo_plazo: no habia nada en new (raro que esto pase)");
             continue;
         }
@@ -298,7 +298,7 @@ void* hilo_fin_quantum(void* arg){
         log_debug(logger, "## (<%d>) - Desalojado por fin de quantum", proceso->pid);
         // exec_a_ready(proceso);
         // liberar_cpu(cpu); 
-        enviar_operacion(cpu->fd, SCH_CPU__DETENER_EJECUCION);
+        enviar_operacion(cpu->fd, SCH_CPU__PEDIDO_DESALOJO);
     }
     data_cond->cond_val = false;
     pthread_mutex_unlock(&data_cond->mutex_cond);

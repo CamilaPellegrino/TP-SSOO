@@ -161,15 +161,18 @@ void* atender_scheduler(void*){
                 t_list* lista_paquete = recibir_paquete(sch_fd);
                 atender_sch_init_proc(lista_paquete);
                 break;
-            }case KM_READ:{
+            }
+            case KM_READ:{
                 t_list* data = recibir_paquete(sch_fd);
                 atender_sch_read(data);
                 break;
-            }case KM_WRITE:{
+            }
+            case KM_WRITE:{
                 t_list* data = recibir_paquete(sch_fd);
                 atender_sch_write(data);
                 break;
-            }case SCH_KM__MEM_ALLOC:{
+            }
+            case SCH_KM__MEM_ALLOC:{
                 t_list* data = recibir_paquete(sch_fd);
                 atender_sch_mem_alloc(data);
                 break;
@@ -177,6 +180,10 @@ void* atender_scheduler(void*){
             case SCH_KM__MEM_FREE:{
                 t_list* data = recibir_paquete(sch_fd);
                 atender_sch_mem_free(data);
+                break;
+            }
+            case SCH_KM__COMENZAR_COMPACTACION:{
+                log_info(logger, "Iniciando compactacion");
                 break;
             }
             default:
@@ -251,6 +258,11 @@ void atender_sch_mem_alloc(t_list* data){
         t_segmento* segmento = crear_segmento(p, id_segmento, tamanio);
         if(segmento == NULL){
             status = ERROR;
+            if(hay_espacio_total(tamanio)){
+                log_info(logger, "## <%d> Se requiere compactación para realizar MEM_ALLOC", pid);
+                enviar_operacion(sch_fd, KM_SCH__PEDIDO_COMPACTACION);
+                return;
+            }
         }
     }
     t_paquete* paquete = crear_paquete(KM_SCH__RTA_MEM_ALLOC);

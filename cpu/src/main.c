@@ -2,14 +2,18 @@
 #include <utils/utils.h>
 #include "base_cpu.h"
 #include <semaphore.h>
+
+
+void procesar_evento(op_code cod_op, t_list* datas);
 void transicion_desde_wait_sys(op_code cod_op, t_list* data);
 void transicion_desde_exec(op_code cod_op, t_list* data);
 void transicion_desde_wait_sys_y_prox_desalojo(op_code cod_op, t_list* data);
 void transicion_desde_libre(op_code cod_op, t_list* data);
+void transicion_desde_wait_mem_alloc(op_code cod_op, t_list* data);
+void transicion_desde_wait_mem_alloc_y_prox_desalojo(op_code cod_op, t_list* data);
 void transicionar(t_estado_cpu estado);
 void transicionar_thread_safe(t_estado_cpu estado);
 void enviar_confirmacion();
-void procesar_evento(op_code cod_op, t_list* datas);
 
 void conectarse_a_stick(char* ip, char* puerto, uint32_t tamanio);
 void recibir_sticks_de_km();
@@ -195,9 +199,13 @@ void procesar_evento(op_code cod_op, t_list* data){
             transicion_desde_libre(cod_op, data);
             break;
         }
-        default:{
-            log_warning(logger, "Warning: Operacion desconocida, cod_op = %d", cod_op);
-            break;        
+        case WAIT_MEM_ALLOC:{
+            transicion_desde_wait_mem_alloc(cod_op, data);
+            break;
+        }
+        case WAIT_MEM_ALLOC_Y_PROX_DESALOJO:{
+            transicion_desde_wait_mem_alloc_y_prox_desalojo(cod_op, data);
+            break;
         }
     }
     pthread_mutex_unlock(&m_estado_cpu);
@@ -205,12 +213,9 @@ void procesar_evento(op_code cod_op, t_list* data){
 
 void transicion_desde_exec(op_code cod_op, t_list* data){
     switch(cod_op){
-        case SCH_CPU__DETENER_EJECUCION:{
+        case SCH_CPU__COMPACTACION:
+        case SCH_CPU__PEDIDO_DESALOJO:{
             v_pedido_de_desalojo = true;
-            break;
-        }
-        case SCH_CPU__PID:{
-            v_pedido_de_desalojo = false;
             break;
         }
         default:{
@@ -221,11 +226,12 @@ void transicion_desde_exec(op_code cod_op, t_list* data){
 
 void transicion_desde_wait_sys(op_code cod_op, t_list* data){
     switch(cod_op){
-        case SCH_CPU__DETENER_EJECUCION:{ // despues cambiar nombre a SCH_CPU__PEDIDO_DESALOJO
+        case SCH_CPU__COMPACTACION:
+        case SCH_CPU__PEDIDO_DESALOJO:{ 
             transicionar(WAIT_SYS_Y_PROX_DESALOJO);
             break;
         }
-        case SCH_CPU__REANUDAR_EJECUCION:{ // cambiar nombre a SCH_CPU__FIN_SYSCALL
+        case SCH_CPU__FIN_SYSCALL:{ 
             transicionar(EXEC);
             v_pedido_de_desalojo = false;
             pthread_cond_signal(&cond_ejecutar);
@@ -243,14 +249,13 @@ void transicion_desde_wait_sys(op_code cod_op, t_list* data){
 
 void transicion_desde_wait_sys_y_prox_desalojo(op_code cod_op, t_list* data){
     switch(cod_op){
-        case SCH_CPU__REANUDAR_EJECUCION:{ // cambiar nombre a SCH_CPU__FIN_SYSCALL
+        case SCH_CPU__SYS_BLOQUEANTE:
+        case SCH_CPU__FIN_SYSCALL:{ 
             transicionar(LIBRE);
             enviar_confirmacion();
             break;
         }
-        default:{
-            // nada
-        }
+        default:{}
     }
 }
 
@@ -262,13 +267,44 @@ void transicion_desde_libre(op_code cod_op, t_list* data){
             pthread_cond_signal(&cond_ejecutar);
             break;
         }
-        case SCH_CPU__DETENER_EJECUCION:{
+        case SCH_CPU__PEDIDO_DESALOJO:{
             enviar_confirmacion();
             break;
         }
-        default:{
-            // nada
+        default:{}
+    }
+}
+
+void transicion_desde_wait_mem_alloc(op_code cod_op, t_list* data){
+    switch(cod_op){
+        case SCH_CPU__PEDIDO_DESALOJO:{
+            transicionar(WAIT_MEM_ALLOC_Y_PROX_DESALOJO);
+            break;
         }
+        case SCH_CPU__FIN_SYSCALL:{
+            transicionar(EXEC);
+            v_pedido_de_desalojo = false;
+            pthread_cond_signal(&cond_ejecutar);
+            break;
+        }
+        case SCH_CPU__COMPACTACION:{
+            transicionar(LIBRE);
+            enviar_confirmacion();
+            break;
+        }
+        default:{}
+    }
+}
+
+void transicion_desde_wait_mem_alloc_y_prox_desalojo(op_code cod_op, t_list* data){
+    switch(cod_op){
+        case SCH_CPU__COMPACTACION:
+        case SCH_CPU__FIN_SYSCALL:{
+            transicionar(LIBRE);
+            enviar_confirmacion();
+            break;
+        }
+        default:{}
     }
 }
 
@@ -735,7 +771,7 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
 
 // syscalls: 
 void ejecutar_mem_free(t_instruccion_decodificada* instr){
-    transicionar_thread_safe(WAIT_SYS);
+    transicionar_thread_safe(LIBRE);
     int id_segmento = *(int*)list_get(instr->registros, 0);
     log_debug(logger, "Ejecutando MEM_FREE %d", id_segmento);
     t_paquete* paquete = crear_paquete(CPU_SCH__MEM_FREE);
@@ -745,7 +781,7 @@ void ejecutar_mem_free(t_instruccion_decodificada* instr){
 }
 
 void ejecutar_mem_alloc(t_instruccion_decodificada* instr){
-    transicionar_thread_safe(WAIT_SYS);
+    transicionar_thread_safe(WAIT_MEM_ALLOC);
     int id_segmento = *(int*)list_get(instr->registros, 0);
     int tamanio = *(int*)list_get(instr->registros, 1);
     log_debug(logger, "Ejecutando MEM_ALLOC %d %d", id_segmento, tamanio);

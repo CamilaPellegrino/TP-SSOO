@@ -99,12 +99,12 @@ void* atender_cliente(void *arg){
 void* atender_cpu(t_cpu* cpu){
     int cpu_fd = cpu->fd;
     int cpu_id = cpu->id;
-    sem_post(&s_intentar_planificar);
+    intentar_planificar();
     // sem_post(&s_nueva_cpu_libre); 
     log_info(logger, "## CPU <%d> Conectada", cpu_id);
     while(1){
         op_code cod_op = recibir_operacion(cpu_fd);
-        log_debug(logger, "llego operacion de cpu <%d>", cpu_id);
+        log_debug(logger, "llego operacion de cpu <%d>, op=%d", cpu_id, cod_op);
         if(cod_op == -1){
             log_warning(logger, "Se desconecto cpu de id:%d", cpu_id);
             pthread_mutex_lock(&m_lista_cpus);
@@ -184,19 +184,7 @@ void* atender_cpu(t_cpu* cpu){
                 manejar_proceso_exit(proceso_exit);
                 break;
             }case CPU_SCH__EJECUCION_DETENIDA: {
-                log_info(logger, "cpu <%d>: Ejecucion detenida", cpu->id);
-                pthread_mutex_lock(&m_lista_cpus);
-                t_pcb* proceso = cpu->proceso;
-                if(!cpu->desalojando){
-                    log_debug(logger, "no estaba desalojando, no hago nd");
-                    pthread_mutex_unlock(&m_lista_cpus);
-                    break;
-                }
-                liberar_cpu(cpu);
-                pthread_mutex_unlock(&m_lista_cpus);
-                if(proceso != NULL){
-                    exec_a_ready_cond_signal(proceso);
-                }
+                atender_cpu_ejecucion_detenida(cpu);
                 break;
             }default:
                 log_warning(logger, "operacion desconocida en hilo que atiende a cpu id: %d, cod_op: %d", cpu_id, cod_op);
@@ -204,6 +192,32 @@ void* atender_cpu(t_cpu* cpu){
         loguear_tamanio_listas_de_estado();
     }
     return NULL;
+}
+
+void atender_cpu_ejecucion_detenida(t_cpu* cpu){
+    pthread_mutex_lock(&cpu->mutex);
+    t_pcb* proceso = cpu->proceso;
+    bool desalojando = cpu->desalojando;
+    pthread_mutex_unlock(&cpu->mutex);
+
+    pthread_mutex_lock(&m_estado_global);
+    t_estado_sch e = estado_global;
+    pthread_mutex_unlock(&m_estado_global);
+
+    if(!cpu->desalojando && e != COMPACTANDO){
+        log_debug(logger, "no estaba desalojando, no hago nada");
+        return;
+    }
+    log_info(logger, "cpu <%d>: Ejecucion detenida", cpu->id);
+    liberar_cpu(cpu);
+    if(proceso != NULL){
+        exec_a_ready_cond_signal(proceso);
+    }
+    if(e == COMPACTANDO && !hay_cpus_ejecutando()){
+        log_info(logger, "CPUs desalojadas, iniciando compactacion");
+        enviar_operacion(conexion_kernel_memory, SCH_KM__COMENZAR_COMPACTACION);
+    }
+
 }
 
 void atender_cpu_syscall_mem_free(int id_segmento,t_cpu* cpu){
@@ -221,8 +235,8 @@ void atender_cpu_syscall_mem_free(int id_segmento,t_cpu* cpu){
        
 void atender_cpu_syscall_mem_alloc(int id_segmento, int tamanio, t_cpu* cpu){
     t_pcb* proceso = cpu->proceso;
-    exec_a_blocked_cond_signal(proceso);
-    liberar_cpu(cpu);
+    // exec_a_blocked_cond_signal(proceso);
+    // liberar_cpu(cpu);
     log_debug(logger, "Id segmento: %d, tamanio: %d", id_segmento, tamanio);
     
     t_paquete* paquete = crear_paquete(SCH_KM__MEM_ALLOC);
@@ -241,14 +255,14 @@ void atender_cpu_syscall_mutex_unlock(char* nombre_mutex, t_cpu* cpu){
     }
     m_signal(mutex, proceso);
     log_info(logger, "## (<%d>) Libera el Mutex <%s>", proceso->pid, nombre_mutex);
-    enviar_operacion(cpu->fd, SCH_CPU__REANUDAR_EJECUCION);
+    enviar_operacion(cpu->fd, SCH_CPU__FIN_SYSCALL);
 }
 
 void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu){
     t_mutex* mutex = get_mutex(nombre_mutex);
     if(mutex == NULL){
         log_error(logger, "NotFoundException: Mutex de nombre <%s> no declarado", nombre_mutex);
-        enviar_operacion(cpu->fd, SCH_CPU__DETENER_EJECUCION);
+        enviar_operacion(cpu->fd, SCH_CPU__PEDIDO_DESALOJO);
         exec_a_exit(cpu->proceso);
         liberar_cpu(cpu);
         return;
@@ -258,7 +272,7 @@ void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu){
     bool reservado = m_wait(mutex, proceso);
     if(reservado){
         log_debug(logger, "atender_cpu_syscall_mutex_lock: mutex %s reservado", nombre_mutex);
-        enviar_operacion(cpu->fd, SCH_CPU__REANUDAR_EJECUCION);
+        enviar_operacion(cpu->fd, SCH_CPU__FIN_SYSCALL);
     }else{
         log_debug(logger, "atender_cpu_syscall_mutex_lock: mutex %s no disponible, bloqueando proceso y desalojando de cpu", nombre_mutex);
         enviar_operacion(cpu->fd, SCH_CPU__SYS_BLOQUEANTE);
@@ -331,8 +345,7 @@ void atender_cpu_syscall_mutex_create(char* nombre_mutex, t_cpu* cpu){
     
     log_debug(logger, "nuevo mutex agregado, tamaño lista ahora: %d", list_size(lista_mutex));
 
-    // mandar a CPU confirmacion de que se termino la syscall (esta no es bloqueante)
-    enviar_operacion(cpu_fd, SCH_CPU__REANUDAR_EJECUCION); // reanuda la ejecucion con el mismo pcb que tenia cargado. Solo para este caso creo, porque no desaloja el, cpu espera (ver issues)
+    enviar_operacion(cpu_fd, SCH_CPU__FIN_SYSCALL); 
 }
 
 void* atender_km(void*){
@@ -362,6 +375,11 @@ void* atender_km(void*){
             }case KM_SCH__BSOD: {
                 log_error(logger, "BSOD, cerrando todo");
                 exit(EXIT_FAILURE);
+            }case KM_SCH__PEDIDO_COMPACTACION:{
+                log_info(logger, "## Inicio de compactacion");
+                cambiar_estado_global(COMPACTANDO);
+                pedido_desalojo_a_todas_las_cpus(SCH_CPU__COMPACTACION);
+                break;
             }case KM_SCH__EXIT_OK: {
                 t_list* data_pcb = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*)list_get(data_pcb, 0);
@@ -377,7 +395,7 @@ void* atender_km(void*){
                     sem_post(&s_nuevo_proceso_new);
                     t_cpu* cpu = cpu_de_pid(ppid);
                     if(cpu != NULL){
-                    enviar_operacion(cpu->fd, SCH_CPU__REANUDAR_EJECUCION);
+                    enviar_operacion(cpu->fd, SCH_CPU__FIN_SYSCALL);
                     }
                 }else{
                     log_error(logger, "error en init_proc de pid %d: Ruta invalida", pid);
@@ -389,8 +407,19 @@ void* atender_km(void*){
                 t_list* data = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*)list_get(data, 0);
                 t_status_op status = *(t_status_op*)list_get(data, 1);
-                t_pcb* proceso = proceso_de_lista(pid, estado_blocked->sublista);
-                manejar_status_op(proceso, status);
+                // t_pcb* proceso = proceso_de_lista(pid, estado_exec->sublista);
+                // manejar_status_op(proceso, status);
+                t_cpu* cpu = cpu_de_pid(pid);
+                if(cpu == NULL){
+                    t_pcb* proceso = proceso_de_lista(pid, estado_exec->sublista);
+                    exec_a_ready_cond_signal(proceso);
+                    break;
+                }
+                if(status == OK){
+                    enviar_operacion(cpu->fd, SCH_CPU__FIN_SYSCALL);
+                }else{
+                    log_warning(logger, "Estado ERROR de MEM_ALLOC"); // TODO: Pasar a EXIT
+                }
                 break;
             }case KM_SCH__RTA_MEM_FREE: {
                 log_debug(logger, "Syscall finalizada: MEM_FREE");

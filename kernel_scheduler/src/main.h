@@ -27,6 +27,7 @@ int proximo_pid;
 int suspension_timeout;
 int quantum;
 int procesos_en_ready;
+t_estado_sch estado_global;
 
 // listas de cosas de syscalls
 t_list* lista_evt_sleep;
@@ -51,6 +52,7 @@ pthread_mutex_t m_lista_mutex;
 pthread_mutex_t m_transicionar;
 pthread_mutex_t m_proximo_pid;
 pthread_mutex_t m_procesos_en_ready;
+pthread_mutex_t m_estado_global;
 // sockets
 int conexion_kernel_memory;
 
@@ -68,6 +70,7 @@ void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu);
 void atender_cpu_syscall_mutex_unlock(char* nombre_mutex, t_cpu* cpu);
 void atender_cpu_syscall_mem_alloc(int id_segmento, int tamanio, t_cpu* cpu);
 void atender_cpu_syscall_mem_free(int id_segmento,t_cpu* cpu);
+void atender_cpu_ejecucion_detenida(t_cpu* cpu);
 void* atender_km(void*);
 
 #endif  /* SCHEDULER_H_ */ 

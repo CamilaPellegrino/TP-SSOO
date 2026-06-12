@@ -77,7 +77,9 @@ typedef enum{
     LIBRE,
     EXEC,
     WAIT_SYS,
-    WAIT_SYS_Y_PROX_DESALOJO
+    WAIT_SYS_Y_PROX_DESALOJO,
+    WAIT_MEM_ALLOC,
+    WAIT_MEM_ALLOC_Y_PROX_DESALOJO
 } t_estado_cpu;
 
 typedef struct {
