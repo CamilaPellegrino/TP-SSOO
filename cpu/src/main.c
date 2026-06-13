@@ -37,6 +37,8 @@ void ejecutar_init_proc(t_instruccion_decodificada* instr);
 void ejecutar_mem_alloc(t_instruccion_decodificada* instr);
 void ejecutar_mem_free(instr);
 
+int traduccion(int dir_logica);
+
 // variables globales
 t_log* logger;
 t_list* lista_sticks;  // lista global para guardar los memory sticks a los que me conecte
@@ -870,8 +872,11 @@ void ejecutar_stdout(t_instruccion_decodificada* instr){
     uint32_t dir_logica = leer_registro(param1);
     uint32_t tamanio = leer_registro(param2);
     log_debug(logger, "dir: %u, tam: %u", dir_logica, tamanio);
+
+    int base = traduccion(dir_logica); 
+
     t_paquete* paquete = crear_paquete(CPU_SCH__STDOUT);
-    agregar_a_paquete(paquete, &dir_logica, sizeof(dir_logica));
+    agregar_a_paquete(paquete, &base, sizeof(base));
     agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
 }
@@ -885,7 +890,7 @@ void ejecutar_stdin(t_instruccion_decodificada* instr){
     uint32_t tamanio = leer_registro(param2);
     log_debug(logger, "dir logica: %u, tam: %u", dir_logica, tamanio);
     
-    int base = 30; // hardcodeado, calcular dps
+    int base = traduccion(dir_logica); // hardcodeado, calcular dps
     
     t_paquete* paquete = crear_paquete(CPU_SCH__STDIN);
     // agregar_a_paquete(paquete, &dir_logica, sizeof(dir_logica));
@@ -983,6 +988,13 @@ uint32_t leer_registro(especificacion_registro* reg){
     return*(uint32_t*)reg->ptro_reg;
 }
 
+// ======== MMU ========
+
+int traduccion(int dir_logica){
+    return 30; // hardcodeado, calcular dps
+}
+
+// OTROS
 
 void inicializar_variables(){
     v_pedido_de_desalojo = false;

@@ -178,11 +178,6 @@ bool guardar_nuevo_proceso(int pid, int ppid, char* ruta){
 }
 
 void agregar_evt_a_stick(t_evt* evt){
-    
-    // pthread_mutex_lock(&stick->m_lista_evt);
-    // list_add(stick->lista_evt, evt);
-    // pthread_mutex_unlock(&stick->m_lista_evt);
-    // sem_post(&stick->s_list_evt);
     pthread_mutex_lock(&m_lista_eventos_stick);
     list_add(lista_eventos_stick, evt);
     pthread_mutex_unlock(&m_lista_eventos_stick);

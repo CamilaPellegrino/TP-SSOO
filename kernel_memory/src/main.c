@@ -203,10 +203,9 @@ void* atender_scheduler(void*){
 void atender_sch_read(t_list* data){
     int dir_fisica_base = *(int*) list_get(data, 0);
     int tamanio = *(int*) list_get(data, 1);
-    int nro_stick = *(int*) list_get(data, 2);
-    int pid =*(int*)  list_get(data, 3);
+    int pid =*(int*)  list_get(data, 2);
     
-    log_debug(logger, "KM_WRITE | pid=%d | dir_fisica=%d | stick=%d | tamanio=%d", pid, dir_fisica_base, nro_stick, tamanio);
+    log_debug(logger, "KM_WRITE | pid=%d | dir_fisica=%d | tamanio=%d", pid, dir_fisica_base, tamanio);
     
     t_evt* evt_read = iniciar_evt_read(pid, dir_fisica_base, tamanio);
 
