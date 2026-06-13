@@ -83,7 +83,6 @@ typedef struct
 
 typedef struct
 {
-	int stick;
 	int base_leer;
 	int base_escribir;
 	int tamanio;
@@ -148,7 +147,7 @@ t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
 t_evt* iniciar_evt_read(int pid, int base, int tamanio);
 t_evt* iniciar_evt_write(int pid, int base, int tamanio, void* bytes);
-t_evt* iniciar_evt_mover(int pid, int stick, int base_leer, int tamanio, int base_escribir);
+t_evt* iniciar_evt_mover(int pid, int base_leer, int tamanio, int base_escribir);
 
 // ...
 t_proceso* proceso_de_pid(int pid);
@@ -156,7 +155,7 @@ t_segmento* segmento_de_id(int id_segmento);
 t_stick* stick_por_id(int nro_stick);
 bool guardar_nuevo_proceso(int pid, int ppid, char* ruta_instrucciones);
 
-void agregar_evt_a_stick(int nro_stick, t_evt* evt);
+void agregar_evt_a_stick(t_evt* evt);
 void agregar_stick_a_paquete(t_paquete* paquete, t_stick* stick);
 void agregar_stick(t_stick* stick);
 

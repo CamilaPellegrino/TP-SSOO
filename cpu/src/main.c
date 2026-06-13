@@ -883,10 +883,14 @@ void ejecutar_stdin(t_instruccion_decodificada* instr){
     especificacion_registro *param2 = list_get(instr->registros,1);
     uint32_t dir_logica = leer_registro(param1);
     uint32_t tamanio = leer_registro(param2);
-    log_debug(logger, "dir: %u, tam: %u", dir_logica, tamanio);
+    log_debug(logger, "dir logica: %u, tam: %u", dir_logica, tamanio);
+    
+    int base = 30; // hardcodeado, calcular dps
+    
     t_paquete* paquete = crear_paquete(CPU_SCH__STDIN);
-    agregar_a_paquete(paquete, &dir_logica, sizeof(dir_logica));
+    // agregar_a_paquete(paquete, &dir_logica, sizeof(dir_logica));
     agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
+    agregar_a_paquete(paquete, &base, sizeof(base));
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
 }
 

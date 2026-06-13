@@ -111,13 +111,12 @@ t_evt* iniciar_evt_write(int pid, int base, int tamanio, void* bytes){
 }
 
 
-t_evt* iniciar_evt_mover(int pid, int stick, int base_leer, int tamanio, int base_escribir){
+t_evt* iniciar_evt_mover(int pid, int base_leer, int tamanio, int base_escribir){
     t_evt* evt = malloc(sizeof(t_evt));
     evt->pid = pid;
     evt->tipo = SCH_MOVER;
 
     t_data_mover* data = malloc(sizeof(t_data_mover));
-    data->stick = stick;
     data->base_leer = base_leer;
     data->tamanio = tamanio;
     data->base_escribir = base_escribir;
@@ -178,12 +177,8 @@ bool guardar_nuevo_proceso(int pid, int ppid, char* ruta){
     return true;
 }
 
-void agregar_evt_a_stick(int nro_stick, t_evt* evt){
-    t_stick* stick = stick_por_id(nro_stick);
-    if(stick == NULL){
-        log_error(logger, "Stick no encontrada, error de BSOD");
-        exit(EXIT_FAILURE);
-    }
+void agregar_evt_a_stick(t_evt* evt){
+    
     // pthread_mutex_lock(&stick->m_lista_evt);
     // list_add(stick->lista_evt, evt);
     // pthread_mutex_unlock(&stick->m_lista_evt);

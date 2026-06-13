@@ -181,7 +181,7 @@ t_hueco* crear_hueco(int32_t base, uint32_t tamanio){
 }
 
 uint32_t direccion_final(t_hueco* h){
-    return h->base + h->tamanio; // en realidad es la 1er dir del sgte
+    return h->base + h->tamanio;
 }
 
 void fusionar_huecos_contiguos(){
@@ -246,20 +246,17 @@ bool compactar_memoria(){
     }
     for(; i < s_size; i++){
         t_segmento* s = list_get(lista_segmentos_global, i);
-        int stick = 0;
-        t_evt* evt = iniciar_evt_mover(evt->pid, stick, s->base, s->tamanio, prox_base);
+        t_evt* evt = iniciar_evt_mover(evt->pid, s->base, s->tamanio, prox_base);
         pthread_mutex_lock(&m_lista_eventos_stick);
         list_add(lista_eventos_stick, evt);
         pthread_mutex_unlock(&m_lista_eventos_stick);
         sem_post(&s_lista_eventos_stick);
         sem_wait(&s_fin_mover);
 
-        // actualizar seg
         s->base = prox_base;
         prox_base += s->tamanio;
         ult_dir = s->base + s->tamanio;
     }
-    // agrupar todos los huecos al final
     int tamanio = 0;
     while(list_size(lista_huecos) > 1){
         t_hueco* h = list_remove(lista_huecos, 0);
@@ -272,14 +269,19 @@ bool compactar_memoria(){
     return true;
 }
 
-t_list* eventos_para_enviar_por_compactacion(t_segmento* s, int prox_base){
-    t_list* ret = list_create();
-
-}
-
-
 void agregar_espacio_mem(int bytes){
     crear_hueco(tamanio_total_mem, bytes);
     fusionar_huecos_contiguos();
     imprimir_estado_mem();
+}
+
+
+t_segmento* buscar_segmento_por_id_de_proc(t_proceso* p, int id) {
+    for (int i = 0; i < list_size(p->lista_segmentos); i++) {
+        t_segmento* s = list_get(p->lista_segmentos, i);
+        if (s->id_segmento == id) {
+            return s;
+        }
+    }
+    return NULL;
 }

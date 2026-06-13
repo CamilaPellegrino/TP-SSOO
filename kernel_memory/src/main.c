@@ -210,26 +210,25 @@ void atender_sch_read(t_list* data){
     
     t_evt* evt_read = iniciar_evt_read(pid, dir_fisica_base, tamanio);
 
-    agregar_evt_a_stick(nro_stick, evt_read);
+    agregar_evt_a_stick(evt_read);
 }
 
 void atender_sch_write(t_list* data){
     int i = 0;
-    int dir_fisica = *(int*) list_get(data, i++);
-    int nro_stick = *(int*) list_get(data, i++);
+    int base = *(int*) list_get(data, i++);
     int tamanio = *(int*) list_get(data, i++);
     void* datos_escritos = list_get(data, i++);
     int pid =*(int*) list_get(data, i++);
     
     int datos_hardcodeado = 0;
 
-    log_debug(logger, "KM_WRITE | pid=%d | dir_fisica=%d | stick=%d | tamanio=%d", pid, dir_fisica, nro_stick, tamanio);
+    log_debug(logger, "KM_WRITE | pid=%d | base=%d | tamanio=%d", pid, base, tamanio);
     
     imprimir_bytes(datos_escritos,tamanio);
 
-    t_evt* evt_write = iniciar_evt_write(pid, dir_fisica, tamanio, datos_escritos);
+    t_evt* evt_write = iniciar_evt_write(pid, base, tamanio, datos_escritos);
 
-    agregar_evt_a_stick(nro_stick, evt_write);
+    agregar_evt_a_stick(evt_write);
 }
 
 void atender_sch_init_proc(t_list* data){
@@ -262,13 +261,17 @@ void atender_sch_mem_alloc(t_list* data){
         status = ERROR;
     }else{
         log_info(logger, "## <%d> Atendiendo syscall MEM_ALLOC %d %d", pid, id_segmento, tamanio);
-        t_segmento* segmento = crear_segmento(p, id_segmento, tamanio);
-        if(segmento == NULL){
+        if(buscar_segmento_por_id_de_proc(p, id_segmento)){
             status = ERROR;
-            if(hay_espacio_total(tamanio)){
-                log_info(logger, "## <%d> Se requiere compactación para realizar MEM_ALLOC, tamanio libre: %d, tamanio a reservar: %d", pid, tamanio_total_libre, tamanio);
-                enviar_operacion(sch_fd, KM_SCH__PEDIDO_COMPACTACION);
-                return;
+        }else{
+            t_segmento* segmento = crear_segmento(p, id_segmento, tamanio);
+            if(segmento == NULL){
+                status = ERROR;
+                if(hay_espacio_total(tamanio)){
+                    log_info(logger, "## <%d> Se dispara compactación tras intentar MEM_ALLOC, tamanio libre: %d, tamanio a reservar: %d", pid, tamanio_total_libre, tamanio);
+                    enviar_operacion(sch_fd, KM_SCH__PEDIDO_COMPACTACION);
+                    return;
+                }
             }
         }
     }

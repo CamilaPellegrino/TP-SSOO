@@ -1,8 +1,8 @@
 #include <utils/hello.h>
 #include <utils/utils.h>
 #include "base_stick.h"
-void atender_pedido_escritura();
-void atender_pedido_lectura();
+void atender_pedido_escritura(int);
+void atender_pedido_lectura(int);
 void* atender_pedidos(void* arg);
 void* atender_cliente(void *arg);
 
@@ -79,10 +79,10 @@ void* atender_pedidos(void* arg){
         }
         switch(cod_op){
             case X_STICK__ESCRITURA:{
-                atender_pedido_escritura();
+                atender_pedido_escritura(cliente_fd);
                 break;
             }case X_STICK__LECTURA:{
-                atender_pedido_lectura();
+                atender_pedido_lectura(cliente_fd);
                 break;
             }default:{
                 log_warning(logger, "Operacion desconocida, cod_op: %d", cod_op);
@@ -92,12 +92,17 @@ void* atender_pedidos(void* arg){
     return NULL;
 }
 
-void atender_pedido_escritura(){
-    log_warning(logger, "Warning: Operacion de escritura no implementada en stick");
+void atender_pedido_escritura(int cliente_fd){
+    // log_warning(logger, "Warning: Operacion de escritura no implementada en stick");
+    enviar_operacion(cliente_fd, STICK_X__OK);
 }
 
-void atender_pedido_lectura(){
-    log_warning(logger, "Warning: Operacion de lectura no implementada en stick");
+void atender_pedido_lectura(int cliente_fd){
+    // log_warning(logger, "Warning: Operacion de lectura no implementada en stick");
+    t_paquete* paquete = crear_paquete(STICK_X__OK);
+    char* txt = "HOLA";
+    agregar_string_a_paquete(paquete, txt);
+    enviar_paquete_y_liberarlo(paquete, cliente_fd);
 }
 
 void* atender_cliente(void *arg){

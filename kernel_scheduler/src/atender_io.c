@@ -42,7 +42,7 @@ void atender_io_stdout(t_io* io){
             continue;
         }
         t_pcb* proceso = evt->proceso;
-        t_evt_std_in* data = evt->data_evt;
+        t_evt_std_out* data = evt->data_evt;
         char* datos_leidos = data->datos_leidos;
 
         t_paquete* paquete_sys = crear_paquete(SCH_IO__SOLICITUD);
@@ -84,10 +84,9 @@ void atender_io_stdin(t_io* io){
             log_warning(logger, "evento stdin NULL");
             continue;
         }
-        t_evt_std_out* data_evt = evt->data_evt;
+        t_evt_std_in* data_evt = evt->data_evt;
         int tamanio = data_evt->tamanio;
-        int dir_fisica = data_evt->dir_fisica;
-        int nro_stick = 0;
+        int base = data_evt->base;
         t_pcb* proceso = evt->proceso;
 
         // mandar al modulo de io la solic (con todos los datos que haya en t_evt_sleep, en este caso seria el tiempo de sleep)
@@ -102,10 +101,8 @@ void atender_io_stdin(t_io* io){
         void* contenido = list_get(lista_paquete, 0);
 
         t_paquete* paquete = crear_paquete(KM_WRITE);
-        agregar_a_paquete(paquete, &dir_fisica, sizeof(dir_fisica));
-        agregar_a_paquete(paquete, &nro_stick, sizeof(nro_stick));
+        agregar_a_paquete(paquete, &base, sizeof(base));
         agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
-        // agregar_string_a_paquete(paquete, contenido);
         agregar_a_paquete(paquete, contenido, tamanio);
         agregar_a_paquete(paquete, &proceso->pid, sizeof(proceso->pid));
 
