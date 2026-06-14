@@ -1,10 +1,11 @@
 #include <utils/hello.h>
 #include <utils/utils.h>
 #include "base_stick.h"
-void atender_pedido_escritura(int);
-void atender_pedido_lectura(int);
+void atender_pedido_escritura(int, t_list*);
+void atender_pedido_lectura(int, t_list*);
 void* atender_pedidos(void* arg);
 void* atender_cliente(void *arg);
+char* crear_string_a(int tamanio);
 
 t_log * logger;
 
@@ -20,7 +21,7 @@ int main(int argc, char* argv[]) {
     char *ruta_config = argv[1];
     int tamanio = atoi(argv[2]);
 
-    logger = iniciar_logger("memory_stick.log", "ProcesoMemorySticks", LOG_LEVEL_INFO);
+    logger = iniciar_logger("memory_stick.log", "ProcesoMemorySticks", LOG_LEVEL_DEBUG);
     
     // inciar config
     t_config* config = iniciar_config(ruta_config);
@@ -79,10 +80,12 @@ void* atender_pedidos(void* arg){
         }
         switch(cod_op){
             case X_STICK__ESCRITURA:{
-                atender_pedido_escritura(cliente_fd);
+                t_list* data = recibir_paquete(cliente_fd);
+                atender_pedido_escritura(cliente_fd, data);
                 break;
             }case X_STICK__LECTURA:{
-                atender_pedido_lectura(cliente_fd);
+                t_list* data = recibir_paquete(cliente_fd);
+                atender_pedido_lectura(cliente_fd, data);
                 break;
             }default:{
                 log_warning(logger, "Operacion desconocida, cod_op: %d", cod_op);
@@ -92,15 +95,20 @@ void* atender_pedidos(void* arg){
     return NULL;
 }
 
-void atender_pedido_escritura(int cliente_fd){
-    // log_warning(logger, "Warning: Operacion de escritura no implementada en stick");
+void atender_pedido_escritura(int cliente_fd, t_list* data){
+    int base = *(int*)list_get(data,0);
+    int tamanio = *(int*)list_get(data,1);
+    void* bytes = list_get(data,2);
+    log_debug(logger, "Atendiendo pedido de escritura, base: %d, tamanio: %d, bytes: %s", base, tamanio, (char*)bytes);
     enviar_operacion(cliente_fd, STICK_X__OK);
 }
 
-void atender_pedido_lectura(int cliente_fd){
-    // log_warning(logger, "Warning: Operacion de lectura no implementada en stick");
+void atender_pedido_lectura(int cliente_fd, t_list* data){
+    int base = *(int*)list_get(data,0);
+    int tamanio = *(int*)list_get(data,1);
+    log_debug(logger, "Atendiendo pedido de lectura, base: %d, tamanio: %d", base, tamanio);
     t_paquete* paquete = crear_paquete(STICK_X__OK);
-    char* txt = "HOLA";
+    char* txt = crear_string_a(tamanio);
     agregar_string_a_paquete(paquete, txt);
     enviar_paquete_y_liberarlo(paquete, cliente_fd);
 }
@@ -124,3 +132,19 @@ void* atender_cliente(void *arg){
     return NULL;
 }
 
+char* crear_string_a(int tamanio) {
+    if (tamanio < 0) {
+        return NULL;
+    }
+
+    char* str = malloc(tamanio + 1);
+
+    if (str == NULL) {
+        return NULL;
+    }
+
+    memset(str, 'a', tamanio);
+    str[tamanio] = '\0';
+
+    return str;
+}

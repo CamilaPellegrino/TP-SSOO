@@ -98,7 +98,6 @@ void* atender_cpu(void* arg){
         }
         switch(cod_op) {
             case CPU_KM__PCONTEXTO:{
-                //tiene que recibir pid, puede mandar todo el pcb
                 t_list *lista = recibir_paquete(cpu_fd);
                 int pid = *(int*)list_get(lista, 0);
             
@@ -140,7 +139,6 @@ void* atender_cpu(void* arg){
             default:{
                 log_warning(logger,"atender_cpu: op desconocida, op=%d", cod_op);
             }
-
         }
     }
     close(cpu_fd);

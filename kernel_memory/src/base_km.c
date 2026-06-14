@@ -336,20 +336,22 @@ void imprimir_huecos(){
         t_hueco* h = list_get(lista_huecos, i);
         if(h == NULL){
         }
-        printf("Hueco %d -> base: %d | tam: %u", i, h->base, h->tamanio);
+        printf("Hueco %d -> base: %d | tam: %u | ult_dir: %d\n", i, h->base, h->tamanio, h->base + h->tamanio - 1);
     }
-    printf("\n");
 }
 
 void imprimir_segmentos(){
     printf("SEGMENTOS:\n");
+    pthread_mutex_lock(&m_lista_segmentos_global);
     for(int i = 0; i < list_size(lista_segmentos_global); i++){
         t_segmento* s = list_get(lista_segmentos_global, i);
         printf(
-            "Segmento %d -> base: %d | tam: %u\n",
+            "Segmento %d -> base: %d | tam: %u | ult_dir: %d\n",
             s->id_segmento,
             s->base,
-            s->tamanio
+            s->tamanio,
+            s->base + s->tamanio - 1
         );
     }
+    pthread_mutex_unlock(&m_lista_segmentos_global);
 }

@@ -1,13 +1,8 @@
 #include "conexion_memoria.h"
 void desconexion_por_bsod();
-
+void ejecutar_pedidos_lectura(t_list* pedidos, void* ret);
+void ejecutar_pedidos_escritura(t_list* pedidos, void* bytes);
 typedef void (*t_handler)(t_evt*);
-
-typedef struct{
-    int base_en_stick;
-    int tamanio;
-    int nro_stick;
-}t_data_pedido_stick;
 
 // STICKS
 void* atender_stick(void* arg){
@@ -68,7 +63,7 @@ void atender_sch_lectura(t_evt* evt){
     int base = data->base;
     int tamanio = data->tamanio;
     t_list* pedidos = pedidos_a_sticks_para_acceder_a(base, tamanio);
-    char* datos_leidos = "Si esto anda soy una crack B)";
+    char* datos_leidos = "Si esto anda soy una crack :D";
     t_paquete* paquete = crear_paquete(RTA_READ);
     agregar_a_paquete(paquete, &pid, sizeof(pid));
     agregar_string_a_paquete(paquete, datos_leidos);
@@ -78,39 +73,105 @@ void atender_sch_lectura(t_evt* evt){
 void atender_sch_mover(t_evt* evt){
     t_data_mover* data = (t_data_mover*)evt->data;
     int pid = evt->pid;
-    log_debug(logger, "Caso de SCH_MOVER, base_leer;%d, tamanio:%d, base_escribir:%d", data->base_leer, data->tamanio, data->base_escribir);
-    usleep(1000);
-    // (...)
-    sem_post(&s_fin_mover);
+    int tamanio_total = data->tamanio;
+    log_debug(logger, "Caso de SCH_MOVER, base_leer:%d, tamanio:%d, base_escribir:%d", data->base_leer, tamanio_total, data->base_escribir);
+    
+    t_list* pedidos_para_leer = pedidos_a_sticks_para_acceder_a(data->base_leer, tamanio_total);
+    t_list* pedidos_para_escribir = pedidos_a_sticks_para_acceder_a(data->base_escribir, tamanio_total);
 
+    void* bytes = malloc(tamanio_total);
+
+    ejecutar_pedidos_lectura(pedidos_para_leer, bytes);
+
+    ejecutar_pedidos_escritura(pedidos_para_escribir, bytes);
+
+    imprimir_bytes(bytes, tamanio_total);
+    
+    sem_post(&s_fin_mover);
 }
 
+void ejecutar_pedidos_lectura(t_list* pedidos, void* ret){
+    log_debug(logger, "mandando pedidos de lectura a sticks");
+    int offset = 0;
+    for(int i = 0; i<list_size(pedidos); i++){
+        t_data_pedido_stick* pedido = list_get(pedidos, i);
+        int stick_fd = pedido->stick->fd;
+        t_paquete* paquete = crear_paquete(X_STICK__LECTURA);
+        agregar_a_paquete(paquete, &pedido->base_en_stick, sizeof(pedido->base_en_stick));
+        agregar_a_paquete(paquete, &pedido->tamanio, sizeof(pedido->tamanio));
+        enviar_paquete_y_liberarlo(paquete, stick_fd);
+
+        op_code cod_op = recibir_operacion(stick_fd);
+        if(cod_op == -1){
+            desconexion_por_bsod();
+        }
+        if(cod_op == STICK_X__ERROR){
+            log_error(logger, "Error: Fallo al leer stick, base: %d, tamanio: %d", pedido->base_en_stick, pedido->tamanio);
+            exit(EXIT_FAILURE);
+        }
+        t_list* data = recibir_paquete(stick_fd);
+        void* bytes = list_get(data, 0);
+
+        memcpy((char*)ret + offset, bytes, pedido->tamanio);
+
+        offset += pedido->tamanio;
+    }
+    log_debug(logger, "Lectura finalizada");
+}
+
+void ejecutar_pedidos_escritura(t_list* pedidos, void* bytes){
+    log_debug(logger, "mandando pedidos de escritura a sticks");
+    int offset = 0;
+    for(int i = 0; i<list_size(pedidos); i++){
+        t_data_pedido_stick* pedido = list_get(pedidos, i);
+        int stick_fd = pedido->stick->fd;
+        t_paquete* paquete = crear_paquete(X_STICK__ESCRITURA);
+        agregar_a_paquete(paquete, &pedido->base_en_stick, sizeof(pedido->base_en_stick));
+        agregar_a_paquete(paquete, &pedido->tamanio, sizeof(pedido->tamanio));
+        agregar_a_paquete(paquete, (char*)bytes + offset, pedido->tamanio);
+        enviar_paquete_y_liberarlo(paquete, stick_fd);
+
+        op_code cod_op = recibir_operacion(stick_fd);
+        if(cod_op == -1){
+            desconexion_por_bsod();
+        }
+        if(cod_op == STICK_X__ERROR){
+            log_error(logger, "Error: Fallo al leer stick, base: %d, tamanio: %d", pedido->base_en_stick, pedido->tamanio);
+            exit(EXIT_FAILURE);
+        }
+
+        offset += pedido->tamanio;
+    }
+    log_debug(logger, "Lectura finalizada");
+
+}
 
 t_list* pedidos_a_sticks_para_acceder_a(int base, int tamanio){
     t_list* pedidos = list_create();
 
     int fin = base + tamanio;
     int inicio_stick_global = 0;
+    printf("\nPEDIDOS PARA ACCEDER A base=%d tam=%d\n", base, tamanio);
 
     for(int i = 0; i < list_size(lista_sticks); i++){
         t_stick* stick = list_get(lista_sticks, i);
         int fin_stick_global = inicio_stick_global + stick->tamanio;
-        // ¿hay intersección entre [base, fin) y este stick?
         int inicio_interseccion = (base > inicio_stick_global) ? base : inicio_stick_global;
 
         int fin_interseccion = (fin < fin_stick_global) ? fin : fin_stick_global;
 
         if(inicio_interseccion < fin_interseccion){
             t_data_pedido_stick* pedido = malloc(sizeof(t_data_pedido_stick));
-            pedido->nro_stick = i;
-            // offset dentro del stick
+            
+            pedido->stick = stick_por_id(i);
             pedido->base_en_stick = inicio_interseccion - inicio_stick_global;
             pedido->tamanio = fin_interseccion - inicio_interseccion;
             list_add(pedidos, pedido);
-            log_info(logger, "Stick %d -> leer desde %d, tamanio %d", pedido->nro_stick, pedido->base_en_stick, pedido->tamanio);
+            printf("    Pedido %d -> Stick %d | base_en_stick=%d | tam=%d | rango_global=[%d,%d]\n", list_size(pedidos) - 1, i, pedido->base_en_stick, pedido->tamanio, inicio_interseccion, fin_interseccion - 1);
         }
 
         inicio_stick_global = fin_stick_global;
+
 
         if(fin <= inicio_stick_global)
             break;

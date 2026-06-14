@@ -101,6 +101,12 @@ typedef struct {
 	uint32_t tamanio;
 } t_hueco;
 
+typedef struct{
+    int base_en_stick;
+    int tamanio;
+    t_stick* stick;
+}t_data_pedido_stick;
+
 typedef enum {
 	BEST_FIT,
 	WORST_FIT

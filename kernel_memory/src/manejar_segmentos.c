@@ -229,36 +229,45 @@ bool segmento_adelante_de_dir(t_segmento* s, int dir){
     return s->base > dir;
 }
 
-bool compactar_memoria(){
-    if(list_is_empty(lista_huecos)){
+bool compactar_memoria() {
+    pthread_mutex_lock(&m_lista_huecos);
+    pthread_mutex_lock(&m_lista_segmentos_global);
+
+    if(list_is_empty(lista_huecos)) {
+        pthread_mutex_unlock(&m_lista_segmentos_global);
+        pthread_mutex_unlock(&m_lista_huecos);
         return true;
     }
+
     t_hueco* prox_h = list_get(lista_huecos, 0);
     int prox_base = prox_h->base;
     int ult_dir = 0;
+
     int s_size = list_size(lista_segmentos_global);
+
     int i = 0;
-    for(; i < s_size; i++){
+    for(; i < s_size; i++) {
         t_segmento* s = list_get(lista_segmentos_global, i);
-        if(segmento_adelante_de_dir(s, prox_base)){
+
+        if(segmento_adelante_de_dir(s, prox_base))
             break;
-        }
     }
-    for(; i < s_size; i++){
+
+    for(; i < s_size; i++) {
         t_segmento* s = list_get(lista_segmentos_global, i);
-        t_evt* evt = iniciar_evt_mover(evt->pid, s->base, s->tamanio, prox_base);
-        pthread_mutex_lock(&m_lista_eventos_stick);
-        list_add(lista_eventos_stick, evt);
-        pthread_mutex_unlock(&m_lista_eventos_stick);
-        sem_post(&s_lista_eventos_stick);
+        t_evt* evt = iniciar_evt_mover(s->pid, s->base, s->tamanio, prox_base);
+
+        agregar_evt_a_stick(evt);
         sem_wait(&s_fin_mover);
 
         s->base = prox_base;
         prox_base += s->tamanio;
         ult_dir = s->base + s->tamanio;
     }
+
     int tamanio = 0;
-    while(list_size(lista_huecos) > 1){
+
+    while(list_size(lista_huecos) > 1) {
         t_hueco* h = list_remove(lista_huecos, 0);
         tamanio += h->tamanio;
         free(h);
@@ -266,6 +275,10 @@ bool compactar_memoria(){
     t_hueco* h = list_get(lista_huecos, 0);
     h->base = ult_dir;
     h->tamanio += tamanio;
+
+    pthread_mutex_unlock(&m_lista_segmentos_global);
+    pthread_mutex_unlock(&m_lista_huecos);
+
     return true;
 }
 
