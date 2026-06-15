@@ -604,6 +604,7 @@ void enviar_paquete_a_todas_las_cpus(t_paquete* paquete){
         log_info(logger,"%d", cpu_fd);
         enviar_paquete(paquete, cpu_fd);
     }
+    eliminar_paquete(paquete);
     log_debug(logger, "Paquete enviado a todas las cpus");
 }
 

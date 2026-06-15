@@ -170,16 +170,19 @@ void* atender_scheduler(void*){
             case KM_WRITE:{
                 t_list* data = recibir_paquete(sch_fd);
                 atender_sch_write(data);
+                list_destroy_and_destroy_elements(data, free);
                 break;
             }
             case SCH_KM__MEM_ALLOC:{
                 t_list* data = recibir_paquete(sch_fd);
                 atender_sch_mem_alloc(data);
+                list_destroy_and_destroy_elements(data, free);
                 break;
             }
             case SCH_KM__MEM_FREE:{
                 t_list* data = recibir_paquete(sch_fd);
                 atender_sch_mem_free(data);
+                list_destroy_and_destroy_elements(data, free);
                 break;
             }
             case SCH_KM__COMENZAR_COMPACTACION:{

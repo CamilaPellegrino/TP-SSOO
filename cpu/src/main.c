@@ -4,13 +4,13 @@
 #include <semaphore.h>
 
 
-void procesar_evento(op_code cod_op, t_list* datas);
-void transicion_desde_wait_sys(op_code cod_op, t_list* data);
-void transicion_desde_exec(op_code cod_op, t_list* data);
-void transicion_desde_wait_sys_y_prox_desalojo(op_code cod_op, t_list* data);
-void transicion_desde_libre(op_code cod_op, t_list* data);
-void transicion_desde_wait_mem_alloc(op_code cod_op, t_list* data);
-void transicion_desde_wait_mem_alloc_y_prox_desalojo(op_code cod_op, t_list* data);
+void procesar_evento(op_code cod_op);
+void transicion_desde_wait_sys(op_code cod_op);
+void transicion_desde_exec(op_code cod_op);
+void transicion_desde_wait_sys_y_prox_desalojo(op_code cod_op);
+void transicion_desde_libre(op_code cod_op);
+void transicion_desde_wait_mem_alloc(op_code cod_op);
+void transicion_desde_wait_mem_alloc_y_prox_desalojo(op_code cod_op);
 void transicionar(t_estado_cpu estado);
 void transicionar_thread_safe(t_estado_cpu estado);
 void enviar_confirmacion();
@@ -136,14 +136,15 @@ int main(int argc, char* argv[]){
             log_error(logger, "Error: se desconecto scheduler"); 
             break; 
         }
-        t_list* data = NULL;
         if(cod_op == SCH_CPU__PID){
             log_debug(logger, "Recibiendo pid");
-            data = recibir_paquete(conexion_kernel_scheduler);
+            t_list* data = recibir_paquete(conexion_kernel_scheduler);
             pthread_mutex_lock(&m_pid_pendiente);
             int prox_pid = *(int*)list_get(data, 0);
             pid_pendiente = prox_pid;
             pthread_mutex_unlock(&m_pid_pendiente);
+            list_destroy_and_destroy_elements(data, free);
+            
         }
         switch(cod_op){
             case SCH_CPU__NUEVO_STICK: {
@@ -171,7 +172,7 @@ int main(int argc, char* argv[]){
             }
             default:{
                 log_debug(logger, "Procesando evento");
-                procesar_evento(cod_op, data);
+                procesar_evento(cod_op);
                 break;
             }
         }
@@ -187,38 +188,38 @@ int main(int argc, char* argv[]){
 
 // ===================== Atender al scheduler( maquina de estados y pedidos de desalojo) =====================
 
-void procesar_evento(op_code cod_op, t_list* data){
+void procesar_evento(op_code cod_op){
     pthread_mutex_lock(&m_estado_cpu);  
     switch(estado_cpu){
         case EXEC:{
-            transicion_desde_exec(cod_op, data);
+            transicion_desde_exec(cod_op);
             break;
         }
         case WAIT_SYS:{
-            transicion_desde_wait_sys(cod_op, data);
+            transicion_desde_wait_sys(cod_op);
             break;
         }
         case WAIT_SYS_Y_PROX_DESALOJO:{
-            transicion_desde_wait_sys_y_prox_desalojo(cod_op, data);
+            transicion_desde_wait_sys_y_prox_desalojo(cod_op);
             break;
         }
         case LIBRE:{
-            transicion_desde_libre(cod_op, data);
+            transicion_desde_libre(cod_op);
             break;
         }
         case WAIT_MEM_ALLOC:{
-            transicion_desde_wait_mem_alloc(cod_op, data);
+            transicion_desde_wait_mem_alloc(cod_op);
             break;
         }
         case WAIT_MEM_ALLOC_Y_PROX_DESALOJO:{
-            transicion_desde_wait_mem_alloc_y_prox_desalojo(cod_op, data);
+            transicion_desde_wait_mem_alloc_y_prox_desalojo(cod_op);
             break;
         }
     }
     pthread_mutex_unlock(&m_estado_cpu);
 }
 
-void transicion_desde_exec(op_code cod_op, t_list* data){
+void transicion_desde_exec(op_code cod_op){
     switch(cod_op){
         case SCH_CPU__COMPACTACION:
         case SCH_CPU__PEDIDO_DESALOJO:{
@@ -231,7 +232,7 @@ void transicion_desde_exec(op_code cod_op, t_list* data){
     }
 }
 
-void transicion_desde_wait_sys(op_code cod_op, t_list* data){
+void transicion_desde_wait_sys(op_code cod_op){
     switch(cod_op){
         case SCH_CPU__COMPACTACION:
         case SCH_CPU__PEDIDO_DESALOJO:{ 
@@ -254,7 +255,7 @@ void transicion_desde_wait_sys(op_code cod_op, t_list* data){
     }
 }
 
-void transicion_desde_wait_sys_y_prox_desalojo(op_code cod_op, t_list* data){
+void transicion_desde_wait_sys_y_prox_desalojo(op_code cod_op){
     switch(cod_op){
         case SCH_CPU__SYS_BLOQUEANTE:
         case SCH_CPU__FIN_SYSCALL:{ 
@@ -266,7 +267,7 @@ void transicion_desde_wait_sys_y_prox_desalojo(op_code cod_op, t_list* data){
     }
 }
 
-void transicion_desde_libre(op_code cod_op, t_list* data){
+void transicion_desde_libre(op_code cod_op){
     switch(cod_op){
         case SCH_CPU__PID:{
             transicionar(EXEC);
@@ -282,7 +283,7 @@ void transicion_desde_libre(op_code cod_op, t_list* data){
     }
 }
 
-void transicion_desde_wait_mem_alloc(op_code cod_op, t_list* data){
+void transicion_desde_wait_mem_alloc(op_code cod_op){
     switch(cod_op){
         case SCH_CPU__PEDIDO_DESALOJO:{
             transicionar(WAIT_MEM_ALLOC_Y_PROX_DESALOJO);
@@ -304,7 +305,7 @@ void transicion_desde_wait_mem_alloc(op_code cod_op, t_list* data){
     }
 }
 
-void transicion_desde_wait_mem_alloc_y_prox_desalojo(op_code cod_op, t_list* data){
+void transicion_desde_wait_mem_alloc_y_prox_desalojo(op_code cod_op){
     switch(cod_op){
         case SCH_CPU__COMPACTACION:
             cambiar_pid_actual(-1);
@@ -463,8 +464,8 @@ void pedir_contexto(int pid, t_pcb* pcb){
     pcb->registros.di = *(uint32_t*) list_get(lista_contexto, i++);
     
     int cantidad_segmentos = *(int*) list_get(lista_contexto, i++);
-    
-    pcb->lista_segmentos = list_create();
+
+    list_clean_and_destroy_elements(pcb->lista_segmentos, free);
     for(int j = 0; j < cantidad_segmentos; j++) {
         t_segmento* seg_recibido = malloc(sizeof(t_segmento));
 
@@ -519,6 +520,7 @@ void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p){
 void* ejecutar(){
     t_instruccion_decodificada* prox_instruccion;
     t_pcb* pcb = malloc(sizeof(t_pcb));
+    pcb->lista_segmentos = list_create();
     pcb->pid = -1;
     while(1){
         esperar_a_poder_ejecutar(); 

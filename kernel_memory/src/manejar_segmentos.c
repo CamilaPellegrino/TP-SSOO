@@ -153,6 +153,8 @@ bool compactar_memoria() {
         agregar_evt_a_stick(evt);
         sem_wait(&s_fin_mover);
 
+        liberar_evt(evt);
+
         s->base = prox_base;
         prox_base += s->tamanio;
         ult_dir = s->base + s->tamanio;

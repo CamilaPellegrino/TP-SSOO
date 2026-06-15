@@ -176,6 +176,10 @@ void agregar_segmentos_al_paquete(t_list* segmentos, t_paquete* p);
 t_list* instrucciones_de_ruta(char* ruta);
 char* ruta_completa(char* base, char* nombre_archivo);
 
+// liberar
+
+void liberar_evt(t_evt* evt);
+
 // Otros
 
 void imprimir_bytes(void* data, int tamanio);

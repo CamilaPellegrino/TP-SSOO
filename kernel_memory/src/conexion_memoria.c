@@ -87,6 +87,10 @@ void atender_sch_mover(t_evt* evt){
 
     imprimir_bytes(bytes, tamanio_total);
     
+    free(bytes);
+    list_destroy_and_destroy_elements(pedidos_para_leer, free);
+    list_destroy_and_destroy_elements(pedidos_para_escribir, free);
+
     sem_post(&s_fin_mover);
 }
 
@@ -115,6 +119,8 @@ void ejecutar_pedidos_lectura(t_list* pedidos, void* ret){
         memcpy((char*)ret + offset, bytes, pedido->tamanio);
 
         offset += pedido->tamanio;
+
+        list_destroy_and_destroy_elements(data, free);
     }
     log_debug(logger, "Lectura finalizada");
 }

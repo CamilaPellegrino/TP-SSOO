@@ -322,7 +322,12 @@ char* ruta_completa(char* base, char* nombre_archivo){
     sprintf(resultado, "%s/%s", base, nombre_archivo);
     return resultado;
 }
+// liberar
 
+void liberar_evt(t_evt* evt){
+    free(evt->data);
+    free(evt);
+}
 // Otros
 
 

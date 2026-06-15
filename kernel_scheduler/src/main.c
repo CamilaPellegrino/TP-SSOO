@@ -168,12 +168,14 @@ void* atender_cpu(t_cpu* cpu){
                 int id_segmento = *(int*)list_get(data, 0);
                 int tamanio = *(int*)list_get(data, 1);
                 atender_cpu_syscall_mem_alloc(id_segmento, tamanio, cpu);
+                list_destroy_and_destroy_elements(data, free);
                 break;
             }case CPU_SCH__MEM_FREE:{
                 log_warning(logger, "## (<%d>) - Solicito syscall: <MEM_FREE> no implementada", cpu->proceso->pid);
                 t_list* data = recibir_paquete(cpu_fd);
                 int id_segmento = *(int*)list_get(data, 0);
                 atender_cpu_syscall_mem_free(id_segmento, cpu);
+                list_destroy_and_destroy_elements(data, free);
                 break;
             }case CPU_SCH__EXIT:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <EXIT>", cpu->proceso->pid);
@@ -363,7 +365,7 @@ void* atender_km(void*){
                 char* ip_stick = list_get(lista_paquete, 0);
                 char* puerto_stick = list_get(lista_paquete, 1);
                 int *tamanio_stick = list_get(lista_paquete, 2);
-                list_destroy(lista_paquete);
+                list_destroy_and_destroy_elements(lista_paquete, free);
                 
                 t_paquete* paquete = crear_paquete(SCH_CPU__NUEVO_STICK);
                 agregar_string_a_paquete(paquete, ip_stick);
@@ -438,6 +440,7 @@ void* atender_km(void*){
                 }else{
                     log_warning(logger, "Estado ERROR de MEM_ALLOC"); // TODO: Pasar a EXIT
                 }
+                list_destroy_and_destroy_elements(data, free);
                 break;
             }case KM_SCH__RTA_MEM_FREE: {
                 log_debug(logger, "Syscall finalizada: MEM_FREE");
@@ -446,6 +449,7 @@ void* atender_km(void*){
                 t_status_op status = *(t_status_op*)list_get(data, 1);
                 t_pcb* proceso = proceso_de_lista(pid, estado_blocked->sublista);
                 manejar_status_op(proceso, status);
+                list_destroy_and_destroy_elements(data, free);
                 break;
             }
             case RTA_READ: {
