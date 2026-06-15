@@ -89,12 +89,6 @@ typedef struct {
 } t_instruccion_decodificada;
 
 
-typedef struct {
-    instrucciones tipo;
-
-    t_list * registros;
-
-} t_instruccion_decodificada;
 
 typedef enum{
     SYSCALL_SLEEP,
@@ -113,6 +107,13 @@ t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd);
 void destruir_stick(t_stick* stick);
 t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
+
+////////////////////
+
+
+especificacion_registro * obtener_registro(char* registro_crudo, t_pcb *pcb);
+void escribir_registro(especificacion_registro *reg, int valor);
+uint32_t leer_registro(especificacion_registro* reg);
 
 
 #endif

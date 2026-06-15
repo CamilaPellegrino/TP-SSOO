@@ -6,9 +6,9 @@
 void conectarse_a_stick(char* ip, char* puerto, uint32_t tamanio);
 void recibir_sticks_de_km();
 void* ejecutar();
+void inicializar_variables();
 void detener_ejecucion();
 void reanudar_ejecucion();
-void inicializar_variables();
 void enviar_pcb_actualizado_a_km(t_pcb* pcb);
 void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p);
 void ejecutar_sleep(t_instruccion_decodificada* instr);
@@ -46,27 +46,16 @@ void ciclo_instruccion(t_pcb *pcb);
 char* fetch(t_pcb *pcb);
 void decode(char *instruccion, t_pcb* pcb,  t_instruccion_decodificada * instruccion_decodificada);
 bool execute(t_instruccion_decodificada *instruccion, t_pcb *pcb);
-especificacion_registro * obtener_registro(char* registro_crudo, t_pcb *pcb);
-void escribir_registro(especificacion_registro *reg, int valor);
-uint32_t leer_registro(especificacion_registro* reg);
-// void ejecutar_syscall(t_instruccion_decodificada *syscall, t_pcb* pcb);
-//////////////////////////
 
+void ejecutar_set(t_instruccion_decodificada *instruccion, t_pcb *pcb);
+void ejecutar_sum(t_instruccion_decodificada *instruccion, t_pcb *pcb);
+void ejecutar_sub(t_instruccion_decodificada *instruccion, t_pcb *pcb);
+void ejecutar_jnz(t_instruccion_decodificada *instruccion, t_pcb *pcb);
+void ejecutar_mem_alloc(t_instruccion_decodificada *instruccion, t_pcb *pcb);
 // otros
 int conexion_kernel_scheduler;
 int conexion_kernel_memory;
 
-///////////////////Funciones ALAN///////////////////
-void pedir_contexto(int pid, t_pcb* pcb);
-void ciclo_instruccion(t_pcb *pcb);
-char* fetch(t_pcb *pcb);
-void decode(char *instruccion, t_pcb* pcb,  t_instruccion_decodificada * instruccion_decodificada);
-bool execute(t_instruccion_decodificada *instruccion, t_pcb *pcb);
-especificacion_registro * obtener_registro(char* registro_crudo, t_pcb *pcb);
-void escribir_registro(especificacion_registro *reg, int valor);
-uint32_t leer_registro(especificacion_registro* reg);
-// void ejecutar_syscall(t_instruccion_decodificada *syscall, t_pcb* pcb);
-//////////////////////////
 
 
 /////////////Funciones niki//////////////////////
@@ -283,6 +272,7 @@ void ciclo_instruccion(t_pcb *pcb){
         log_info(logger, "pc %i", pcb->registros.pc);
         log_info( logger, "Instruccion: %s", instruccion);
         int pc_antiguo = pcb->registros.pc;
+
         //execute
         bool syscall_bloqueante = execute(instruccion_decodificada, pcb);
         
@@ -438,8 +428,29 @@ void decode(char *instruccion, t_pcb *pcb,  t_instruccion_decodificada * instruc
         *prioridad = (int)strtol(partes[2], NULL, 10);
         list_add(instruccion_decodificada->registros, ruta_instr);
         list_add(instruccion_decodificada->registros, prioridad);
+        string_array_destroy(partes);
     }
-    string_array_destroy(partes);
+    else if(string_equals_ignore_case(partes[0], "MEM_ALLOC")){
+        instruccion_decodificada->tipo = I_MEM_ALLOC;
+        int* segmento = malloc(sizeof(int));
+        int* tamanio = malloc(sizeof(int));
+        *segmento = (int)strtol(partes[1], NULL, 10);
+        *tamanio = (int)strtol(partes[2], NULL, 10);
+        list_add(instruccion_decodificada->registros, segmento);
+        list_add(instruccion_decodificada->registros, tamanio);
+        string_array_destroy(partes);
+        return;
+    }
+    else if(string_equals_ignore_case(partes[0], "MEM_FREE")){
+        instruccion_decodificada->tipo = I_MEM_FREE;
+        int* segmento = malloc(sizeof(int));
+        *segmento = atoi(partes[1]);
+        list_add(instruccion_decodificada->registros, segmento);
+        string_array_destroy(partes);
+        return;
+    }
+
+    log_error(logger, "Error: No se reconoce la instruccion en DECODE"); 
     return;
 }
 
@@ -447,48 +458,40 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
     switch (instruccion->tipo){
         case I_NOOP:
             break;
-        case I_SET://Asigna al registro el valor pasado como parámetro. SET ax 5
-            especificacion_registro* reg =list_get(instruccion->registros,0);
-            int *input  =list_get(instruccion->registros,1);
-            log_info(logger, "antes de set, valor: %p",reg->ptro_reg);
-            escribir_registro(reg, *input);
-            log_info(logger, "despues de set, valor: %p",reg->ptro_reg);
+        case I_SET:
+            ejecutar_set(instruccion, pcb);
             break;
         case I_SUM:
-            log_info(logger, "Ejecutando instruccion JNZ");
-            especificacion_registro *destino = list_get(instruccion->registros,0);
-            especificacion_registro *origen = list_get(instruccion->registros,1);
-            uint32_t suma =leer_registro(destino)+leer_registro(origen);
-            escribir_registro(destino, suma);
+            ejecutar_sum(instruccion, pcb);
             break;
         case I_SUB:
-            log_info(logger, "Ejecutando instruccion SUB");
-            especificacion_registro *minuendo = list_get(instruccion->registros,0);
-            especificacion_registro *sustraendo = list_get(instruccion->registros,1);
-            uint32_t resta =leer_registro(minuendo)-leer_registro(sustraendo);
-            escribir_registro(minuendo, resta);
-            log_info(logger, "hice sub");
+            ejecutar_sub(instruccion, pcb);
             break;
         case I_JNZ:
-            log_info(logger, "Ejecutando instruccion JNZ");
-            especificacion_registro* reg_ = list_get(instruccion->registros,0);
-            int* nuevo_pc =list_get(instruccion->registros,1);
-            log_info(logger, "pc %i", pcb->registros.pc);
-            if(leer_registro(reg_) != 0)
-                pcb->registros.pc = *nuevo_pc;
-            log_info(logger, "pc %i", pcb->registros.pc);
+            ejecutar_jnz(instruccion, pcb);
             break;
+///////////////////////////syscalls//////////////////
         case I_SLEEP:
             ejecutar_sleep(instruccion);
             return true;
         case I_MUTEX_CREATE:
             ejecutar_m_create(instruccion);
+            return true;
             break;
         case I_MUTEX_LOCK:
             ejecutar_m_lock(instruccion);
             return true;
         case I_MUTEX_UNLOCK:
             ejecutar_m_unlock(instruccion);
+            return true;
+            break;
+        case I_MEM_ALLOC:
+            ejecutar_mem_alloc(instruccion, pcb);
+            return true;
+            break;
+        case I_MEM_FREE:
+            ejecutar_mem_free(instruccion, pcb);
+            return true;
             break;
         case I_STDIN:
             ejecutar_stdin(instruccion);
@@ -501,6 +504,7 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
             return true;
         case I_INIT_PROC:
             ejecutar_init_proc(instruccion);
+            return true;
             break;
         default:
             log_warning(logger, "Instruccion no implementada, tipo %d", instruccion->tipo);
@@ -508,6 +512,8 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
     }
     return false;
 }
+
+
 
 void pedir_contexto(int pid, t_pcb* pcb){
     t_paquete *paquete = crear_paquete(CPU_KM__PCONTEXTO);
@@ -607,7 +613,70 @@ void esperar_a_poder_ejecutar(){
     pthread_mutex_unlock(&m_ejecutar);
 }
 
-// syscalls: 
+// instrucciones que resuelve cpu
+
+void ejecutar_set(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    especificacion_registro* reg =list_get(instruccion->registros,0);
+    int *input  =list_get(instruccion->registros,1);
+    log_info(logger, "antes de set, valor: %p",reg->ptro_reg);
+    escribir_registro(reg, *input);
+    log_info(logger, "despues de set, valor: %p",reg->ptro_reg);
+    return;
+}
+
+void ejecutar_sum(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    log_info(logger, "Ejecutando instruccion JNZ");
+    especificacion_registro *destino = list_get(instruccion->registros,0);
+    especificacion_registro *origen = list_get(instruccion->registros,1);
+    uint32_t suma =leer_registro(destino)+leer_registro(origen);
+    escribir_registro(destino, suma);
+    return;
+}
+
+void ejecutar_sub(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    log_info(logger, "Ejecutando instruccion SUB");
+    especificacion_registro *minuendo = list_get(instruccion->registros,0);
+    especificacion_registro *sustraendo = list_get(instruccion->registros,1);
+    uint32_t resta =leer_registro(minuendo)-leer_registro(sustraendo);
+    escribir_registro(minuendo, resta);
+    log_info(logger, "hice sub");
+    return;
+}
+
+void ejecutar_jnz(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    log_info(logger, "Ejecutando instruccion JNZ");
+    especificacion_registro* reg_ = list_get(instruccion->registros,0);
+    int* nuevo_pc =list_get(instruccion->registros,1);
+    log_info(logger, "pc %i", pcb->registros.pc);
+    if(leer_registro(reg_) != 0)
+        pcb->registros.pc = *nuevo_pc;
+    log_info(logger, "pc %i", pcb->registros.pc);
+    return;
+}
+
+// syscalls a ach: 
+
+void ejecutar_mem_alloc(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    int* id_segmento = list_get(instruccion->registros, 0);
+    int* tamanio = list_get(instruccion->registros, 1);
+    t_paquete* paquete = crear_paquete(CPU_SCH__MEM_ALLOC);
+    agregar_a_paquete(paquete, pcb->pid, sizeof(int));
+    agregar_a_paquete(paquete, id_segmento, sizeof(int));
+    agregar_a_paquete(paquete, tamanio, sizeof(int));
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+    return;
+}
+
+
+void ejecutar_mem_free(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    int* id_segmento = list_get(instruccion->registros, 0);
+    t_paquete* paquete = crear_paquete(CPU_SCH__MEM_FREE);
+    agregar_a_paquete(paquete, pcb->pid, sizeof(int));
+    agregar_a_paquete(paquete, &id_segmento, sizeof(id_segmento));
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+    return;
+}
+
 void ejecutar_init_proc(t_instruccion_decodificada* instr){
     log_debug(logger, "Ejecutando INIT_PROC");
     char* ruta_archivo_instrucciones = list_get(instr->registros, 0);
@@ -616,12 +685,14 @@ void ejecutar_init_proc(t_instruccion_decodificada* instr){
     agregar_string_a_paquete(paquete, ruta_archivo_instrucciones);
     agregar_a_paquete(paquete, &prioridad, sizeof(prioridad));
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+    return;
 }
 
 void ejecutar_exit(t_instruccion_decodificada* instr){
     log_debug(logger, "Ejecutando EXIT");
     detener_ejecucion();
     enviar_operacion(conexion_kernel_scheduler, CPU_SCH__EXIT);
+    return;
 }
 
 void ejecutar_m_unlock(t_instruccion_decodificada* instr){
@@ -632,16 +703,18 @@ void ejecutar_m_unlock(t_instruccion_decodificada* instr){
     agregar_string_a_paquete(paquete, nombre);
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
     log_debug(logger, "paquete enviado");
+    return;
 }
 
 void ejecutar_m_lock(t_instruccion_decodificada* instr){
     detener_ejecucion(); // cpu tiene que esperar a que esta syscall se termine (puede ser instantaneo, o no, depende) para seguir ejecutando
     char * nombre = list_get(instr->registros, 0);
     //char* nombre = instr->param1;
-    log_debug(logger, "Ejecutando MUTEX_LOCK %d", *nombre);
+    log_debug(logger, "Ejecutando MUTEX_LOCK %s", *nombre);
     t_paquete* paquete = crear_paquete(CPU_SCH__MUTEX_LOCK);
     agregar_string_a_paquete(paquete, nombre);
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+    return;
 }
 
 void ejecutar_m_create(t_instruccion_decodificada* instr){
@@ -651,6 +724,7 @@ void ejecutar_m_create(t_instruccion_decodificada* instr){
     t_paquete* paquete = crear_paquete(CPU_SCH__MUTEX_CREATE);
     agregar_string_a_paquete(paquete, nombre);
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+    return;
 }
 
 void ejecutar_stdout(t_instruccion_decodificada* instr){
@@ -664,6 +738,7 @@ void ejecutar_stdout(t_instruccion_decodificada* instr){
     agregar_a_paquete(paquete, &dir_logica, sizeof(dir_logica));
     agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+    return;
 }
 
 void ejecutar_stdin(t_instruccion_decodificada* instr){
@@ -677,6 +752,7 @@ void ejecutar_stdin(t_instruccion_decodificada* instr){
     agregar_a_paquete(paquete, &dir_logica, sizeof(dir_logica));
     agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+    return;
 }
 
 void ejecutar_sleep(t_instruccion_decodificada* instruccion){
@@ -687,9 +763,11 @@ void ejecutar_sleep(t_instruccion_decodificada* instruccion){
     agregar_a_paquete(paquete, &tiempo_sleep, sizeof(tiempo_sleep));
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
     log_debug(logger, "paquete enviado");
+    return;
 }
 
-// otras 
+
+
 void detener_ejecucion(){
     pthread_mutex_lock(&m_ejecutar);
 
@@ -715,6 +793,183 @@ void inicializar_variables(){
     pthread_mutex_init(&m_ejecutar, NULL);
     pthread_cond_init(&cond_ejecutar, NULL);
 }
+<<<<<<< HEAD
+
+especificacion_registro* obtener_registro(char* registro_crudo, t_pcb *pcb){
+    especificacion_registro *registro = malloc(sizeof(especificacion_registro));
+    if(string_equals_ignore_case(registro_crudo, "AX")){
+        registro->ptro_reg = &(pcb->registros.ax);
+        registro->tamanio = sizeof(uint8_t);
+        return registro;
+    }
+    if(string_equals_ignore_case(registro_crudo, "BX")){
+        registro->ptro_reg = &(pcb->registros.bx);
+        registro->tamanio = sizeof(uint8_t);
+        return registro;
+    }
+    if(string_equals_ignore_case(registro_crudo, "CX")){
+        registro->ptro_reg = &(pcb->registros.cx);
+        registro->tamanio = sizeof(uint8_t);
+        return registro;
+    }
+    if(string_equals_ignore_case(registro_crudo, "DX")){
+        registro->ptro_reg = &(pcb->registros.dx);
+        registro->tamanio = sizeof(uint8_t);
+        return registro;
+    }
+    if(string_equals_ignore_case(registro_crudo, "EAX")){
+        registro->ptro_reg = &(pcb->registros.eax);
+        registro->tamanio = sizeof(uint32_t);
+        return registro;
+    }
+    if(string_equals_ignore_case(registro_crudo,"EBX")){
+        registro->ptro_reg = &(pcb->registros.ebx);
+        registro->tamanio = sizeof(uint32_t);
+        return registro;
+    }
+    if(string_equals_ignore_case(registro_crudo, "ECX")){
+        registro->ptro_reg = &(pcb->registros.ecx);
+        registro->tamanio = sizeof(uint32_t);
+        return registro;
+    }
+    if(string_equals_ignore_case(registro_crudo, "EDX")){
+        registro->ptro_reg = &(pcb->registros.edx);
+        registro->tamanio = sizeof(uint32_t);
+        return registro;
+    }
+    if(string_equals_ignore_case(registro_crudo, "SI")){
+        registro->ptro_reg = &(pcb->registros.si);
+        registro->tamanio = sizeof(uint32_t);
+        return registro;
+    }
+    if(string_equals_ignore_case(registro_crudo, "DI")){
+        registro->ptro_reg = &(pcb->registros.di);
+        registro->tamanio = sizeof(uint32_t);
+        return registro;
+    }
+    if(string_equals_ignore_case(registro_crudo, "PC")){
+        registro->ptro_reg = &(pcb->registros.pc);
+        registro->tamanio = sizeof(uint32_t);
+        return registro;
+    }
+    return NULL;
+}
+
+void escribir_registro(especificacion_registro *reg, int valor){
+    switch(reg->tamanio){
+        case sizeof(uint8_t):
+            *(uint8_t*) reg->ptro_reg = (uint8_t) valor;
+            break;
+        case sizeof(uint32_t):
+            *(uint32_t*) reg->ptro_reg = (uint32_t) valor;
+            break;
+    }
+    return;
+}
+
+uint32_t leer_registro(especificacion_registro* reg){
+    if(reg->tamanio ==sizeof(uint8_t))
+        return*(uint8_t*)reg->ptro_reg;
+    return*(uint32_t*)reg->ptro_reg;
+}
+
+void* mmu_leer(t_pcb* pcb, uint32_t dir_logica, uint32_t tamanio, bool* seg_fault){
+    *seg_fault;
+
+    uint32_t num_seg = dir_logica / seg_max_size_global;
+    uint32_t desplzamiento = dir_logica % seg_max_size_global;
+
+    t_segmento* seg = NULL;
+
+    for(int i=0; i < list_size(pcb->tabla_segmentos); i++){
+        t_segmento* s = list_get(pcb->tabla_segmentos, i);
+        if((uint32_t)s->id_segmento == num_seg){
+            seg=s;
+            break;
+
+        }
+    }
+    if(!seg || desplzamiento + tamanio > seg->limite){
+        *seg_fault= true;
+        return NULL;
+    }
+    
+    void*    buffer = malloc(tamanio);
+    uint32_t dir_fisica_abs = seg->base + desplzamiento;
+    uint32_t pendientes = tamanio, offset = dir_fisica_abs;
+    uint32_t buf_desp = 0, acum = 0;
+
+    for (int i = 0; i < list_size(lista_sticks) && pendientes > 0; i++) {
+        t_stick* stick = list_get(lista_sticks, i);
+        if (offset >= acum + (uint32_t)stick->tamanio) { acum += stick->tamanio; continue; }
+
+        uint32_t dir_en_stick   = offset - acum;
+        uint32_t bytes_en_stick = (acum + stick->tamanio) - offset;
+        if (bytes_en_stick > pendientes) bytes_en_stick = pendientes;
+
+        t_paquete* p = crear_paquete(X_STICK__LETURA);
+        agregar_a_paquete(p, &dir_en_stick,   sizeof(uint32_t));
+        agregar_a_paquete(p, &bytes_en_stick, sizeof(uint32_t));
+        enviar_paquete_y_liberarlo(p, stick->fd);
+
+        log_info(logger, "PID: %d - Acción: LEER - Dirección Física: %u - Valor: (%u bytes)",
+                 pcb->pid, dir_en_stick, bytes_en_stick);
+
+        recibir_operacion(stick->fd); // STICK_X__OK
+        t_list* resp = recibir_paquete(stick->fd);
+        memcpy(buffer + buf_desp, list_get(resp, 0), bytes_en_stick);
+        list_destroy_and_destroy_elements(resp, free);
+
+        offset    += bytes_en_stick;
+        buf_desp  += bytes_en_stick;
+        pendientes -= bytes_en_stick;
+        acum      += stick->tamanio;
+    }
+    return buffer;
+}
+
+void mmu_escribir(t_pcb* pcb, uint32_t dir_logica, void* datos, uint32_t tamanio, bool* sf) {
+    *sf = false;
+    uint32_t num_seg = dir_logica / seg_max_size_global;
+    uint32_t desp    = dir_logica % seg_max_size_global;
+
+    t_segmento* seg = NULL;
+    for (int i = 0; i < list_size(pcb->tabla_segmentos); i++) {
+        t_segmento* s = list_get(pcb->tabla_segmentos, i);
+        if ((uint32_t)s->id_segmento == num_seg) { seg = s; break; }
+    }
+    if (!seg || desp + tamanio > seg->limite) { *sf = true; return; }
+
+    uint32_t dir_fisica_abs = seg->base + desp;
+    uint32_t pendientes = tamanio, offset = dir_fisica_abs;
+    uint32_t buf_desp = 0, acum = 0;
+
+    for (int i = 0; i < list_size(lista_sticks) && pendientes > 0; i++) {
+        t_stick* stick = list_get(lista_sticks, i);
+        if (offset >= acum + (uint32_t)stick->tamanio) { acum += stick->tamanio; continue; }
+
+        uint32_t dir_en_stick   = offset - acum;
+        uint32_t bytes_en_stick = (acum + stick->tamanio) - offset;
+        if (bytes_en_stick > pendientes) bytes_en_stick = pendientes;
+
+        t_paquete* p = crear_paquete(X_STICK__ESCRITURA);
+        agregar_a_paquete(p, &dir_en_stick,    sizeof(uint32_t));
+        agregar_a_paquete(p, datos + buf_desp, bytes_en_stick);
+        enviar_paquete_y_liberarlo(p, stick->fd);
+
+        log_info(logger, "PID: %d - Acción: ESCRIBIR - Dirección Física: %u - Valor: (%u bytes)",
+                 pcb->pid, dir_en_stick, bytes_en_stick);
+
+        recibir_operacion(stick->fd); // STICK_X__OK
+
+        offset    += bytes_en_stick;
+        buf_desp  += bytes_en_stick;
+        pendientes -= bytes_en_stick;
+        acum      += stick->tamanio;
+    }
+}
+=======
+>>>>>>> ac6ea94 (syscall memoria)
 
 especificacion_registro* obtener_registro(char* registro_crudo, t_pcb *pcb){
     especificacion_registro *registro = malloc(sizeof(especificacion_registro));
