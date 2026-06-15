@@ -273,8 +273,18 @@ void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p){
 
     agregar_a_paquete(p, &pcb->si, sizeof(pcb->si));
     agregar_a_paquete(p, &pcb->di, sizeof(pcb->di));
+
 }
 
+void agregar_segmentos_al_paquete(t_list* segmentos, t_paquete* p){
+    int cantidad = list_size(segmentos);
+    agregar_a_paquete(p, &cantidad, sizeof(cantidad));
+
+    for (int i = 0; i < cantidad; i++) {
+        t_segmento* seg = list_get(segmentos, i);
+        agregar_a_paquete(p, seg, sizeof(t_segmento));
+    }
+}
 // Manejo de rutas
 t_list* instrucciones_de_ruta(char* nombre_archivo){
     char* ruta = ruta_completa(scripts_basepath, nombre_archivo);

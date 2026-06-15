@@ -206,10 +206,11 @@ void sumar_milisegundos(struct timespec* ts, int milisegundos);
 void loguear_tamanio_listas_de_estado();
 t_planificacion algoritmo_de_proceso(t_pcb*);
 void manejar_status_op(t_pcb* proceso, t_status_op status);
-// void agregar_a_ready_al_frente(t_pcb* proceso);
+
 // obtener por clave
 
 t_pcb* proceso_de_lista(int pid, t_list* list);
+t_tipo_estado get_estado(t_pcb* p);
 void log_obligatorio_cambio_de_estado(int pid, char* estado_anterior, char* estado_actual);
 // liberar
 void liberar_cpu(t_cpu* cpu);

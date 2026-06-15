@@ -171,7 +171,7 @@ void enviar_sticks_a_cpu(int cpu_fd);
 
 void recibir_pcb_actualizado(t_list* valores);
 void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p); 
-
+void agregar_segmentos_al_paquete(t_list* segmentos, t_paquete* p);
 // Manejo de rutas
 t_list* instrucciones_de_ruta(char* ruta);
 char* ruta_completa(char* base, char* nombre_archivo);

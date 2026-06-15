@@ -63,28 +63,33 @@ t_cpu* proxima_cpu_libre(){
 
 t_cpu* cpu_a_desalojar_por_prioridad(t_pcb* p){
     t_cpu* peor_cpu = NULL;
+    int p_actual = -1;
     pthread_mutex_lock(&m_lista_cpus);
     for(int i = 0; i < list_size(lista_cpus); i++){
         t_cpu* c = list_get(lista_cpus, i);
         log_debug(logger, "analizando cpu de id %d", c->id);
+        pthread_mutex_lock(&c->mutex);
         if(c->proceso == NULL){
             peor_cpu = NULL;
+            pthread_mutex_unlock(&c->mutex);
             break;
         }
         if(c->desalojando){
+            pthread_mutex_unlock(&c->mutex);
             continue;
         }
         if(c->proceso->prioridad_actual > p->prioridad_actual){
-            if(peor_cpu == NULL || c->proceso->prioridad_actual > peor_cpu->proceso->prioridad_actual){
+            if(peor_cpu == NULL || c->proceso->prioridad_actual > p_actual){
                 peor_cpu = c;
+                p_actual = c->proceso->prioridad_actual;
             }
         }
+        pthread_mutex_unlock(&c->mutex);
     }
     pthread_mutex_unlock(&m_lista_cpus);
     log_debug(logger, "cpu_a_desalojar_por_prioridad finalizando");
     return peor_cpu;
 }
-
 
 void asignar_proceso(t_pcb* proceso, t_cpu* cpu){
     // marcar que la cpu esta ocupada 
@@ -127,29 +132,10 @@ void manejar_proceso_exit(t_pcb* proceso){
     loguear_tamanio_listas_de_estado();
     // t_paquete* paquete_fin_proc = crear_paquete(SCH_KM__EXIT);
     // agregar_a_paquete(paquete_fin_proc, &proceso->pid, sizeof(proceso->pid));
-    // enviar_paquete_y_liberarlo(paquete_fin_proc, conexion_kernel_memory); // TODO: enviar el paquete a km y que km avise cuando libero todo 
+    // enviar_paquete_y_liberarlo(paquete_fin_proc, conexion_kernel_memory);
 }
 
-t_cpu* proxima_cpu()
-{ // no saca la cpu de la lista, solamente devuelve el puntero ala cpu
-    t_cpu* ret = NULL;
-    pthread_mutex_lock(&m_lista_cpus);
-    for(int i=0; i<list_size(lista_cpus); i++){
-        t_cpu* cpu = list_get(lista_cpus, i);
-        if(cpu->proceso == NULL){
-            ret = cpu;
-            break;
-        }
-    }
-    pthread_mutex_unlock(&m_lista_cpus);
-
-    return ret;
-}
-
-// Problema: Las funciones de proximo_proceso tienen que devolver el prox_proc y sacarlo de la lista para no tener un TOCTOU
-
-
-t_pcb* proximo_proceso(){ // no elimina el proceso de la lista, solamente devuelve el puntero al proxim oque hay que ejecutar
+t_pcb* proximo_proceso(){
     if(estado_ready->sublista == NULL){
         return NULL;
     }
@@ -253,13 +239,9 @@ void* hilo_timeout(void* arg){
     while(!evt->syscall_finalizada && rc == 0){
         rc = pthread_cond_timedwait(&evt->cond, &evt->mutex, &ts);
     }
-
-    // timeout vencido o syscall finalizada
     log_debug(logger, "timeout vencido o syscall finalizada");
 
-    pthread_mutex_lock(&proceso->mutex);
-    bool suspender = !evt->syscall_finalizada && proceso->estado == BLOQUEADO;
-    pthread_mutex_unlock(&proceso->mutex);
+    bool suspender = !evt->syscall_finalizada && get_estado(proceso) == BLOQUEADO;
 
     if(suspender){
         log_debug(logger, "syscall no finalizo a tiempo, suspendiendo");
@@ -275,6 +257,7 @@ void* hilo_fin_quantum(void* arg){
     t_cpu* cpu = (t_cpu*) arg;
     if(cpu == NULL || cpu->proceso == NULL){ return NULL; }
     t_pcb* proceso = cpu->proceso;
+    struct timespec ts;
     log_debug(logger, "iniciando hilo_fin_quantum para pid <%d>", proceso->pid);
     if(proceso == NULL){
         log_debug(logger, "hilo_fin_quantum: cpu libre, terminando este hilo");
@@ -282,7 +265,6 @@ void* hilo_fin_quantum(void* arg){
     }
     t_data_cond* data_cond = &proceso->data_cond;
 
-    struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
     sumar_milisegundos(&ts, quantum);
     int rc = 0;

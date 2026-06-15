@@ -370,6 +370,7 @@ void agregar_a_ready_thread_safe(t_pcb* proceso){
     agregar_a_ready(proceso);
     pthread_mutex_unlock(&proceso->mutex);
 }
+
 void eliminar_de_ready_thread_safe(t_pcb* proceso){
     pthread_mutex_lock(&proceso->mutex);
     eliminar_de_ready(proceso);
@@ -512,6 +513,13 @@ t_pcb* proceso_de_lista(int pid, t_list* list){
         }
     }
     return NULL;
+}
+
+t_tipo_estado get_estado(t_pcb* p){
+    pthread_mutex_lock(&p->mutex);
+    t_tipo_estado e = p->estado;
+    pthread_mutex_unlock(&p->mutex);
+    return e;
 }
 
 // liberar

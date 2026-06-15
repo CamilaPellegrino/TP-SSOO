@@ -461,7 +461,18 @@ void pedir_contexto(int pid, t_pcb* pcb){
 
     pcb->registros.si = *(uint32_t*) list_get(lista_contexto, i++);
     pcb->registros.di = *(uint32_t*) list_get(lista_contexto, i++);
+    
+    int cantidad_segmentos = *(int*) list_get(lista_contexto, i++);
+    
+    pcb->lista_segmentos = list_create();
+    for(int j = 0; j < cantidad_segmentos; j++) {
+        t_segmento* seg_recibido = malloc(sizeof(t_segmento));
 
+        memcpy(seg_recibido, list_get(lista_contexto, i++), sizeof(t_segmento));
+
+        list_add(pcb->lista_segmentos, seg_recibido);
+    }
+    
     log_debug(logger, "ya cargue el nuevo pcb");
     list_destroy_and_destroy_elements(lista_contexto, free);
 }

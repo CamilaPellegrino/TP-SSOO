@@ -107,6 +107,7 @@ void* atender_cpu(void* arg){
                 if(proceso_actual != NULL){
                     log_info(logger, "Enviando contexto de proceso <%d> a cpu <%d>", pid, cpu_id);
                     agregar_pcb_al_paquete(proceso_actual->pcb, paquete);
+                    agregar_segmentos_al_paquete(proceso_actual->lista_segmentos, paquete);
                     enviar_paquete_y_liberarlo(paquete, cpu_fd);
                 }else{
                     log_error(logger, "Atender_cpu de id <%d>, Error: pid <%d> no encontrado", cpu_id, pid);

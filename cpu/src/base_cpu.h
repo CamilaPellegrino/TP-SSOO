@@ -42,8 +42,9 @@ typedef struct
 	// identificadores del proceso
 	int pid;
 	int ppid;
-	int priodidad; // le sacamos la prioridad? solo la necesita scheduler y ya la tiene
+	int priodidad; 
 	t_registros registros;
+    t_list* lista_segmentos;
 
 } t_pcb;
 typedef struct{
@@ -89,6 +90,12 @@ typedef struct {
 
 } t_instruccion_decodificada;
 
+typedef struct {
+	int pid;
+    int id_segmento;
+    uint32_t base;  //dir fisica
+    uint32_t tamanio;
+} t_segmento;
 
 
 t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd);
