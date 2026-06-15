@@ -27,6 +27,7 @@ void inicializar_variables_globales(t_config* config){
     pthread_mutex_init(&m_lista_procesos, NULL);
     pthread_mutex_init(&m_lista_huecos, NULL);
     pthread_mutex_init(&m_lista_eventos_stick, NULL);
+    pthread_mutex_init(&m_manejar_memoria, NULL);
 }
 
 t_proceso* iniciar_proceso(t_pcb* pcb, t_list* instrucciones){

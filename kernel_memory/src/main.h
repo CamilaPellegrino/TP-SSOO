@@ -43,6 +43,7 @@ pthread_mutex_t m_lista_segmentos_global;
 pthread_mutex_t m_lista_procesos;
 pthread_mutex_t m_lista_huecos;
 pthread_mutex_t m_lista_eventos_stick;
+pthread_mutex_t m_manejar_memoria;
 
 sem_t s_lista_eventos_stick;
 sem_t s_fin_mover;

@@ -49,7 +49,7 @@ void* atender_cliente(void *arg){
             
             t_stick* nuevo_stick = iniciar_stick(ip, puerto, tamanio, cliente_fd);
             
-            agregar_espacio_mem(nuevo_stick->tamanio);
+            agregar_espacio_mem_thread_safe(nuevo_stick->tamanio);
             agregar_stick(nuevo_stick);
 
             enviar_nuevo_stick_a_scheduler(nuevo_stick, sch_fd);
@@ -217,8 +217,6 @@ void atender_sch_write(t_list* data){
     void* datos_escritos = list_get(data, i++);
     int pid =*(int*) list_get(data, i++);
     
-    int datos_hardcodeado = 0;
-
     log_debug(logger, "KM_WRITE | pid=%d | base=%d | tamanio=%d", pid, base, tamanio);
     
     imprimir_bytes(datos_escritos,tamanio);
@@ -258,13 +256,13 @@ void atender_sch_mem_alloc(t_list* data){
         status = ERROR;
     }else{
         log_info(logger, "## <%d> Atendiendo syscall MEM_ALLOC %d %d", pid, id_segmento, tamanio);
-        if(buscar_segmento_por_id_de_proc(p, id_segmento)){
+        if(existe_segmento_de_id_de_proc_thread_safe(id_segmento, p)){
             status = ERROR;
         }else{
-            t_segmento* segmento = crear_segmento(p, id_segmento, tamanio);
+            t_segmento* segmento = crear_segmento_thread_safe(p, id_segmento, tamanio);
             if(segmento == NULL){
                 status = ERROR;
-                if(hay_espacio_total(tamanio)){
+                if(hay_espacio_total_thread_safe(tamanio)){
                     log_info(logger, "## <%d> Se dispara compactación tras intentar MEM_ALLOC, tamanio libre: %d, tamanio a reservar: %d", pid, tamanio_total_libre, tamanio);
                     enviar_operacion(sch_fd, KM_SCH__PEDIDO_COMPACTACION);
                     return;
@@ -292,7 +290,7 @@ void atender_sch_mem_free(t_list* data){
         status = ERROR;
     }else{
         log_info(logger, "## <%d> Atendiendo syscall MEM_FREE %d", pid, id_segmento);
-        eliminar_segmento(segmento, p);
+        eliminar_segmento_thread_safe(segmento, p);
     }
     t_paquete* paquete = crear_paquete(KM_SCH__RTA_MEM_FREE);
     agregar_a_paquete(paquete, &pid, sizeof(pid));

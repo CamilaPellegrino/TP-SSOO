@@ -138,6 +138,7 @@ extern pthread_mutex_t m_lista_segmentos_global;
 extern pthread_mutex_t m_lista_procesos;
 extern pthread_mutex_t m_lista_huecos;
 extern pthread_mutex_t m_lista_eventos_stick;
+extern pthread_mutex_t m_manejar_memoria;
 
 extern sem_t s_lista_eventos_stick;
 extern sem_t s_fin_mover;

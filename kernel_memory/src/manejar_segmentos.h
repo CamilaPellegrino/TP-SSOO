@@ -3,19 +3,10 @@
 
 #include "base_km.h"
 
-t_hueco* ubicacion_de_proximo_segmento(uint32_t tamanio); 
-void agregar_segmento_a_proceso(t_segmento* segmento, t_proceso* proceso); 
-bool achicar_hueco(t_hueco* hueco, uint32_t seg_tam);
-t_segmento* crear_segmento(t_proceso* proceso, uint32_t id_segmento, uint32_t tamanio);
-bool segmento_del_proceso(t_segmento* segmento, t_proceso* proceso);
-
-bool eliminar_segmento(t_segmento* segmento, t_proceso* proceso);
-uint32_t direccion_final(t_hueco* h);
-void fusionar_huecos_contiguos();
+t_segmento* crear_segmento_thread_safe(t_proceso* proceso, uint32_t id_segmento, uint32_t tamanio);
+bool eliminar_segmento_thread_safe(t_segmento* segmento, t_proceso* proceso);
+bool hay_espacio_total_thread_safe(uint32_t tamanio);
 bool compactar_memoria();
-t_hueco* crear_hueco(int32_t base, uint32_t tamanio);
-void agregar_espacio_mem(int bytes);
-bool hay_espacio_total(uint32_t tamanio);
-t_segmento* buscar_segmento_por_id_de_proc(t_proceso* p, int id);
-
+void agregar_espacio_mem_thread_safe(int bytes);
+bool existe_segmento_de_id_de_proc_thread_safe(int id, t_proceso* p);
 #endif /* MANEJAR_SEGMENTOS_H_ */
