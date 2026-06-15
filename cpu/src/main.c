@@ -68,6 +68,11 @@ uint32_t leer_registro(especificacion_registro* reg);
 // void ejecutar_syscall(t_instruccion_decodificada *syscall, t_pcb* pcb);
 //////////////////////////
 
+
+/////////////Funciones niki//////////////////////
+uint32_t seg_max_size_global = 265; // 
+////////////////////////////////////////////////
+
 int main(int argc, char* argv[]){
     // ejemplo para ejecutar: ./bin/cpu ./cpu.config 0
     if(argc < 3){ 
@@ -540,6 +545,23 @@ void pedir_contexto(int pid, t_pcb* pcb){
 
     log_debug(logger, "ya cargue el nuevo pcb");
     list_destroy_and_destroy_elements(lista_contexto, free);
+
+    ///////////////////////niki//////////////////////////////////////
+    //limpiar tabla anterior
+    list_destroy_and_destroy_elements(pcb -> tabla_segmentos, free);
+    pcb -> tabla_segmentos = list_create();
+
+    //cargar nueva tabla
+    int cant_segs =  *(int*) list_get(lista_contexto, i++);
+    for(int s=0 ; s < cant_segs ; s++){
+        t_segmento* seg = malloc(sizeof(t_segmento));
+        seg->id_segmento  = *(int*)      list_get(lista_contexto, i++);
+        seg->base         = *(uint32_t*) list_get(lista_contexto, i++);
+        seg->limite       = *(uint32_t*) list_get(lista_contexto, i++);
+        list_add(pcb->tabla_segmentos, seg);
+    }
+    ///////////////////////////////////////////////////////////////////
+
 }
 
 void enviar_pcb_actualizado_a_km(t_pcb* pcb){
@@ -770,4 +792,100 @@ uint32_t leer_registro(especificacion_registro* reg){
     if(reg->tamanio ==sizeof(uint8_t))
         return*(uint8_t*)reg->ptro_reg;
     return*(uint32_t*)reg->ptro_reg;
+}
+
+void* mmu_leer(t_pcb* pcb, uint32_t dir_logica, uint32_t tamanio, bool* seg_fault){
+    *seg_fault;
+
+    uint32_t num_seg = dir_logica / seg_max_size_global;
+    uint32_t desplzamiento = dir_logica % seg_max_size_global;
+
+    t_segmento* seg = NULL;
+
+    for(int i=0; i < list_size(pcb->tabla_segmentos); i++){
+        t_segmento* s = list_get(pcb->tabla_segmentos, i);
+        if((uint32_t)s->id_segmento == num_seg){
+            seg=s;
+            break;
+
+        }
+    }
+    if(!seg || desplzamiento + tamanio > seg->limite){
+        *seg_fault= true;
+        return NULL;
+    }
+    
+    void*    buffer = malloc(tamanio);
+    uint32_t dir_fisica_abs = seg->base + desplzamiento;
+    uint32_t pendientes = tamanio, offset = dir_fisica_abs;
+    uint32_t buf_desp = 0, acum = 0;
+
+    for (int i = 0; i < list_size(lista_sticks) && pendientes > 0; i++) {
+        t_stick* stick = list_get(lista_sticks, i);
+        if (offset >= acum + (uint32_t)stick->tamanio) { acum += stick->tamanio; continue; }
+
+        uint32_t dir_en_stick   = offset - acum;
+        uint32_t bytes_en_stick = (acum + stick->tamanio) - offset;
+        if (bytes_en_stick > pendientes) bytes_en_stick = pendientes;
+
+        t_paquete* p = crear_paquete(X_STICK__LETURA);
+        agregar_a_paquete(p, &dir_en_stick,   sizeof(uint32_t));
+        agregar_a_paquete(p, &bytes_en_stick, sizeof(uint32_t));
+        enviar_paquete_y_liberarlo(p, stick->fd);
+
+        log_info(logger, "PID: %d - Acción: LEER - Dirección Física: %u - Valor: (%u bytes)",
+                 pcb->pid, dir_en_stick, bytes_en_stick);
+
+        recibir_operacion(stick->fd); // STICK_X__OK
+        t_list* resp = recibir_paquete(stick->fd);
+        memcpy(buffer + buf_desp, list_get(resp, 0), bytes_en_stick);
+        list_destroy_and_destroy_elements(resp, free);
+
+        offset    += bytes_en_stick;
+        buf_desp  += bytes_en_stick;
+        pendientes -= bytes_en_stick;
+        acum      += stick->tamanio;
+    }
+    return buffer;
+}
+
+void mmu_escribir(t_pcb* pcb, uint32_t dir_logica, void* datos, uint32_t tamanio, bool* sf) {
+    *sf = false;
+    uint32_t num_seg = dir_logica / seg_max_size_global;
+    uint32_t desp    = dir_logica % seg_max_size_global;
+
+    t_segmento* seg = NULL;
+    for (int i = 0; i < list_size(pcb->tabla_segmentos); i++) {
+        t_segmento* s = list_get(pcb->tabla_segmentos, i);
+        if ((uint32_t)s->id_segmento == num_seg) { seg = s; break; }
+    }
+    if (!seg || desp + tamanio > seg->limite) { *sf = true; return; }
+
+    uint32_t dir_fisica_abs = seg->base + desp;
+    uint32_t pendientes = tamanio, offset = dir_fisica_abs;
+    uint32_t buf_desp = 0, acum = 0;
+
+    for (int i = 0; i < list_size(lista_sticks) && pendientes > 0; i++) {
+        t_stick* stick = list_get(lista_sticks, i);
+        if (offset >= acum + (uint32_t)stick->tamanio) { acum += stick->tamanio; continue; }
+
+        uint32_t dir_en_stick   = offset - acum;
+        uint32_t bytes_en_stick = (acum + stick->tamanio) - offset;
+        if (bytes_en_stick > pendientes) bytes_en_stick = pendientes;
+
+        t_paquete* p = crear_paquete(X_STICK__ESCRITURA);
+        agregar_a_paquete(p, &dir_en_stick,    sizeof(uint32_t));
+        agregar_a_paquete(p, datos + buf_desp, bytes_en_stick);
+        enviar_paquete_y_liberarlo(p, stick->fd);
+
+        log_info(logger, "PID: %d - Acción: ESCRIBIR - Dirección Física: %u - Valor: (%u bytes)",
+                 pcb->pid, dir_en_stick, bytes_en_stick);
+
+        recibir_operacion(stick->fd); // STICK_X__OK
+
+        offset    += bytes_en_stick;
+        buf_desp  += bytes_en_stick;
+        pendientes -= bytes_en_stick;
+        acum      += stick->tamanio;
+    }
 }

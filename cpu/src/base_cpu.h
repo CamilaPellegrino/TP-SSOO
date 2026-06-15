@@ -44,8 +44,16 @@ typedef struct
 	int ppid;
 	int priodidad; // le sacamos la prioridad? solo la necesita scheduler y ya la tiene
 	t_registros registros;
-
+    t_list* tabla_segmentos;
 } t_pcb;
+
+typedef struct
+{
+	int id_segmento;
+	uint32_t base;
+    uint32_t limite;
+} t_segmento; //niki
+
 typedef struct{
 	void *ptro_reg;
 	int tamanio;
