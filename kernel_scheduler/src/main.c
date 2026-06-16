@@ -171,7 +171,7 @@ void* atender_cpu(t_cpu* cpu){
                 list_destroy_and_destroy_elements(data, free);
                 break;
             }case CPU_SCH__MEM_FREE:{
-                log_warning(logger, "## (<%d>) - Solicito syscall: <MEM_FREE> no implementada", cpu->proceso->pid);
+                log_info(logger, "## (<%d>) - Solicito syscall: <MEM_FREE>", cpu->proceso->pid);
                 t_list* data = recibir_paquete(cpu_fd);
                 int id_segmento = *(int*)list_get(data, 0);
                 atender_cpu_syscall_mem_free(id_segmento, cpu);
@@ -224,8 +224,8 @@ void atender_cpu_ejecucion_detenida(t_cpu* cpu){
 
 void atender_cpu_syscall_mem_free(int id_segmento,t_cpu* cpu){
     t_pcb* proceso = cpu->proceso;
-    exec_a_blocked_cond_signal(proceso);
-    liberar_cpu(cpu);
+    // exec_a_blocked_cond_signal(proceso);
+    // liberar_cpu(cpu);
     log_debug(logger, "Id segmento: %d, pid: %d", id_segmento, proceso->pid);
     
     t_paquete* paquete = crear_paquete(SCH_KM__MEM_FREE);
@@ -447,8 +447,17 @@ void* atender_km(void*){
                 t_list* data = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*)list_get(data, 0);
                 t_status_op status = *(t_status_op*)list_get(data, 1);
-                t_pcb* proceso = proceso_de_lista(pid, estado_blocked->sublista);
-                manejar_status_op(proceso, status);
+                t_cpu* cpu = cpu_de_pid(pid);
+                if(cpu == NULL){
+                    t_pcb* proceso = proceso_de_lista(pid, estado_exec->sublista);
+                    exec_a_ready_cond_signal(proceso);
+                    break;
+                }
+                if(status == OK){
+                    enviar_operacion(cpu->fd, SCH_CPU__FIN_SYSCALL);
+                }else{
+                    log_warning(logger, "Estado ERROR de MEM_ALLOC"); // TODO: Pasar a EXIT
+                }
                 list_destroy_and_destroy_elements(data, free);
                 break;
             }

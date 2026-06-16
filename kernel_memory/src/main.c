@@ -155,6 +155,7 @@ void* atender_cpu(void* arg){
                 t_list* p = recibir_paquete(cpu_fd);
                 recibir_pcb_actualizado(p);
                 enviar_operacion(cpu_fd, KM_CPU__PCB_GUARDADO);
+                log_info(logger, "PCB actualizado");
                 break;
             default:{
                 log_warning(logger,"atender_cpu: op desconocida, op=%d", cod_op);

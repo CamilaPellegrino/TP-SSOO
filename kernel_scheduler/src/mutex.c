@@ -1,7 +1,8 @@
 #include "mutex.h"
 void insertar_por_prioridad(t_list* l, t_pcb* p);
-void heredar_prioridad(t_pcb* d, t_pcb* w);
+void heredar_prioridad(t_pcb* d, t_pcb* w, t_list* visitados);
 void recalcular_prioridad(t_pcb* proc);
+bool ya_visitado(t_list* l, t_pcb* p);
 
 t_mutex* m_create(char* nombre){
     static int proximo_mutex_id = 0;
@@ -61,8 +62,9 @@ bool m_wait(t_mutex* mutex, t_pcb* proceso){
     proceso->mutex_esperado = mutex;
     
     insertar_por_prioridad(mutex->procesos_en_espera, proceso);
-
-    heredar_prioridad(mutex->duenio, proceso);
+    t_list* visitados = list_create();
+    heredar_prioridad(mutex->duenio, proceso, visitados);
+    list_destroy(visitados);
 
     pthread_mutex_unlock(&mutex->lock); 
     
@@ -104,15 +106,21 @@ void insertar_por_prioridad(t_list* l, t_pcb* p){
     list_add(l, p);
 }
 
-void heredar_prioridad(t_pcb* d, t_pcb* w){
-    if(w->prioridad_actual > d->prioridad_actual){
+void heredar_prioridad(t_pcb* d, t_pcb* w, t_list* visitados){
+    if(ya_visitado(visitados, d)){
+        return;
+    }
+
+    list_add(visitados, d);
+
+    if(w->prioridad_actual >= d->prioridad_actual){
         return;
     }
     cambiar_prioridad(d, w->prioridad_actual);
 
     if(d->mutex_esperado != NULL && d->mutex_esperado->duenio != NULL){
         t_mutex* m = d->mutex_esperado;
-        heredar_prioridad(m->duenio, d);
+        heredar_prioridad(m->duenio, d, visitados);
     }
 }
 
@@ -134,4 +142,14 @@ void recalcular_prioridad(t_pcb* proc){
     if(proc->prioridad_actual != prox_prior){
         cambiar_prioridad(proc, prox_prior);
     }
+}
+
+bool ya_visitado(t_list* l, t_pcb* p){
+    for(int i = 0; i<list_size(l); i++){
+        t_pcb* x = list_get(l, i);
+        if(x->pid == p->pid){
+            return true;
+        }
+    }
+    return false;
 }

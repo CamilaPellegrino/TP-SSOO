@@ -246,6 +246,8 @@ void transicion_desde_wait_sys(op_code cod_op){
             break;
         }
         case SCH_CPU__SYS_BLOQUEANTE:{
+            set_enviar_contexto_y_desalojar(true);
+            pthread_cond_signal(&cond_ejecutar);
             transicionar(LIBRE);
             break;
         }
@@ -259,6 +261,7 @@ void transicion_desde_wait_sys_y_prox_desalojo(op_code cod_op){
         case SCH_CPU__FIN_SYSCALL:{ 
             // transicionar(LIBRE);
             // enviar_confirmacion();
+            transicionar(LIBRE);
             set_enviar_contexto_y_desalojar(true);
             pthread_cond_signal(&cond_ejecutar);
             break;
@@ -361,26 +364,33 @@ void set_enviar_contexto_y_desalojar(bool x){
     pthread_mutex_unlock(&m_enviar_contexto_y_desalojar);
 }
 
+void procesar_desalojo_pendiente(t_pcb* pcb){
+    log_debug(logger, "Pedido de desalojo detectado, pasando a LIBRE");
+    enviar_pcb_actualizado_a_km(pcb);
+    v_pedido_de_desalojo = false;
+    enviar_confirmacion();
+}
+
 void esperar_a_poder_ejecutar(t_pcb* pcb){
     pthread_mutex_lock(&m_estado_cpu);
-    if(v_pedido_de_desalojo){
-        log_debug(logger, "Pedido de desalojo detectado, pasando a LIBRE");
-        v_pedido_de_desalojo = false;
-        transicionar(LIBRE);
-        enviar_confirmacion();
-    }
-    while(estado_cpu != EXEC){
+    // if(v_pedido_de_desalojo){
+    //     procesar_desalojo_pendiente(pcb);
+    //     transicionar(LIBRE);
+    // }
+    while(1){
         if(v_pedido_de_desalojo){
-            log_debug(logger, "Pedido de desalojo detectado, pasando a LIBRE");
-            v_pedido_de_desalojo = false;
+            log_debug(logger, "Consumiendo desalojo");
+            procesar_desalojo_pendiente(pcb);
             transicionar(LIBRE);
-            enviar_confirmacion();
         }
         if(get_enviar_contexto_y_desalojar()){
-            enviar_pcb_actualizado_a_km(pcb);
-            transicionar_thread_safe(LIBRE);
-            enviar_confirmacion();
+            log_debug(logger, "Consumiendo enviar contexto y desalojar");
+            procesar_desalojo_pendiente(pcb);
+            
             set_enviar_contexto_y_desalojar(false);
+        }
+        if(estado_cpu == EXEC){
+            break;
         }
     pthread_cond_wait(&cond_ejecutar, &m_estado_cpu);
     }
@@ -516,6 +526,7 @@ void enviar_pcb_actualizado_a_km(t_pcb* pcb){
     enviar_paquete_y_liberarlo(p, conexion_kernel_memory);
 
     recibir_operacion(conexion_kernel_memory);
+    log_debug(logger, "Confirmacion recibida");
 }
 
 void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p){
