@@ -114,7 +114,25 @@ void* atender_cpu(void* arg){
                 }
                 list_destroy_and_destroy_elements(lista, free);
                 break;
-            }case CPU_KM__FETCH: {
+            }case CPU_KM__PSEGMENTOS:{
+                t_list* lista = recibir_paquete(cpu_fd);
+                int pid = *(int*)list_get(lista, 0);
+                t_paquete* paquete = crear_paquete(KM_CPU__RTA_CONTEXTO);
+                t_proceso* proceso_actual = proceso_de_pid(pid);
+
+                if(proceso_actual != NULL){
+                    log_info(logger, "Enviando segmentos de proceso <%d> a cpu <%d>", pid, cpu_id);
+                    agregar_segmentos_al_paquete(proceso_actual->lista_segmentos, paquete);
+                    enviar_paquete_y_liberarlo(paquete, cpu_fd);
+                }else{
+                    log_error(logger, "Atender_cpu de id <%d>, Error: pid <%d> no encontrado", cpu_id, pid);
+                }
+                list_destroy_and_destroy_elements(lista, free);
+
+                break;
+            }
+            
+            case CPU_KM__FETCH: {
                 t_list* lista = recibir_paquete(cpu_fd);
                 int i = 0;
                 int pid = *(int*) list_get(lista, i++);
@@ -136,6 +154,7 @@ void* atender_cpu(void* arg){
             }case CPU_KM__ACTUALIZAR_PCB:
                 t_list* p = recibir_paquete(cpu_fd);
                 recibir_pcb_actualizado(p);
+                enviar_operacion(cpu_fd, KM_CPU__PCB_GUARDADO);
                 break;
             default:{
                 log_warning(logger,"atender_cpu: op desconocida, op=%d", cod_op);
