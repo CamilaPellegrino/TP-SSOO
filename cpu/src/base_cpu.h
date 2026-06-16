@@ -83,6 +83,11 @@ typedef enum{
     WAIT_MEM_ALLOC_Y_PROX_DESALOJO
 } t_estado_cpu;
 
+typedef enum{
+    PEDIR,
+    ENVIAR,
+    NADA
+}t_prox_accion;
 typedef struct {
     instrucciones tipo;
 
