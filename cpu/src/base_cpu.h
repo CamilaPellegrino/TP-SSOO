@@ -2,7 +2,7 @@
 #define BASE_CPU_H_
 
 #include <utils/utils.h>
-
+#include <math.h>
 typedef struct 
 {
     int tamanio;
@@ -44,7 +44,7 @@ typedef struct
 	int ppid;
 	int priodidad; 
 	t_registros registros;
-    t_list* lista_segmentos;
+    t_list* tabla_segmentos;
 
 } t_pcb;
 typedef struct{

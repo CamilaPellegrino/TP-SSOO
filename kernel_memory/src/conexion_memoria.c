@@ -63,7 +63,7 @@ void atender_sch_lectura(t_evt* evt){
     int base = data->base;
     int tamanio = data->tamanio;
     t_list* pedidos = pedidos_a_sticks_para_acceder_a(base, tamanio);
-    char* datos_leidos = "Si esto anda soy una crack :D";
+    char* datos_leidos = "Hola Mundo";
     t_paquete* paquete = crear_paquete(RTA_READ);
     agregar_a_paquete(paquete, &pid, sizeof(pid));
     agregar_string_a_paquete(paquete, datos_leidos);
