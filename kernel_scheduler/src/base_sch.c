@@ -213,10 +213,10 @@ void cambiar_prioridad(t_pcb* proceso, int prioridad){
         return;
     }
     if(list_size(queues_algorithms)>prioridad){
+        log_info(logger, "## <%d> Herencia de prioridad: Pasa de %d a %d", proceso->pid, proceso->prioridad_actual, prioridad);
         pthread_mutex_lock(&proceso->mutex);
         proceso->prioridad_actual = prioridad;
         pthread_mutex_unlock(&proceso->mutex);
-        log_info(logger, "## <%d> Herencia de prioridad: Pasa de %d a %d", proceso->pid, proceso->prioridad_actual, prioridad);
     }else{
         log_error(logger, "Error: Intento de pasar al proceso <%d> a una prioridad invalida (%d)", proceso->pid, prioridad);
         exit(EXIT_FAILURE);

@@ -373,10 +373,6 @@ void procesar_desalojo_pendiente(t_pcb* pcb){
 
 void esperar_a_poder_ejecutar(t_pcb* pcb){
     pthread_mutex_lock(&m_estado_cpu);
-    // if(v_pedido_de_desalojo){
-    //     procesar_desalojo_pendiente(pcb);
-    //     transicionar(LIBRE);
-    // }
     while(1){
         if(v_pedido_de_desalojo){
             log_debug(logger, "Consumiendo desalojo");
@@ -386,7 +382,6 @@ void esperar_a_poder_ejecutar(t_pcb* pcb){
         if(get_enviar_contexto_y_desalojar()){
             log_debug(logger, "Consumiendo enviar contexto y desalojar");
             procesar_desalojo_pendiente(pcb);
-            
             set_enviar_contexto_y_desalojar(false);
         }
         if(estado_cpu == EXEC){
@@ -945,6 +940,7 @@ void ejecutar_stdin(t_instruccion_decodificada* instr, t_pcb* pcb){
 void ejecutar_sleep(t_instruccion_decodificada* instruccion){
     transicionar_thread_safe(LIBRE);
     int tiempo_sleep = *(int*)list_get(instruccion->registros, 0);
+    // setear v_pedido_desalojo = false ? lo mismo en stdin stdout
     log_debug(logger, "Ejecutando SLEEP %d", tiempo_sleep);
     t_paquete* paquete = crear_paquete(CPU_SCH__SLEEP);
     agregar_a_paquete(paquete, &tiempo_sleep, sizeof(tiempo_sleep));
@@ -1030,9 +1026,6 @@ uint32_t leer_registro(especificacion_registro* reg){
 }
 
 // ======== MMU ========
-
-
-//////////////////////////////FUNCIOES NIKI ////////////////////////////////////////////////////////
 int mmu(t_pcb* pcb, uint32_t dir_logica, uint32_t tamanio, bool* sf) {
     *sf = false;
     uint32_t num_seg = floor(dir_logica / seg_max_size_global);
@@ -1051,81 +1044,7 @@ int mmu(t_pcb* pcb, uint32_t dir_logica, uint32_t tamanio, bool* sf) {
     uint32_t pendientes = tamanio, offset = dir_fisica_abs;
     uint32_t buf_desp = 0, acum = 0;
     return dir_fisica_abs;
-    /*
- 
-    for (int i = 0; i < list_size(lista_sticks) && pendientes > 0; i++) {
-        t_stick* stick = list_get(lista_sticks, i);
-        if (offset >= acum + (uint32_t)stick->tamanio) { acum += stick->tamanio; continue; }
-
-        uint32_t dir_en_stick   = offset - acum;
-        uint32_t bytes_en_stick = (acum + stick->tamanio) - offset;
-        if (bytes_en_stick > pendientes) bytes_en_stick = pendientes;
-
-        t_paquete* p = crear_paquete(X_STICK__LECTURA);
-        agregar_a_paquete(p, &dir_en_stick,   sizeof(uint32_t));
-        agregar_a_paquete(p, &bytes_en_stick, sizeof(uint32_t));
-        enviar_paquete_y_liberarlo(p, stick->fd);
-
-        log_info(logger, "PID: %d - Acción: LEER - Dirección Física: %u - Valor: (%u bytes)",
-                 pcb->pid, dir_en_stick, bytes_en_stick);
-
-        recibir_operacion(stick->fd); // STICK_X__OK
-        t_list* resp = recibir_paquete(stick->fd);
-        memcpy(buffer + buf_desp, list_get(resp, 0), bytes_en_stick);
-        list_destroy_and_destroy_elements(resp, free);
-
-        offset    += bytes_en_stick;
-        buf_desp  += bytes_en_stick;
-        pendientes -= bytes_en_stick;
-        acum      += stick->tamanio;
-    }
-    return buffer;
 }
-
-void mmu_escribir(t_pcb* pcb, uint32_t dir_logica, void* datos, uint32_t tamanio, bool* sf) {
-    *sf = false;
-    uint32_t num_seg = dir_logica / seg_max_size_global;
-    uint32_t desp    = dir_logica % seg_max_size_global;
-
-    t_segmento* seg = NULL;
-    for (int i = 0; i < list_size(pcb->tabla_segmentos); i++) {
-        t_segmento* s = list_get(pcb->tabla_segmentos, i);
-        if ((uint32_t)s->id_segmento == num_seg) { seg = s; break; }
-    }
-    if (!seg || desp + tamanio > seg->limite) { *sf = true; return; }
-
-    uint32_t dir_fisica_abs = seg->base + desp;
-    uint32_t pendientes = tamanio, offset = dir_fisica_abs;
-    uint32_t buf_desp = 0, acum = 0;
-
-    for (int i = 0; i < list_size(lista_sticks) && pendientes > 0; i++) {
-        t_stick* stick = list_get(lista_sticks, i);
-        if (offset >= acum + (uint32_t)stick->tamanio) { acum += stick->tamanio; continue; }
-
-        uint32_t dir_en_stick   = offset - acum;
-        uint32_t bytes_en_stick = (acum + stick->tamanio) - offset;
-        if (bytes_en_stick > pendientes) bytes_en_stick = pendientes;
-
-        t_paquete* p = crear_paquete(X_STICK__ESCRITURA);
-        agregar_a_paquete(p, &dir_en_stick,    sizeof(uint32_t));
-        agregar_a_paquete(p, datos + buf_desp, bytes_en_stick);
-        enviar_paquete_y_liberarlo(p, stick->fd);
-
-        log_info(logger, "PID: %d - Acción: ESCRIBIR - Dirección Física: %u - Valor: (%u bytes)",
-                 pcb->pid, dir_en_stick, bytes_en_stick);
-
-        recibir_operacion(stick->fd); // STICK_X__OK
-
-        offset    += bytes_en_stick;
-        buf_desp  += bytes_en_stick;
-        pendientes -= bytes_en_stick;
-        acum      += stick->tamanio;
-    }  */
-}
-
-////////////////////////////////////////////////////////////////////////////
-
-
 
 // OTROS
 
