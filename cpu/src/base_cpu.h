@@ -2,7 +2,7 @@
 #define BASE_CPU_H_
 
 #include <utils/utils.h>
-
+#include <math.h>
 typedef struct 
 {
     int tamanio;
@@ -42,8 +42,9 @@ typedef struct
 	// identificadores del proceso
 	int pid;
 	int ppid;
-	int priodidad; // le sacamos la prioridad? solo la necesita scheduler y ya la tiene
+	int priodidad; 
 	t_registros registros;
+    t_list* tabla_segmentos;
 
 } t_pcb;
 typedef struct{
@@ -73,13 +74,33 @@ typedef enum {
     I_EXIT          // sys  no bloqueante
 } instrucciones;
 
+typedef enum{
+    LIBRE,
+    EXEC,
+    WAIT_SYS,
+    WAIT_SYS_Y_PROX_DESALOJO,
+    WAIT_MEM_ALLOC,
+    WAIT_MEM_ALLOC_Y_PROX_DESALOJO
+} t_estado_cpu;
+
+typedef enum{
+    PEDIR,
+    ENVIAR,
+    NADA
+}t_prox_accion;
 typedef struct {
     instrucciones tipo;
 
-    t_list * registros; // void*
+    t_list * registros; 
 
 } t_instruccion_decodificada;
 
+typedef struct {
+	int pid;
+    int id_segmento;
+    uint32_t base;  //dir fisica
+    uint32_t tamanio;
+} t_segmento;
 
 
 t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd);

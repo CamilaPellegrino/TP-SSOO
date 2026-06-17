@@ -1,6 +1,6 @@
 #include "main.h"
 
-int main(int argc, char* argv[]) { //KERNEL MEMORY
+int main(int argc, char* argv[]) {
     if(argc < 2){ 
         printf("Se esperaban mas parametros. Ejemplo: ./bin/kernel_memory ./kernel_memory.config");
         exit(EXIT_FAILURE);
@@ -8,15 +8,12 @@ int main(int argc, char* argv[]) { //KERNEL MEMORY
     char *ruta_config = argv[1];
 
     t_config* config = iniciar_config(ruta_config);
-
     inicializar_variables_globales(config);
 
     // testear(); // Descomentar para ejecutar TESTS
 
-    // iniciar servidor
     int kernel_memory_fd = iniciar_servidor_o_exit(puerto, logger);
 
-    // esperar clientes
     while(true){
         int *cliente_fd = esperar_cliente(kernel_memory_fd);
         
@@ -38,31 +35,33 @@ void* atender_cliente(void *arg){
             char *msg = recibir_mensaje(cliente_fd);
             sch_fd = cliente_fd;
             log_info(logger, "Me llego el scheduler, mensaje recibido: %s", msg);
-            pthread_t thread_sch= crear_hilo_o_exit(atender_scheduler, NULL, "atender_scheduler", logger);
+            pthread_t thread_sch = crear_hilo_o_exit(atender_scheduler, NULL, "atender_scheduler", logger);
             pthread_detach(thread_sch);
             free(msg);
             break;
         }case STICK_KM__CONEXION: {
-            // recibo el paquete que me mando stick en una t_list
             t_list *lista_paquete = recibir_paquete(cliente_fd);
 
-            // leo cada elemento de la t_list en el orden en que stick los agrego al paquete
             int tamanio = *(int*)list_get(lista_paquete, 0);
             char *puerto = list_get(lista_paquete, 1);
             char *ip = list_get(lista_paquete, 2);
             log_info(logger, "Me llego un stick: %d, %s, %s", tamanio, puerto, ip);
             
-            // poner al stick en la lista de sticks
             t_stick* nuevo_stick = iniciar_stick(ip, puerto, tamanio, cliente_fd);
             
+            agregar_espacio_mem_thread_safe(nuevo_stick->tamanio);
             agregar_stick(nuevo_stick);
 
             enviar_nuevo_stick_a_scheduler(nuevo_stick, sch_fd);
-            
-            list_destroy_and_destroy_elements(lista_paquete, free);            
+            log_info(logger, "## Memory Stick de %d bytes Conectada", nuevo_stick->tamanio);
+          
+            pthread_t thread_stick = crear_hilo_o_exit(atender_stick, nuevo_stick, "atender_stick", logger);
+            pthread_detach(thread_stick);
+
+            list_destroy_and_destroy_elements(lista_paquete, free);
             break;
         }case SWAP_KM__CONEXION:{
-            log_info(logger, "SWAP");
+            log_warning(logger, "Conexion SWAP no atendida");
             // atender_swap(cliente_fd);
             break;
         }case CPU_KM__CONEXION:{
@@ -98,20 +97,7 @@ void* atender_cpu(void* arg){
             break;
         }
         switch(cod_op) {
-            case KM_GET_INSTRUCTION: {
-                t_list* paquete = recibir_paquete(cpu_fd);
-                uint32_t pid = *(uint32_t*)list_get(paquete, 0);
-                uint32_t pc = *(uint32_t*)list_get(paquete, 1);
-                
-                // MOCK: Enviar instrucción genérica para que CPU avance 
-                char* instruccion = "SET AX 1"; 
-                log_info(logger, "## PID: %u - Obtener instrucción: %u - Instrucción: %s", pid, pc, instruccion);
-                
-                enviar_mensaje(instruccion, cpu_fd, HANDSHAKE);
-                list_destroy_and_destroy_elements(paquete, free);
-                break;
-            }case CPU_KM__PCONTEXTO:{
-                //tiene que recibir pid, puede mandar todo el pcb
+            case CPU_KM__PCONTEXTO:{
                 t_list *lista = recibir_paquete(cpu_fd);
                 int pid = *(int*)list_get(lista, 0);
             
@@ -121,13 +107,32 @@ void* atender_cpu(void* arg){
                 if(proceso_actual != NULL){
                     log_info(logger, "Enviando contexto de proceso <%d> a cpu <%d>", pid, cpu_id);
                     agregar_pcb_al_paquete(proceso_actual->pcb, paquete);
+                    agregar_segmentos_al_paquete(proceso_actual->lista_segmentos, paquete);
                     enviar_paquete_y_liberarlo(paquete, cpu_fd);
                 }else{
                     log_error(logger, "Atender_cpu de id <%d>, Error: pid <%d> no encontrado", cpu_id, pid);
                 }
                 list_destroy_and_destroy_elements(lista, free);
                 break;
-            }case CPU_KM__FETCH: {
+            }case CPU_KM__PSEGMENTOS:{
+                t_list* lista = recibir_paquete(cpu_fd);
+                int pid = *(int*)list_get(lista, 0);
+                t_paquete* paquete = crear_paquete(KM_CPU__RTA_CONTEXTO);
+                t_proceso* proceso_actual = proceso_de_pid(pid);
+
+                if(proceso_actual != NULL){
+                    log_info(logger, "Enviando segmentos de proceso <%d> a cpu <%d>", pid, cpu_id);
+                    agregar_segmentos_al_paquete(proceso_actual->lista_segmentos, paquete);
+                    enviar_paquete_y_liberarlo(paquete, cpu_fd);
+                }else{
+                    log_error(logger, "Atender_cpu de id <%d>, Error: pid <%d> no encontrado", cpu_id, pid);
+                }
+                list_destroy_and_destroy_elements(lista, free);
+
+                break;
+            }
+            
+            case CPU_KM__FETCH: {
                 t_list* lista = recibir_paquete(cpu_fd);
                 int i = 0;
                 int pid = *(int*) list_get(lista, i++);
@@ -144,110 +149,22 @@ void* atender_cpu(void* arg){
                     log_error(logger, "Atender_cpu de id <%d>, Error: pid <%d> no encontrado", cpu_id, pid);
                 }
                 
-                list_destroy_and_destroy_elements( lista, free);
+                list_destroy_and_destroy_elements(lista, free);
                 break;
-            }
-            case KM_WRITE:{
-                // MOCK: Responder OK sin implementar lógica real [3]
-                enviar_mensaje("OK", cpu_fd, KM_CPU__RESPUESTA);
-                log_info(logger, "Respuesta MOCK: OK");
-                break;
-            }
-            case CPU_KM__ACTUALIZAR_PCB:
+            }case CPU_KM__ACTUALIZAR_PCB:
                 t_list* p = recibir_paquete(cpu_fd);
                 recibir_pcb_actualizado(p);
+                enviar_operacion(cpu_fd, KM_CPU__PCB_GUARDADO);
+                log_info(logger, "PCB actualizado");
                 break;
             default:{
                 log_warning(logger,"atender_cpu: op desconocida, op=%d", cod_op);
             }
-
         }
     }
     close(cpu_fd);
     log_info(logger, "cerrando hilo de CPU");
     return NULL;
-}
-
-void enviar_sticks_a_cpu(int cpu_fd){
-    t_paquete* paquete = crear_paquete(KM_CPU__STICKS);
-    int cant_sticks = list_size(lista_sticks);
-    agregar_a_paquete(paquete, &cant_sticks, sizeof(int));
-    for(int i = 0; i < cant_sticks; i++){
-        t_stick* stick = list_get(lista_sticks, i);
-        agregar_stick_a_paquete(paquete, stick);
-    }
-    enviar_paquete_y_liberarlo(paquete, cpu_fd);
-}
-
-void recibir_pcb_actualizado(t_list* valores){
-    int i = 0;
-    // pcb
-    int* pid = list_get(valores, i++);
-    t_proceso* proc = proceso_de_pid(*pid);
-    t_pcb* pcb = proc->pcb;
-
-    if(proc == NULL){
-        log_error(logger, "recibir_pcb_actualizado, Error: No se encontro proceso de pid %d", *pid);
-        list_destroy_and_destroy_elements(valores, free);
-        return;
-    }
-    memcpy(&pcb->pid, pid, sizeof(pcb->pid));
-    memcpy(&pcb->ppid, list_get(valores, i++), sizeof(pcb->ppid));
-    memcpy(&pcb->prioridad, list_get(valores, i++), sizeof(pcb->prioridad));
-    // registros
-    memcpy(&pcb->pc, list_get(valores, i++), sizeof(pcb->pc));
-
-    memcpy(&pcb->ax, list_get(valores, i++), sizeof(pcb->ax));
-    memcpy(&pcb->bx, list_get(valores, i++), sizeof(pcb->bx));
-    memcpy(&pcb->cx, list_get(valores, i++), sizeof(pcb->cx));
-    memcpy(&pcb->dx, list_get(valores, i++), sizeof(pcb->dx));
-
-    memcpy(&pcb->eax, list_get(valores, i++), sizeof(pcb->eax));
-    memcpy(&pcb->ebx, list_get(valores, i++), sizeof(pcb->ebx));
-    memcpy(&pcb->ecx, list_get(valores, i++), sizeof(pcb->ecx));
-    memcpy(&pcb->edx, list_get(valores, i++), sizeof(pcb->edx));
-
-    memcpy(&pcb->si, list_get(valores, i++), sizeof(pcb->si));
-    memcpy(&pcb->di, list_get(valores, i++), sizeof(pcb->di));
-
-    list_destroy_and_destroy_elements(valores, free);
-    return;
-}
-
-void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p){
-    // datos del pcb
-    agregar_a_paquete(p, &pcb->pid, sizeof(pcb->pid));
-    agregar_a_paquete(p, &pcb->ppid, sizeof(pcb->ppid));
-    agregar_a_paquete(p, &pcb->prioridad, sizeof(pcb->prioridad));
-
-    // registros
-    agregar_a_paquete(p, &pcb->pc, sizeof(pcb->pc));
-
-    agregar_a_paquete(p, &pcb->ax, sizeof(pcb->ax));
-    agregar_a_paquete(p, &pcb->bx, sizeof(pcb->bx));
-    agregar_a_paquete(p, &pcb->cx, sizeof(pcb->cx));
-    agregar_a_paquete(p, &pcb->dx, sizeof(pcb->dx));
-
-    agregar_a_paquete(p, &pcb->eax, sizeof(pcb->eax));
-    agregar_a_paquete(p, &pcb->ebx, sizeof(pcb->ebx));
-    agregar_a_paquete(p, &pcb->ecx, sizeof(pcb->ecx));
-    agregar_a_paquete(p, &pcb->edx, sizeof(pcb->edx));
-
-    agregar_a_paquete(p, &pcb->si, sizeof(pcb->si));
-    agregar_a_paquete(p, &pcb->di, sizeof(pcb->di));
-}
-
-void atender_swap(int swap_fd){
-    while(1){
-        log_info(logger, "****Atendiendo al SWAP");
-        op_code cod_op = recibir_operacion(swap_fd);
-        if(cod_op == -1){
-            log_warning(logger, "error, se desconecto SWAP");
-            break;
-        }
-        
-    }
-    log_info(logger, "cerrando hilo de swap");
 }
 
 void* atender_scheduler(void*){
@@ -262,19 +179,40 @@ void* atender_scheduler(void*){
         switch(cod_op){
             case SCH_KM__INIT_PROC:{
                 t_list* lista_paquete = recibir_paquete(sch_fd);
-                int i = 0;
-                int pid = *(int*)list_get(lista_paquete, i++);
-                int ppid = *(int*)list_get(lista_paquete, i++);
-
-                char* ruta_instrucciones = strdup((char*)list_get(lista_paquete, i++));
-                list_destroy_and_destroy_elements(lista_paquete, free);
-
-                bool ok = guardar_nuevo_proceso(pid, ppid, ruta_instrucciones);
-                // enviar confirmacion a sch: 
-                t_paquete* paquete_conf = crear_paquete(KM_SCH__INIT_PROC_RESP);
-                agregar_a_paquete(paquete_conf, &pid, sizeof(int));
-                agregar_a_paquete(paquete_conf, &ok, sizeof(bool));
-                enviar_paquete_y_liberarlo(paquete_conf, sch_fd);
+                atender_sch_init_proc(lista_paquete);
+                break;
+            }
+            case KM_READ:{
+                t_list* data = recibir_paquete(sch_fd);
+                atender_sch_read(data);
+                break;
+            }
+            case KM_WRITE:{
+                t_list* data = recibir_paquete(sch_fd);
+                atender_sch_write(data);
+                list_destroy_and_destroy_elements(data, free);
+                break;
+            }
+            case SCH_KM__MEM_ALLOC:{
+                t_list* data = recibir_paquete(sch_fd);
+                atender_sch_mem_alloc(data);
+                list_destroy_and_destroy_elements(data, free);
+                break;
+            }
+            case SCH_KM__MEM_FREE:{
+                t_list* data = recibir_paquete(sch_fd);
+                atender_sch_mem_free(data);
+                list_destroy_and_destroy_elements(data, free);
+                break;
+            }
+            case SCH_KM__COMENZAR_COMPACTACION:{
+                log_info(logger, "Iniciando compactacion");
+                bool ok = compactar_memoria();
+                log_info(logger, "Compactacion completa");
+                imprimir_estado_mem();
+                t_paquete* paquete = crear_paquete(KM_SCH__COMPACTACION_COMPLETA);
+                agregar_a_paquete(paquete, &ok, sizeof(ok));
+                enviar_paquete_y_liberarlo(paquete, sch_fd);
                 break;
             }
             default:
@@ -284,67 +222,103 @@ void* atender_scheduler(void*){
     return NULL;
 }
 
-bool guardar_nuevo_proceso(int pid, int ppid, char* ruta){
-    t_pcb* pcb = calloc(1, sizeof(t_pcb));
-    if (pcb == NULL) {
-        return NULL;
-    }
-    pcb->pid = pid;
-    pcb->ppid = ppid;
-    t_list* instrucciones = instrucciones_de_ruta(ruta);
-    t_proceso* proceso = iniciar_proceso(pcb, instrucciones);
-    if(proceso == NULL){
-        return false;
-    }
-    list_add(lista_procesos, proceso);
-    log_info(logger, "Nuevo proceso de PID <%d> guardado", pcb->pid);
-    return true;
+void atender_sch_read(t_list* data){
+    int dir_fisica_base = *(int*) list_get(data, 0);
+    int tamanio = *(int*) list_get(data, 1);
+    int pid =*(int*)  list_get(data, 2);
+    
+    log_debug(logger, "KM_WRITE | pid=%d | dir_fisica=%d | tamanio=%d", pid, dir_fisica_base, tamanio);
+    
+    t_evt* evt_read = iniciar_evt_read(pid, dir_fisica_base, tamanio);
+
+    agregar_evt_a_stick(evt_read);
 }
 
-t_list* instrucciones_de_ruta(char* nombre_archivo){
-    char* ruta = ruta_completa(scripts_basepath, nombre_archivo);
-    FILE* archivo = fopen(ruta, "r");
-    if (archivo == NULL) {
-        return NULL;
-    }
-    t_list* lineas = list_create();
-    char* linea = NULL;
-    size_t len = 0;
-    ssize_t leidos;
+void atender_sch_write(t_list* data){
+    int i = 0;
+    int base = *(int*) list_get(data, i++);
+    int tamanio = *(int*) list_get(data, i++);
+    void* datos_escritos = list_get(data, i++);
+    int pid =*(int*) list_get(data, i++);
+    
+    log_debug(logger, "KM_WRITE | pid=%d | base=%d | tamanio=%d", pid, base, tamanio);
+    
+    imprimir_bytes(datos_escritos,tamanio);
 
-    while ((leidos = getline(&linea, &len, archivo)) != -1) {
-        if (leidos > 0 && linea[leidos - 1] == '\n') {
-            linea[leidos - 1] = '\0';
+    t_evt* evt_write = iniciar_evt_write(pid, base, tamanio, datos_escritos);
+
+    agregar_evt_a_stick(evt_write);
+}
+
+void atender_sch_init_proc(t_list* data){
+    int i = 0;
+    int pid = *(int*)list_get(data, i++);
+    int ppid = *(int*)list_get(data, i++);
+
+    char* ruta_instrucciones = (char*)list_get(data, i++);
+    bool ok = guardar_nuevo_proceso(pid, ppid, ruta_instrucciones);
+    list_destroy_and_destroy_elements(data, free);
+
+
+    t_paquete* paquete_conf = crear_paquete(KM_SCH__INIT_PROC_RESP);
+    agregar_a_paquete(paquete_conf, &pid, sizeof(int));
+    agregar_a_paquete(paquete_conf, &ppid, sizeof(int));
+    agregar_a_paquete(paquete_conf, &ok, sizeof(bool));
+    enviar_paquete_y_liberarlo(paquete_conf, sch_fd);
+
+}
+
+void atender_sch_mem_alloc(t_list* data){
+    int i = 0;
+    int pid = *(int*)list_get(data, i++);
+    int id_segmento = *(int*)list_get(data, i++);
+    int tamanio = *(int*)list_get(data, i++);
+    t_proceso* p = proceso_de_pid(pid);
+    t_status_op status = OK;
+    if(p == NULL){
+        log_debug(logger, "Proceso NULL");
+        status = ERROR;
+    }else{
+        log_info(logger, "## <%d> Atendiendo syscall MEM_ALLOC %d %d", pid, id_segmento, tamanio);
+        if(existe_segmento_de_id_de_proc_thread_safe(id_segmento, p)){
+            status = ERROR;
+        }else{
+            t_segmento* segmento = crear_segmento_thread_safe(p, id_segmento, tamanio);
+            if(segmento == NULL){
+                status = ERROR;
+                if(hay_espacio_total_thread_safe(tamanio)){
+                    log_info(logger, "## <%d> Se dispara compactación tras intentar MEM_ALLOC, tamanio libre: %d, tamanio a reservar: %d", pid, tamanio_total_libre, tamanio);
+                    enviar_operacion(sch_fd, KM_SCH__PEDIDO_COMPACTACION);
+                    return;
+                }
+            }
         }
-        list_add(lineas, strdup(linea));
     }
-    free(ruta);
-    free(linea);
-    fclose(archivo);
-    return lineas;
-}
+    t_paquete* paquete = crear_paquete(KM_SCH__RTA_MEM_ALLOC);
+    agregar_a_paquete(paquete, &pid, sizeof(pid));
+    agregar_a_paquete(paquete, &status, sizeof(status));
 
-void atender_stick(int stick_fd, int *tamanio){
-    log_info(logger, "## Memory Stick de %d bytes Conectada", *tamanio);
-
-    while(1){
-        op_code cod_op = recibir_operacion(stick_fd);
-        if(cod_op == -1){
-            log_warning(logger, "error, se desconecto stick");
-            // corrupcion de memoria
-            enviar_operacion(sch_fd, KM_SCH__BSOD);
-            exit(EXIT_FAILURE);
-            break;
-        }
-    };
-    log_info(logger, "cerrando hilo de stick");
-}
-
-void enviar_nuevo_stick_a_scheduler(t_stick* nuevo_stick, int sch_fd){
-    t_paquete* paquete = crear_paquete(KM_SCH__NUEVO_STICK);
-    agregar_string_a_paquete(paquete, nuevo_stick->ip);
-    agregar_string_a_paquete(paquete, nuevo_stick->puerto);
-    agregar_a_paquete(paquete, &(nuevo_stick->tamanio), sizeof(int));
     enviar_paquete_y_liberarlo(paquete, sch_fd);
-    log_info(logger, "Enviando stick con IP %s al SCHED por el FD %d",nuevo_stick->ip, sch_fd);
+}
+
+void atender_sch_mem_free(t_list* data){
+    int i = 0;
+    int pid = *(int*)list_get(data, i++);
+    int id_segmento = *(int*)list_get(data, i++);
+    
+    t_proceso* p = proceso_de_pid(pid);
+    t_segmento* segmento = segmento_de_id(id_segmento);
+    t_status_op status = OK;
+    if(p == NULL || segmento == NULL){
+        log_debug(logger, "Proceso o segmento no encontrados");
+        status = ERROR;
+    }else{
+        log_info(logger, "## <%d> Atendiendo syscall MEM_FREE %d", pid, id_segmento);
+        eliminar_segmento_thread_safe(segmento, p);
+    }
+    t_paquete* paquete = crear_paquete(KM_SCH__RTA_MEM_FREE);
+    agregar_a_paquete(paquete, &pid, sizeof(pid));
+    agregar_a_paquete(paquete, &status, sizeof(status));
+
+    enviar_paquete_y_liberarlo(paquete, sch_fd);
 }
