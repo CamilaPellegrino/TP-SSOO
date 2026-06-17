@@ -84,10 +84,7 @@ int main(int argc, char* argv[]) {
                 int len_a_copiar = (strlen(leido) > tam ) ? tam : strlen(leido);
                 memcpy(buffer, leido , len_a_copiar);
 
-                if(len_a_copiar < tam ){
-                    memset(buffer + len_a_copiar, '\0' , tam - len_a_copiar);
-
-                }
+                imprimir_bytes(buffer, tam);
                 
                 t_paquete* p_res = crear_paquete(IO_SCH__CONEXION);
                 agregar_a_paquete(p_res, buffer, tam);
@@ -102,7 +99,7 @@ int main(int argc, char* argv[]) {
 
             case STDOUT: {
                 char* texto = (char*)list_get(paquete_datos , 1);
-                log_info(logger, " ## PID: %u -  %s " , pid , texto );
+                log_info(logger, " ## PID: <%u> - <%s> " , pid , texto );
                 printf("%s\n" , texto);
             break;
             }
@@ -111,9 +108,6 @@ int main(int argc, char* argv[]) {
         }
 
         log_info(logger, "## PID: %u - Fin de IO" ,pid);
-
-        //Notificar al Kernel que terminamos
-        enviar_operacion(conexion_kernel_scheduler , IO_SCH__OK);
 
         list_destroy_and_destroy_elements(paquete_datos , free);
     }

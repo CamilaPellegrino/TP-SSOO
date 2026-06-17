@@ -358,6 +358,7 @@ bool get_enviar_contexto_y_desalojar(){
     pthread_mutex_unlock(&m_enviar_contexto_y_desalojar);
     return x;
 }
+
 void set_enviar_contexto_y_desalojar(bool x){
     pthread_mutex_lock(&m_enviar_contexto_y_desalojar);
     enviar_contexto_y_desalojar = x;
@@ -594,7 +595,9 @@ void ciclo_instruccion(t_pcb *pcb){
         int pc_antiguo = pcb->registros.pc;
         //execute
         bool actualizar_contexto = execute(instruccion_decodificada, pcb);
-        
+        if(instruccion_decodificada->tipo == I_MEM_ALLOC){
+            enviar_pcb_actualizado_a_km(pcb);
+        }
         if(pcb->registros.pc == pc_antiguo)
             pcb->registros.pc++;
 

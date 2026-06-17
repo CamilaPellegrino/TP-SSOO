@@ -1,6 +1,6 @@
 #include "conexion_memoria.h"
 void desconexion_por_bsod();
-void ejecutar_pedidos_lectura(t_list* pedidos, void* ret);
+void* ejecutar_pedidos_lectura(t_list* pedidos, int tamanio_total);
 void ejecutar_pedidos_escritura(t_list* pedidos, void* bytes);
 typedef void (*t_handler)(t_evt*);
 
@@ -51,6 +51,8 @@ void atender_sch_escritura(t_evt* evt){
 
     t_list* pedidos = pedidos_a_sticks_para_acceder_a(base, tamanio);
 
+    ejecutar_pedidos_escritura(pedidos, bytes);
+
     t_paquete* paquete = crear_paquete(RTA_WRITE);
     agregar_a_paquete(paquete, &pid, sizeof(pid));
     enviar_paquete_y_liberarlo(paquete, sch_fd);
@@ -63,7 +65,12 @@ void atender_sch_lectura(t_evt* evt){
     int base = data->base;
     int tamanio = data->tamanio;
     t_list* pedidos = pedidos_a_sticks_para_acceder_a(base, tamanio);
-    char* datos_leidos = "Hola Mundo";
+
+    void* datos_leidos = ejecutar_pedidos_lectura(pedidos, tamanio);
+    printf("Datos: \n");
+    imprimir_bytes(datos_leidos, tamanio);
+    char* texto = (char*) datos_leidos;
+    log_debug(logger, "Datos leidos: %s", texto);
     t_paquete* paquete = crear_paquete(RTA_READ);
     agregar_a_paquete(paquete, &pid, sizeof(pid));
     agregar_string_a_paquete(paquete, datos_leidos);
@@ -79,9 +86,7 @@ void atender_sch_mover(t_evt* evt){
     t_list* pedidos_para_leer = pedidos_a_sticks_para_acceder_a(data->base_leer, tamanio_total);
     t_list* pedidos_para_escribir = pedidos_a_sticks_para_acceder_a(data->base_escribir, tamanio_total);
 
-    void* bytes = malloc(tamanio_total);
-
-    ejecutar_pedidos_lectura(pedidos_para_leer, bytes);
+    void* bytes = ejecutar_pedidos_lectura(pedidos_para_leer, tamanio_total);
 
     ejecutar_pedidos_escritura(pedidos_para_escribir, bytes);
 
@@ -94,9 +99,11 @@ void atender_sch_mover(t_evt* evt){
     sem_post(&s_fin_mover);
 }
 
-void ejecutar_pedidos_lectura(t_list* pedidos, void* ret){
+void* ejecutar_pedidos_lectura(t_list* pedidos, int tamanio_total){
     log_debug(logger, "mandando pedidos de lectura a sticks");
     int offset = 0;
+    void* ret = calloc(tamanio_total, 1);
+
     for(int i = 0; i<list_size(pedidos); i++){
         t_data_pedido_stick* pedido = list_get(pedidos, i);
         int stick_fd = pedido->stick->fd;
@@ -114,8 +121,9 @@ void ejecutar_pedidos_lectura(t_list* pedidos, void* ret){
             exit(EXIT_FAILURE);
         }
         t_list* data = recibir_paquete(stick_fd);
-        void* bytes = list_get(data, 0);
 
+        void* bytes = list_get(data, 0);
+        imprimir_bytes(bytes, pedido->tamanio);
         memcpy((char*)ret + offset, bytes, pedido->tamanio);
 
         offset += pedido->tamanio;
@@ -123,6 +131,7 @@ void ejecutar_pedidos_lectura(t_list* pedidos, void* ret){
         list_destroy_and_destroy_elements(data, free);
     }
     log_debug(logger, "Lectura finalizada");
+    return ret;
 }
 
 void ejecutar_pedidos_escritura(t_list* pedidos, void* bytes){
@@ -148,7 +157,7 @@ void ejecutar_pedidos_escritura(t_list* pedidos, void* bytes){
 
         offset += pedido->tamanio;
     }
-    log_debug(logger, "Lectura finalizada");
+    log_debug(logger, "Escritura finalizada");
 
 }
 

@@ -174,6 +174,6 @@ t_log* iniciar_logger_log_level_string(char*, char*, char*);
 // otras
 
 pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo, t_log* logger);
-
+void imprimir_bytes(void* data, int tamanio);
 
 #endif  /* UTILS_H_ */

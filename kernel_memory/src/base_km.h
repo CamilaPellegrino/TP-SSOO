@@ -182,7 +182,6 @@ void liberar_evt(t_evt* evt);
 
 // Otros
 
-void imprimir_bytes(void* data, int tamanio);
 void imprimir_estado_mem();
 void imprimir_huecos();
 void imprimir_segmentos(); 

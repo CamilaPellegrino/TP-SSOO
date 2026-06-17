@@ -340,6 +340,16 @@ pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hil
     return hilo;
 }
 
+void imprimir_bytes(void* data, int tamanio){
+    uint8_t* bytes = (uint8_t*) data;
+        printf("Bytes: ");
+        for(int j = 0; j < tamanio; j++) {
+            printf("%02X ", bytes[j]);
+        }
+
+    printf("\n");
+}
+
 // // Definimos un tipo de puntero a función que acepte dos argumentos
 // typedef void (*t_closure_con_arg)(void*, void*);
 

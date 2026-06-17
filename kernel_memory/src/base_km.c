@@ -101,7 +101,8 @@ t_evt* iniciar_evt_write(int pid, int base, int tamanio, void* bytes){
 
     t_data_write* data = malloc(sizeof(t_data_write));
     data->base = base;
-    data->bytes = bytes;
+    data->bytes = malloc(tamanio);
+    memcpy(data->bytes, bytes, tamanio);
     data->tamanio = tamanio;
 
     evt->data = data;
@@ -330,16 +331,6 @@ void liberar_evt(t_evt* evt){
 }
 // Otros
 
-
-void imprimir_bytes(void* data, int tamanio){
-    uint8_t* bytes = (uint8_t*) data;
-        printf("Bytes: ");
-        for(int j = 0; j < tamanio; j++) {
-            printf("%02X ", bytes[j]);
-        }
-
-    printf("\n");
-}
 
 void imprimir_estado_mem(){
     imprimir_segmentos();
