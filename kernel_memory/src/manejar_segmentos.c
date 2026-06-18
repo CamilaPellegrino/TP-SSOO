@@ -151,7 +151,7 @@ bool compactar_memoria() {
         t_evt* evt = iniciar_evt_mover(s->pid, s->base, s->tamanio, prox_base);
 
         agregar_evt_a_stick(evt);
-        sem_wait(&s_fin_mover);
+        sem_wait(&evt->s_fin);
 
         liberar_evt(evt);
 

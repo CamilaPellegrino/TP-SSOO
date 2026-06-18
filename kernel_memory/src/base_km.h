@@ -60,19 +60,21 @@ typedef struct {
 	t_list* lista_segmentos;
 } t_proceso;
  
- typedef struct
+ typedef struct 
 {
 	t_tipo_evt tipo;
 	int pid;
 	void* data;
 	pthread_mutex_t mutex;
+	sem_t s_fin;
 }t_evt;
 
 typedef struct
 {
 	int base;
-	int tamanio;
+	int tamanio; 
 	int fd;
+	void* datos_leidos;
 }t_data_read;
 
 typedef struct

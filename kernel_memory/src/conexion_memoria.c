@@ -54,9 +54,7 @@ void atender_sch_escritura(t_evt* evt){
 
     ejecutar_pedidos_escritura(pedidos, bytes);
 
-    t_paquete* paquete = crear_paquete(RTA_WRITE);
-    agregar_a_paquete(paquete, &pid, sizeof(pid));
-    enviar_paquete_y_liberarlo(paquete, data->fd);
+    sem_post(&evt->s_fin);
 }
 
 void atender_sch_lectura(t_evt* evt){
@@ -72,10 +70,8 @@ void atender_sch_lectura(t_evt* evt){
     imprimir_bytes(datos_leidos, tamanio);
     char* texto = (char*) datos_leidos;
     log_debug(logger, "Datos leidos: %s", texto);
-    t_paquete* paquete = crear_paquete(RTA_READ);
-    agregar_a_paquete(paquete, &pid, sizeof(pid));
-    agregar_string_a_paquete(paquete, datos_leidos);
-    enviar_paquete_y_liberarlo(paquete, sch_fd);
+    data->datos_leidos = datos_leidos;
+    sem_post(&evt->s_fin);
 }
 
 void atender_sch_mover(t_evt* evt){
@@ -97,7 +93,7 @@ void atender_sch_mover(t_evt* evt){
     list_destroy_and_destroy_elements(pedidos_para_leer, free);
     list_destroy_and_destroy_elements(pedidos_para_escribir, free);
 
-    sem_post(&s_fin_mover);
+    sem_post(&evt->s_fin);
 }
 
 void* ejecutar_pedidos_lectura(t_list* pedidos, int tamanio_total){

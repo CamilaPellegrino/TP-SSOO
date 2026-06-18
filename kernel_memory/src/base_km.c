@@ -92,6 +92,7 @@ t_evt* iniciar_evt_read(int pid, int base, int tamanio, int fd){
 
     pthread_mutex_init(&evt->mutex, NULL);
 
+    sem_init(&evt->s_fin, 0, 0);
     return evt;
 }
 
@@ -111,6 +112,7 @@ t_evt* iniciar_evt_write(int pid, int base, int tamanio, void* bytes, int fd){
 
     data->fd = fd;
     pthread_mutex_init(&evt->mutex, NULL);
+    sem_init(&evt->s_fin, 0, 0);
 
     return evt;
 }
@@ -129,6 +131,7 @@ t_evt* iniciar_evt_mover(int pid, int base_leer, int tamanio, int base_escribir)
     evt->data = data;
     
     pthread_mutex_init(&evt->mutex, NULL);
+    sem_init(&evt->s_fin, 0, 0);
 
     return evt;
 }

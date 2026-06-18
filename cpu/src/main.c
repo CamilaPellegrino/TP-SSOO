@@ -869,8 +869,6 @@ void ejecutar_mov_out(t_instruccion_decodificada* instr, t_pcb* pcb){
     agregar_a_paquete(paquete, &pcb->pid, sizeof(pcb->pid));
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
     recibir_operacion(conexion_kernel_memory);
-    t_list* data = recibir_paquete(conexion_kernel_memory);
-    list_destroy_and_destroy_elements(data, free);
 }
 
 // syscalls: 

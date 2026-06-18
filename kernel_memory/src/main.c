@@ -181,6 +181,10 @@ void atender_cpu_mov_out(t_list* data, int cpu_fd){
     t_evt* evt_write = iniciar_evt_write(pid, base, tamanio, datos_escritos, cpu_fd);
 
     agregar_evt_a_stick(evt_write);
+
+    sem_wait(&evt_write->s_fin);
+    
+    enviar_operacion(cpu_fd, KM_CPU__RESPUESTA);
 }
 
 void* atender_scheduler(void*){
@@ -248,6 +252,16 @@ void atender_sch_read(t_list* data){
     t_evt* evt_read = iniciar_evt_read(pid, dir_fisica_base, tamanio, sch_fd);
 
     agregar_evt_a_stick(evt_read);
+
+    sem_wait(&evt_read->s_fin);
+    t_data_read* d = (t_data_read*) evt_read->data;
+    void* datos_leidos = d->datos_leidos;
+    t_paquete* paquete = crear_paquete(RTA_READ);
+    agregar_a_paquete(paquete, &pid, sizeof(pid));
+    agregar_string_a_paquete(paquete, datos_leidos);
+    enviar_paquete_y_liberarlo(paquete, sch_fd);
+
+    liberar_evt(evt_read);
 }
 
 void atender_sch_write(t_list* data){
@@ -264,6 +278,11 @@ void atender_sch_write(t_list* data){
     t_evt* evt_write = iniciar_evt_write(pid, base, tamanio, datos_escritos, sch_fd);
 
     agregar_evt_a_stick(evt_write);
+    sem_wait(&evt_write->s_fin);
+    t_paquete* paquete = crear_paquete(RTA_WRITE);
+    agregar_a_paquete(paquete, &pid, sizeof(pid));
+    enviar_paquete_y_liberarlo(paquete, sch_fd);
+
 }
 
 void atender_sch_init_proc(t_list* data){
