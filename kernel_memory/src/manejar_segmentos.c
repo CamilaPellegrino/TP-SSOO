@@ -361,3 +361,15 @@ void destruir_proceso(t_proceso* p){
     pthread_mutex_destroy(&p->mutex);
     list_destroy(p->lista_segmentos);
 }
+
+void agregar_segmentos_al_paquete(t_list* segmentos, t_paquete* p){
+    pthread_mutex_lock(&m_manejar_memoria);
+    int cantidad = list_size(segmentos);
+    agregar_a_paquete(p, &cantidad, sizeof(cantidad));
+
+    for (int i = 0; i < cantidad; i++) {
+        t_segmento* seg = list_get(segmentos, i);
+        agregar_a_paquete(p, seg, sizeof(t_segmento));
+    }
+    pthread_mutex_unlock(&m_manejar_memoria);
+}

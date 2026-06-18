@@ -96,6 +96,7 @@ void* atender_cpu(void* arg){
             log_warning(logger, "se desconecto CPU");
             break;
         }
+        log_debug(logger, "LLEGO OP de CPU=%d", cod_op);
         switch(cod_op) {
             case CPU_KM__PCONTEXTO:{
                 t_list *lista = recibir_paquete(cpu_fd);
@@ -133,22 +134,7 @@ void* atender_cpu(void* arg){
             }          
             case CPU_KM__FETCH: {
                 t_list* lista = recibir_paquete(cpu_fd);
-                int i = 0;
-                int pid = *(int*) list_get(lista, i++);
-                uint32_t pc = *(uint32_t*) list_get(lista, i++);
-                t_proceso* proceso = proceso_de_pid(pid);
-                if(proceso != NULL){
-                    log_info(logger, "FETCH recibido PID: %d PC: %u", pid, pc);
-                    char* instruccion = list_get(proceso->instrucciones, pc);
-                    t_paquete* paquete = crear_paquete(KM_CPU__INSTRUCCION);
-
-                    agregar_string_a_paquete( paquete, instruccion);
-                    enviar_paquete_y_liberarlo( paquete, cpu_fd);
-                }else{
-                    log_error(logger, "Atender_cpu de id <%d>, Error: pid <%d> no encontrado", cpu_id, pid);
-                }
-                
-                list_destroy_and_destroy_elements(lista, free);
+                atender_cpu_fetch(cpu, lista);
                 break;
             }case CPU_KM__ACTUALIZAR_PCB:{
                 t_list* p = recibir_paquete(cpu_fd);
@@ -170,6 +156,53 @@ void* atender_cpu(void* arg){
     close(cpu_fd);
     log_info(logger, "cerrando hilo de CPU");
     return NULL;
+}
+
+void atender_cpu_pcontexto(t_cpu* cpu, t_list* data){
+    int pid = *(int*)list_get(data, 0);
+
+    t_paquete* paquete = crear_paquete(KM_CPU__RTA_CONTEXTO);
+    t_proceso* proceso_actual = proceso_de_pid(pid);
+
+    if(proceso_actual != NULL){
+        pthread_mutex_lock(&proceso_actual->mutex);
+        log_info(logger, "Enviando contexto de proceso <%d> a cpu <%d>", pid, cpu->id);
+        agregar_pcb_al_paquete(proceso_actual->pcb, paquete);
+        agregar_segmentos_al_paquete(proceso_actual->lista_segmentos, paquete);
+        enviar_paquete_y_liberarlo(paquete, cpu->fd);
+        pthread_mutex_unlock(&proceso_actual->mutex);
+    }else{
+        log_error(logger, "Atender_cpu de id <%d>, Error: pid <%d> no encontrado", cpu->id, pid);
+    }
+    list_destroy_and_destroy_elements(data, free);
+
+}
+
+void atender_cpu_fetch(t_cpu* cpu, t_list* data){
+    int i = 0;
+    int pid = *(int*) list_get(data, i++);
+    uint32_t pc = *(uint32_t*) list_get(data, i++);
+
+    pthread_mutex_lock(&m_lista_procesos);
+    t_proceso* proceso = proceso_de_pid(pid);
+
+    if(proceso != NULL){
+        pthread_mutex_lock(&proceso->mutex);
+    }
+    pthread_mutex_unlock(&m_lista_procesos);
+
+    if(proceso != NULL){
+        log_info(logger, "FETCH recibido PID: %d PC: %u", pid, pc);
+        char* instruccion = list_get(proceso->instrucciones, pc);
+        t_paquete* paquete = crear_paquete(KM_CPU__INSTRUCCION);
+        agregar_string_a_paquete(paquete, instruccion);
+        pthread_mutex_unlock(&proceso->mutex);
+        enviar_paquete_y_liberarlo(paquete, cpu->fd);
+    }else{
+        log_error(logger, "Atender_cpu de id <%d>, Error: pid <%d> no encontrado", cpu->id, pid);
+    }
+
+    list_destroy_and_destroy_elements(data, free);
 }
 
 void atender_cpu_mov_out(t_list* data, int cpu_fd){
@@ -196,6 +229,7 @@ void* atender_scheduler(void*){
             // desconectar todo
             exit(EXIT_FAILURE);
         }
+        log_debug(logger, "LLEGO OP de SCH=%d", cod_op);
         switch(cod_op){
             case SCH_KM__INIT_PROC:{
                 t_list* lista_paquete = recibir_paquete(sch_fd);
@@ -240,7 +274,7 @@ void* atender_scheduler(void*){
             case SCH_KM__EXIT:{
                 t_list* data = recibir_paquete(sch_fd);
                 int pid = *(int*)list_get(data, 0);
-                log_debug(logger, "Exit de pid %d", pid);
+                log_debug(logger, "Exit de pid %d en progreso", pid);
                 pthread_mutex_lock(&m_lista_procesos);
                 t_proceso* proceso = proceso_de_pid(pid);
                 if (proceso == NULL) {
@@ -252,7 +286,7 @@ void* atender_scheduler(void*){
                 pthread_mutex_unlock(&proceso->mutex);
                 pthread_mutex_unlock(&m_lista_procesos);
                 destruir_proceso(proceso);
-
+                log_debug(logger, "Exit de pid %d completo", pid);
                 break;
             }
             default:

@@ -10,7 +10,10 @@
 
 void* atender_cliente(void *arg);
 void* atender_cpu(void* cpu);
+void atender_cpu_pcontexto(t_cpu* cpu, t_list* data);
+void atender_cpu_fetch(t_cpu* cpu, t_list* data);
 void atender_cpu_mov_out(t_list* data, int fd);
+
 void* atender_scheduler(void*);
 void atender_sch_read(t_list* data);
 void atender_sch_write(t_list* data);

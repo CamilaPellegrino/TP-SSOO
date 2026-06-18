@@ -1087,7 +1087,7 @@ void inicializar_variables(){
     pthread_cond_init(&cond_ejecutar, NULL);
     pthread_mutex_init(&m_estado_cpu, NULL);
     transicionar(LIBRE);
-    seg_max_size_global = 255;
+    seg_max_size_global = 256;
     v_pedir_segmentos = false;
     pthread_mutex_init(&m_pedir_segmentos, NULL);
     enviar_contexto_y_desalojar = false;

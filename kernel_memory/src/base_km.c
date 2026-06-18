@@ -232,13 +232,14 @@ void recibir_pcb_actualizado(t_list* valores){
     // pcb
     int* pid = list_get(valores, i++);
     t_proceso* proc = proceso_de_pid(*pid);
-    t_pcb* pcb = proc->pcb;
 
     if(proc == NULL){
         log_error(logger, "recibir_pcb_actualizado, Error: No se encontro proceso de pid %d", *pid);
         list_destroy_and_destroy_elements(valores, free);
         return;
     }
+    pthread_mutex_lock(&proc->mutex);
+    t_pcb* pcb = proc->pcb;
     memcpy(&pcb->pid, pid, sizeof(pcb->pid));
     memcpy(&pcb->ppid, list_get(valores, i++), sizeof(pcb->ppid));
     memcpy(&pcb->prioridad, list_get(valores, i++), sizeof(pcb->prioridad));
@@ -259,6 +260,7 @@ void recibir_pcb_actualizado(t_list* valores){
     memcpy(&pcb->di, list_get(valores, i++), sizeof(pcb->di));
 
     list_destroy_and_destroy_elements(valores, free);
+    pthread_mutex_unlock(&proc->mutex);
     return;
 }
 
@@ -286,15 +288,7 @@ void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p){
 
 }
 
-void agregar_segmentos_al_paquete(t_list* segmentos, t_paquete* p){
-    int cantidad = list_size(segmentos);
-    agregar_a_paquete(p, &cantidad, sizeof(cantidad));
 
-    for (int i = 0; i < cantidad; i++) {
-        t_segmento* seg = list_get(segmentos, i);
-        agregar_a_paquete(p, seg, sizeof(t_segmento));
-    }
-}
 // Manejo de rutas
 t_list* instrucciones_de_ruta(char* nombre_archivo){
     char* ruta = ruta_completa(scripts_basepath, nombre_archivo);
