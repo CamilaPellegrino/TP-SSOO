@@ -73,6 +73,9 @@ typedef enum
 	SCH_KM__INIT_PROC,
 	SCH_KM__MEM_ALLOC,
 	SCH_KM__MEM_FREE,
+	CPU_KM__MOV_OUT,
+	CPU_KM__MOV_IN,
+	CPU_KM__COPY_MEM,
 	SCH_KM__COMENZAR_COMPACTACION,
 	SWAP_KM__OK,
 	// mensajes con destino a IO

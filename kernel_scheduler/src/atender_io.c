@@ -38,7 +38,7 @@ void atender_io_stdout(t_io* io){
         pthread_mutex_unlock(&m_lista_evt_stdout);
 
         if(evt == NULL){
-            log_warning(logger, "evento stdin NULL");
+            log_warning(logger, "evento stdout NULL");
             continue;
         }
         t_pcb* proceso = evt->proceso;

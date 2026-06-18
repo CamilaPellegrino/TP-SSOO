@@ -48,6 +48,7 @@ void atender_sch_escritura(t_evt* evt){
     int tamanio = data->tamanio;
     void* bytes = data->bytes;
     imprimir_bytes(bytes, tamanio);
+    log_debug(logger, "pid: %d, base: %d, tam:%d", pid, base, tamanio);
 
     t_list* pedidos = pedidos_a_sticks_para_acceder_a(base, tamanio);
 
@@ -55,7 +56,7 @@ void atender_sch_escritura(t_evt* evt){
 
     t_paquete* paquete = crear_paquete(RTA_WRITE);
     agregar_a_paquete(paquete, &pid, sizeof(pid));
-    enviar_paquete_y_liberarlo(paquete, sch_fd);
+    enviar_paquete_y_liberarlo(paquete, data->fd);
 }
 
 void atender_sch_lectura(t_evt* evt){

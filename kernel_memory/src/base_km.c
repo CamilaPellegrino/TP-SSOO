@@ -76,7 +76,7 @@ t_io* iniciar_io(t_tipo_io tipo, int io_fd){
 	return nueva_io;
 }
 
-t_evt* iniciar_evt_read(int pid, int base, int tamanio){
+t_evt* iniciar_evt_read(int pid, int base, int tamanio, int fd){
     t_evt* evt = malloc(sizeof(t_evt));
 
     evt->tipo = SCH_LECTURA;
@@ -88,12 +88,14 @@ t_evt* iniciar_evt_read(int pid, int base, int tamanio){
 
     evt->data = data;
 
+    data->fd = fd;
+
     pthread_mutex_init(&evt->mutex, NULL);
 
     return evt;
 }
 
-t_evt* iniciar_evt_write(int pid, int base, int tamanio, void* bytes){
+t_evt* iniciar_evt_write(int pid, int base, int tamanio, void* bytes, int fd){
     t_evt* evt = malloc(sizeof(t_evt));
 
     evt->tipo = SCH_ESCRITURA;
@@ -107,6 +109,7 @@ t_evt* iniciar_evt_write(int pid, int base, int tamanio, void* bytes){
 
     evt->data = data;
 
+    data->fd = fd;
     pthread_mutex_init(&evt->mutex, NULL);
 
     return evt;

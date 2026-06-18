@@ -72,6 +72,7 @@ typedef struct
 {
 	int base;
 	int tamanio;
+	int fd;
 }t_data_read;
 
 typedef struct
@@ -79,6 +80,7 @@ typedef struct
 	int base;
 	int tamanio;
 	void* bytes;
+	int fd;
 }t_data_write;
 
 typedef struct
@@ -152,8 +154,8 @@ t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd);
 void destruir_stick(t_stick* stick);
 t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
-t_evt* iniciar_evt_read(int pid, int base, int tamanio);
-t_evt* iniciar_evt_write(int pid, int base, int tamanio, void* bytes);
+t_evt* iniciar_evt_read(int pid, int base, int tamanio,  int fd);
+t_evt* iniciar_evt_write(int pid, int base, int tamanio, void* bytes, int fd);
 t_evt* iniciar_evt_mover(int pid, int base_leer, int tamanio, int base_escribir);
 
 // ...

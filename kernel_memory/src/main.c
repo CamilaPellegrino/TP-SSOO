@@ -130,8 +130,7 @@ void* atender_cpu(void* arg){
                 list_destroy_and_destroy_elements(lista, free);
 
                 break;
-            }
-            
+            }          
             case CPU_KM__FETCH: {
                 t_list* lista = recibir_paquete(cpu_fd);
                 int i = 0;
@@ -151,12 +150,18 @@ void* atender_cpu(void* arg){
                 
                 list_destroy_and_destroy_elements(lista, free);
                 break;
-            }case CPU_KM__ACTUALIZAR_PCB:
+            }case CPU_KM__ACTUALIZAR_PCB:{
                 t_list* p = recibir_paquete(cpu_fd);
                 recibir_pcb_actualizado(p);
                 enviar_operacion(cpu_fd, KM_CPU__PCB_GUARDADO);
                 log_info(logger, "PCB actualizado");
                 break;
+            }case CPU_KM__MOV_OUT:{
+                log_debug(logger, "CPU pide: MOV_OUT");
+                t_list* data = recibir_paquete(cpu_fd);
+                atender_cpu_mov_out(data, cpu_fd);
+                break;
+            }            
             default:{
                 log_warning(logger,"atender_cpu: op desconocida, op=%d", cod_op);
             }
@@ -165,6 +170,17 @@ void* atender_cpu(void* arg){
     close(cpu_fd);
     log_info(logger, "cerrando hilo de CPU");
     return NULL;
+}
+
+void atender_cpu_mov_out(t_list* data, int cpu_fd){
+    int i = 0;
+    int base = *(int*)list_get(data, i++);
+    int tamanio = 1;
+    void* datos_escritos = list_get(data, i++);
+    int pid = *(int*)list_get(data, i++);
+    t_evt* evt_write = iniciar_evt_write(pid, base, tamanio, datos_escritos, cpu_fd);
+
+    agregar_evt_a_stick(evt_write);
 }
 
 void* atender_scheduler(void*){
@@ -229,7 +245,7 @@ void atender_sch_read(t_list* data){
     
     log_debug(logger, "KM_WRITE | pid=%d | dir_fisica=%d | tamanio=%d", pid, dir_fisica_base, tamanio);
     
-    t_evt* evt_read = iniciar_evt_read(pid, dir_fisica_base, tamanio);
+    t_evt* evt_read = iniciar_evt_read(pid, dir_fisica_base, tamanio, sch_fd);
 
     agregar_evt_a_stick(evt_read);
 }
@@ -245,7 +261,7 @@ void atender_sch_write(t_list* data){
     
     imprimir_bytes(datos_escritos,tamanio);
 
-    t_evt* evt_write = iniciar_evt_write(pid, base, tamanio, datos_escritos);
+    t_evt* evt_write = iniciar_evt_write(pid, base, tamanio, datos_escritos, sch_fd);
 
     agregar_evt_a_stick(evt_write);
 }

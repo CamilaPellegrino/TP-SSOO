@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
 
                 imprimir_bytes(buffer, tam);
                 
-                t_paquete* p_res = crear_paquete(IO_SCH__CONEXION);
+                t_paquete* p_res = crear_paquete(IO_SCH__OK);
                 agregar_a_paquete(p_res, buffer, tam);
                 enviar_paquete_y_liberarlo(p_res ,conexion_kernel_scheduler);
 
@@ -101,6 +101,7 @@ int main(int argc, char* argv[]) {
                 char* texto = (char*)list_get(paquete_datos , 1);
                 log_info(logger, " ## PID: <%u> - <%s> " , pid , texto );
                 printf("%s\n" , texto);
+                enviar_operacion(conexion_kernel_scheduler, IO_SCH__OK);
             break;
             }
             default:
