@@ -37,6 +37,7 @@ t_proceso* iniciar_proceso(t_pcb* pcb, t_list* instrucciones){
     proceso->pcb = pcb;
     proceso->instrucciones = instrucciones;
     proceso->lista_segmentos = list_create();
+    pthread_mutex_init(&proceso->mutex, NULL);
     return proceso;
 }
 
@@ -57,6 +58,9 @@ t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd){
 void destruir_stick(t_stick* stick){
 	free(stick);
 }
+
+
+
 
 t_cpu* iniciar_cpu(int id, int fd){
 	t_cpu* nuevo_cpu = malloc(sizeof(t_stick));
@@ -116,7 +120,6 @@ t_evt* iniciar_evt_write(int pid, int base, int tamanio, void* bytes, int fd){
 
     return evt;
 }
-
 
 t_evt* iniciar_evt_mover(int pid, int base_leer, int tamanio, int base_escribir){
     t_evt* evt = malloc(sizeof(t_evt));

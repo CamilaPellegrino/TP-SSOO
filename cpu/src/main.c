@@ -908,7 +908,10 @@ void ejecutar_init_proc(t_instruccion_decodificada* instr){
 void ejecutar_exit(t_instruccion_decodificada* instr){
     log_debug(logger, "Ejecutando EXIT");
     transicionar_thread_safe(LIBRE);
-    enviar_operacion(conexion_kernel_scheduler, CPU_SCH__EXIT);
+    t_paquete* data = crear_paquete(CPU_SCH__EXIT);
+    t_status_op status = OK;
+    agregar_a_paquete(data, &status, sizeof(status));
+    enviar_paquete_y_liberarlo(data, conexion_kernel_scheduler);
 }
 
 void ejecutar_m_unlock(t_instruccion_decodificada* instr){

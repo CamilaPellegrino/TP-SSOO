@@ -9,4 +9,6 @@ bool hay_espacio_total_thread_safe(uint32_t tamanio);
 bool compactar_memoria();
 void agregar_espacio_mem_thread_safe(int bytes);
 bool existe_segmento_de_id_de_proc_thread_safe(int id, t_proceso* p);
+
+void destruir_proceso(t_proceso* p);
 #endif /* MANEJAR_SEGMENTOS_H_ */

@@ -160,6 +160,7 @@ t_pcb* iniciar_pcb(int pid, int ppid, int prioridad, t_tipo_estado estado){
         nuevo_pcb->estado = estado;   
         nuevo_pcb->data_cond.cond_val = false;
         nuevo_pcb->mutex_esperado = NULL;
+        nuevo_pcb->status = OK;
         pthread_mutex_init(&nuevo_pcb->data_cond.mutex_cond, NULL);
         pthread_cond_init(&nuevo_pcb->data_cond.cond, NULL);
 
@@ -214,14 +215,29 @@ void cambiar_prioridad(t_pcb* proceso, int prioridad){
     }
     if(list_size(queues_algorithms)>prioridad){
         log_info(logger, "## <%d> Herencia de prioridad: Pasa de %d a %d", proceso->pid, proceso->prioridad_actual, prioridad);
+        pthread_mutex_lock(&m_transicionar);
         pthread_mutex_lock(&proceso->mutex);
         proceso->prioridad_actual = prioridad;
+        if(proceso->estado == LISTO){
+            bool eliminado = eliminar_de_ready(proceso);
+            if(eliminado){
+                agregar_a_ready(proceso);
+            }
+        }
         pthread_mutex_unlock(&proceso->mutex);
+        pthread_mutex_unlock(&m_transicionar);
     }else{
         log_error(logger, "Error: Intento de pasar al proceso <%d> a una prioridad invalida (%d)", proceso->pid, prioridad);
         exit(EXIT_FAILURE);
     }
+}
 
+void set_status(t_pcb* pcb, t_status_op status){
+    if(status != OK){
+        pthread_mutex_lock(&pcb->mutex);
+        pcb->status = status;
+        pthread_mutex_unlock(&pcb->mutex);
+    }
 }
 
 void cambiar_de_evt(t_pcb* proceso, t_evt* evt){

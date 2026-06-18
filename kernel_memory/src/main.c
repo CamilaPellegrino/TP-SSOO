@@ -230,9 +230,29 @@ void* atender_scheduler(void*){
                 bool ok = compactar_memoria();
                 log_info(logger, "Compactacion completa");
                 imprimir_estado_mem();
-                t_paquete* paquete = crear_paquete(KM_SCH__COMPACTACION_COMPLETA);
-                agregar_a_paquete(paquete, &ok, sizeof(ok));
-                enviar_paquete_y_liberarlo(paquete, sch_fd);
+                if(!ok){
+                    log_error(logger, "No se pudo compactar la memoria");
+                    exit(EXIT_FAILURE);
+                }
+                enviar_operacion(sch_fd, KM_SCH__COMPACTACION_COMPLETA);
+                break;
+            }
+            case SCH_KM__EXIT:{
+                t_list* data = recibir_paquete(sch_fd);
+                int pid = *(int*)list_get(data, 0);
+                log_debug(logger, "Exit de pid %d", pid);
+                pthread_mutex_lock(&m_lista_procesos);
+                t_proceso* proceso = proceso_de_pid(pid);
+                if (proceso == NULL) {
+                    pthread_mutex_unlock(&m_lista_procesos);
+                    break;
+                }
+                pthread_mutex_lock(&proceso->mutex);
+                list_remove_element(lista_procesos, proceso);
+                pthread_mutex_unlock(&proceso->mutex);
+                pthread_mutex_unlock(&m_lista_procesos);
+                destruir_proceso(proceso);
+
                 break;
             }
             default:
@@ -350,6 +370,7 @@ void atender_sch_mem_free(t_list* data){
     }else{
         log_info(logger, "## <%d> Atendiendo syscall MEM_FREE %d", pid, id_segmento);
         eliminar_segmento_thread_safe(segmento, p);
+        imprimir_estado_mem();
     }
     t_paquete* paquete = crear_paquete(KM_SCH__RTA_MEM_FREE);
     agregar_a_paquete(paquete, &pid, sizeof(pid));

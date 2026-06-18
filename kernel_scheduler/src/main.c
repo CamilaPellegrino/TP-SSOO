@@ -46,7 +46,7 @@ int main(int argc, char* argv[]) { // ejecucion con valgrind: valgrind --leak-ch
     log_debug(logger, "hilos de planificacion creados");
 
     // agregar el proceso de pid 0
-    t_pcb* pcb_pid_0 = nuevo_proc(0, -1, instrucciones_pid_0);
+    nuevo_proc(0, -1, instrucciones_pid_0);
     
     // esperar clientes
     while(true){
@@ -159,7 +159,7 @@ void* atender_cpu(t_cpu* cpu){
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 char* instrucciones = list_get(lista_paquete, 0);
                 int prioridad = *(int*)list_get(lista_paquete, 1);
-                t_pcb* pcb = nuevo_proc(prioridad, cpu->proceso->pid, instrucciones);
+                nuevo_proc(prioridad, cpu->proceso->pid, instrucciones);
                 list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
             }case CPU_SCH__MEM_ALLOC:{
@@ -179,9 +179,12 @@ void* atender_cpu(t_cpu* cpu){
                 break;
             }case CPU_SCH__EXIT:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <EXIT>", cpu->proceso->pid);
+                t_list* data = recibir_paquete(cpu_fd);
+                t_status_op status = *(t_status_op*)list_get(data, 0);
                 pthread_mutex_lock(&cpu->mutex);
                 t_pcb* proceso_exit = cpu->proceso;
                 pthread_mutex_unlock(&cpu->mutex);
+                set_status(proceso_exit, status);
                 liberar_cpu(cpu);
                 manejar_proceso_exit(proceso_exit);
                 break;
@@ -206,7 +209,7 @@ void atender_cpu_ejecucion_detenida(t_cpu* cpu){
     t_estado_sch e = estado_global;
     pthread_mutex_unlock(&m_estado_global);
 
-    if(!cpu->desalojando && e != COMPACTANDO){
+    if(!desalojando && e != COMPACTANDO){
         log_debug(logger, "no estaba desalojando, no hago nada");
         return;
     }
@@ -342,7 +345,7 @@ void atender_cpu_syscall_sleep(int tiempo_sleep, t_cpu* cpu){
 
 void atender_cpu_syscall_mutex_create(char* nombre_mutex, t_cpu* cpu){
     int cpu_fd = cpu->fd;
-    t_mutex* mutex = m_create(nombre_mutex);
+    m_create(nombre_mutex);
     
     log_debug(logger, "nuevo mutex agregado, tamaño lista ahora: %d", list_size(lista_mutex));
 
@@ -386,7 +389,6 @@ void* atender_km(void*){
             }
             case KM_SCH__COMPACTACION_COMPLETA:{
                 log_info(logger, "## Compactacion completa");
-                t_list* data = recibir_paquete(conexion_kernel_memory);
 
                 cambiar_estado_global(PLANIF_ACTIVA);
                 
@@ -400,9 +402,9 @@ void* atender_km(void*){
                 break;
             }
             case KM_SCH__EXIT_OK: {
-                t_list* data_pcb = recibir_paquete(conexion_kernel_memory);
-                int pid = *(int*)list_get(data_pcb, 0);
-                liberar_pcb_de_exit(pid);
+                // t_list* data_pcb = recibir_paquete(conexion_kernel_memory);
+                // int pid = *(int*)list_get(data_pcb, 0);
+                // liberar_pcb_de_exit(pid);
                 break;
             }
             case KM_SCH__INIT_PROC_RESP:{

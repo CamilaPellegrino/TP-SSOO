@@ -46,6 +46,7 @@ struct t_pcb{
 	pthread_mutex_t mutex;
 	t_mutex* mutex_esperado;
 	t_evt* evt_actual; 
+	t_status_op status;
 };
 
 typedef struct
@@ -166,6 +167,7 @@ t_evt* iniciar_evt_sleep(int tiempo_sleep, t_pcb* proceso);
 t_evt* iniciar_evt_std_in(int tamanio, int base, t_pcb* proceso);
 t_evt* iniciar_evt_std_out(char* datos_leidos, t_pcb* proceso);
 // Funciones para modificar
+void set_status(t_pcb* pcb, t_status_op status); 
 void cambiar_prioridad(t_pcb* proceso, int prioridad);
 void cambiar_de_evt(t_pcb* proceso, t_evt* evt);
 void cambiar_estado_global(t_estado_sch e);

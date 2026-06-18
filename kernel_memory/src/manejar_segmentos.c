@@ -15,13 +15,12 @@ bool segmento_adelante_de_dir(t_segmento* s, int dir);
 
 // no thread safe
 t_segmento* crear_segmento(t_proceso* proceso, uint32_t id_segmento, uint32_t tamanio){
-    printf("Antes: \n");
-    imprimir_estado_mem();
     t_hueco* hueco_disp = ubicacion_de_proximo_segmento(tamanio);
     if(hueco_disp == NULL){
-        log_error(logger, "Error en crear_segmento: No se encontró hueco disponible");
         if(tamanio_total_libre >= tamanio){
             log_debug(logger, "## Iniciando compactacion de memoria");
+        }else{
+            log_error(logger, "Error en crear_segmento: No se encontró hueco disponible");
         }
         return NULL;
     }
@@ -43,15 +42,12 @@ t_segmento* crear_segmento(t_proceso* proceso, uint32_t id_segmento, uint32_t ta
     segmento->pid = proceso->pcb->pid;
 
     agregar_segmento_a_proceso(segmento, proceso);
-    printf("Despues: \n");
     imprimir_estado_mem();
     tamanio_total_libre -= segmento->tamanio;
     return segmento;
 }
 
 bool eliminar_segmento(t_segmento* segmento, t_proceso* proceso){
-    printf("Antes: \n");
-    imprimir_estado_mem();
     if(!segmento_del_proceso(segmento, proceso)){
         return false;
     }
@@ -73,8 +69,6 @@ bool eliminar_segmento(t_segmento* segmento, t_proceso* proceso){
     tamanio_total_libre += segmento->tamanio;
     free(segmento);
     fusionar_huecos_contiguos();
-    printf("Despues: \n");
-    imprimir_estado_mem();
     return true;
 }
 
@@ -347,3 +341,23 @@ bool segmento_adelante_de_dir(t_segmento* s, int dir){
     return s->base > dir;
 }
 
+void eliminar_segmentos(t_proceso* p){
+    pthread_mutex_lock(&m_manejar_memoria);
+    pthread_mutex_lock(&p->mutex);
+
+    while(!list_is_empty(p->lista_segmentos)){
+        t_segmento* s = list_get(p->lista_segmentos, 0);
+        eliminar_segmento(s, p);
+    }
+
+    pthread_mutex_unlock(&p->mutex);
+    pthread_mutex_unlock(&m_manejar_memoria);
+}
+
+void destruir_proceso(t_proceso* p){
+    free(p->pcb);
+    list_destroy_and_destroy_elements(p->instrucciones, free);
+    eliminar_segmentos(p);
+    pthread_mutex_destroy(&p->mutex);
+    list_destroy(p->lista_segmentos);
+}

@@ -36,8 +36,7 @@ typedef struct
 	t_tipo_io tipo;
 } t_io;
 
-typedef struct
-{
+typedef struct{
 	int pid;
 	int ppid;
 	int prioridad;
@@ -58,6 +57,7 @@ typedef struct {
 	t_pcb* pcb;
 	t_list* instrucciones;
 	t_list* lista_segmentos;
+	pthread_mutex_t mutex;
 } t_proceso;
  
  typedef struct 
