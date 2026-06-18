@@ -63,17 +63,18 @@ typedef enum
 	KM_CPU__STICKS,
 	KM_CPU__PCB_GUARDADO,
 	// mensajes con destino a KM
+	KM_READ,
+	KM_WRITE,
 	CPU_KM__PCONTEXTO,
 	CPU_KM__PSEGMENTOS,
 	CPU_KM__ACTUALIZAR_PCB,
-	KM_READ,
-	KM_WRITE,
+	CPU_KM__FETCH,
 	SCH_KM__EXIT,
 	SCH_KM__INIT_PROC,
 	SCH_KM__MEM_ALLOC,
 	SCH_KM__MEM_FREE,
 	SCH_KM__COMENZAR_COMPACTACION,
-	CPU_KM__FETCH,
+	SWAP_KM__OK,
 	// mensajes con destino a IO
 	SCH_IO__SOLICITUD,
 	// mensajes con destino a SWAP
