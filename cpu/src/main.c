@@ -25,8 +25,12 @@ void* ejecutar();
 void inicializar_variables();
 void enviar_pcb_actualizado_a_km(t_pcb* pcb);
 void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p);
-void ejecutar_mov_in(t_instruccion_decodificada* instr, t_pcb* pcb);
-void ejecutar_mov_out(t_instruccion_decodificada* instr, t_pcb* pcb);
+
+void ejecutar_jnz(t_instruccion_decodificada *instruccion, t_pcb *pcb);
+void ejecutar_sub(t_instruccion_decodificada *instruccion, t_pcb *pcb);
+void ejecutar_sum(t_instruccion_decodificada *instruccion, t_pcb *pcb);
+void ejecutar_set(t_instruccion_decodificada *instruccion, t_pcb *pcb);
+
 void ejecutar_sleep(t_instruccion_decodificada* instr);
 void ejecutar_stdin(t_instruccion_decodificada* instr, t_pcb*);
 void ejecutar_stdout(t_instruccion_decodificada* instr, t_pcb*);
@@ -36,9 +40,13 @@ void ejecutar_m_unlock(t_instruccion_decodificada* instr);
 void ejecutar_exit(t_instruccion_decodificada* instr, t_pcb* pcb);
 void esperar_a_poder_ejecutar(t_pcb* pcb); 
 void ejecutar_init_proc(t_instruccion_decodificada* instr);
+void ejecutar_copy_mem(t_instruccion_decodificada* instruccion, t_pcb* pcb);
+void ejecutar_mov_in(t_instruccion_decodificada* instr, t_pcb* pcb);
+void ejecutar_mov_out(t_instruccion_decodificada* instr, t_pcb* pcb);
 void ejecutar_mem_alloc(t_instruccion_decodificada* instr);
 void ejecutar_mem_free(t_instruccion_decodificada* instr);
 
+void manejar_seg_fault(t_pcb* pcb);
 int mmu(t_pcb* pcb, uint32_t dir_logica, uint32_t tamanio);
 void iniciar_instr_exit(t_instruccion_decodificada* instr, t_status_op s, char* msg);
 
@@ -782,6 +790,13 @@ void decode(char *instruccion, t_pcb *pcb,  t_instruccion_decodificada * instruc
         int* id_segmento = malloc(sizeof(int));
         *id_segmento = (int)strtol(partes[1], NULL, 10);
         list_add(instruccion_decodificada->registros, id_segmento);
+    }
+    else if(string_equals_ignore_case(partes[0], "COPY_MEM")){
+        instruccion_decodificada->tipo = I_COPY_MEM;
+        especificacion_registro* reg_tam = obtener_registro(partes[1], pcb);
+        list_add(instruccion_decodificada->registros, reg_tam);
+        string_array_destroy(partes);
+        return;
     }else{
         iniciar_instr_exit(instruccion_decodificada, ERROR, "instruccion invalida");
     }
@@ -794,32 +809,19 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
         case I_NOOP:
             break;
         case I_SET://Asigna al registro el valor pasado como parámetro. SET ax 5
-            especificacion_registro* reg =list_get(instruccion->registros,0);
-            int *input  =list_get(instruccion->registros,1);
-            log_info(logger, "antes de set, valor: %p",reg->ptro_reg);
-            escribir_registro(reg, *input);
-            log_info(logger, "despues de set, valor: %p",reg->ptro_reg);
+            ejecutar_set(instruccion, pcb);
             break;
         case I_SUM:
-            especificacion_registro *destino = list_get(instruccion->registros,0);
-            especificacion_registro *origen = list_get(instruccion->registros,1);
-            uint32_t suma =leer_registro(destino)+leer_registro(origen);
-            escribir_registro(destino, suma);
+            ejecutar_sum(instruccion, pcb);
             break;
         case I_SUB:
-            especificacion_registro *minuendo = list_get(instruccion->registros,0);
-            especificacion_registro *sustraendo = list_get(instruccion->registros,1);
-            uint32_t resta =leer_registro(minuendo)-leer_registro(sustraendo);
-            escribir_registro(minuendo, resta);
-            log_info(logger, "hice sub");
+            ejecutar_sub(instruccion, pcb);
             break;
         case I_JNZ:
-            especificacion_registro* reg_ = list_get(instruccion->registros,0);
-            int* nuevo_pc =list_get(instruccion->registros,1);
-            log_info(logger, "pc %i", pcb->registros.pc);
-            if(leer_registro(reg_) != 0)
-                pcb->registros.pc = *nuevo_pc;
-            log_info(logger, "pc %i", pcb->registros.pc);
+            ejecutar_jnz(instruccion, pcb);
+            break;
+        case I_COPY_MEM:
+            ejecutar_copy_mem(instruccion, pcb);
             break;
         case I_MOV_OUT:{
             ejecutar_mov_out(instruccion, pcb);
@@ -829,6 +831,7 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
             ejecutar_mov_in(instruccion, pcb);
             break;
         }
+///////////////////////////syscalls//////////////////
         case I_SLEEP:
             ejecutar_sleep(instruccion);
             return true;
@@ -867,7 +870,75 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
 }
 
 // instrucciones
- 
+
+void ejecutar_set(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    especificacion_registro* reg =list_get(instruccion->registros,0);
+    int *input  =list_get(instruccion->registros,1);
+    escribir_registro(reg, *input);
+    return;
+}
+
+void ejecutar_sum(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    log_info(logger, "Ejecutando instruccion JNZ");
+    especificacion_registro *destino = list_get(instruccion->registros,0);
+    especificacion_registro *origen = list_get(instruccion->registros,1);
+    uint32_t suma =leer_registro(destino)+leer_registro(origen);
+    escribir_registro(destino, suma);
+    return;
+}
+
+void ejecutar_sub(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    log_info(logger, "Ejecutando instruccion SUB");
+    especificacion_registro *minuendo = list_get(instruccion->registros,0);
+    especificacion_registro *sustraendo = list_get(instruccion->registros,1);
+    uint32_t resta =leer_registro(minuendo)-leer_registro(sustraendo);
+    escribir_registro(minuendo, resta);
+    log_info(logger, "hice sub");
+    return;
+}
+
+void ejecutar_jnz(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    log_info(logger, "Ejecutando instruccion JNZ");
+    especificacion_registro* reg_ = list_get(instruccion->registros,0);
+    int* nuevo_pc =list_get(instruccion->registros,1);
+    log_info(logger, "pc %i", pcb->registros.pc);
+    if(leer_registro(reg_) != 0)
+        pcb->registros.pc = *nuevo_pc;
+    log_info(logger, "pc %i", pcb->registros.pc);
+    return;
+}
+
+void ejecutar_copy_mem(t_instruccion_decodificada* instruccion, t_pcb* pcb){
+    log_info(logger, "ejecutando instruccion Copy_mem");
+    especificacion_registro *reg = list_get(instruccion->registros, 0);
+    uint32_t tamanio = leer_registro(reg);
+    uint32_t origen = pcb->registros.si;
+    uint32_t destino = pcb->registros.di;
+    // bool seg_fault = false;
+    // void* buffer = mmu_leer(pcb, origen, tamanio, &seg_fault);
+    // //if(seg_fault){
+    // //    manejar_seg_fault(pcb);
+    // //    return;
+    // //}
+    // mmu_escribir(pcb, destino, buffer, tamanio, &seg_fault);
+    // //if(seg_fault){
+    // //    free(buffer);
+    // //    manejar_seg_fault(pcb);
+    // //    return;
+    // //    }
+    // free(buffer);
+    int dir_fisica_origen = mmu(pcb, origen, tamanio);
+    int dir_fisica_destino = mmu(pcb, destino, tamanio);
+    t_paquete* paquete = crear_paquete(CPU_KM__COPY_MEM);
+    agregar_a_paquete(paquete, &pcb->pid, sizeof(pcb->pid));
+    agregar_a_paquete(paquete, &dir_fisica_origen, sizeof(dir_fisica_origen));
+    agregar_a_paquete(paquete, &dir_fisica_destino, sizeof(dir_fisica_destino));
+    agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
+
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
+    recibir_operacion(conexion_kernel_memory);
+}
+
 void ejecutar_mov_in(t_instruccion_decodificada* instr, t_pcb* pcb){
     especificacion_registro* r_datos = list_get(instr->registros, 0);
     uint32_t dir_logica = pcb->registros.si;
@@ -1104,7 +1175,11 @@ int mmu(t_pcb* pcb, uint32_t dir_logica, uint32_t tamanio) {
     return dir_fisica_abs;
 }
 
-// OTROS
+// ======== OTROS ========
+
+void manejar_seg_fault(t_pcb* pcb){
+    log_debug(logger, "<%d>ERROR: seg_fault", pcb->pid);
+}
 
 void iniciar_instr_exit(t_instruccion_decodificada* instr, t_status_op s, char* msg){
     msg = msg == NULL ? "" : msg;

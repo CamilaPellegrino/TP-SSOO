@@ -152,6 +152,12 @@ void* atender_cpu(void* arg){
                 log_debug(logger, "CPU pide: MOV_IN");
                 t_list* data = recibir_paquete(cpu_fd);
                 atender_cpu_mov_in(data, cpu_fd);
+                break;
+            }case CPU_KM__COPY_MEM:{
+                log_debug(logger, "CPU pide: COPY_MEM");
+                t_list* data = recibir_paquete(cpu_fd);
+                atender_cpu_copy_mem(data, cpu_fd);
+                break;
             }default:{
                 log_warning(logger,"atender_cpu: op desconocida, op=%d", cod_op);
             }
@@ -207,6 +213,20 @@ void atender_cpu_fetch(t_cpu* cpu, t_list* data){
     }
 
     list_destroy_and_destroy_elements(data, free);
+}
+
+void atender_cpu_copy_mem(t_list* data, int cpu_fd){
+    int i = 0;
+    int pid = *(int*)list_get(data, i++);
+    int base_origen = *(int*)list_get(data, i++);
+    int base_destino = *(int*)list_get(data, i++);
+    int tamanio = *(int*)list_get(data, i++);
+    t_evt* evt_copy_mem = iniciar_evt_mover(pid, base_origen, tamanio, base_destino);
+
+    agregar_evt_a_stick(evt_copy_mem);
+
+    sem_wait(&evt_copy_mem->s_fin);
+    enviar_operacion(cpu_fd, KM_CPU__RESPUESTA);
 }
 
 void atender_cpu_mov_in(t_list* data, int cpu_fd){

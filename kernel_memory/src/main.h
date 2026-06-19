@@ -12,6 +12,7 @@ void* atender_cliente(void *arg);
 void* atender_cpu(void* cpu);
 void atender_cpu_pcontexto(t_cpu* cpu, t_list* data);
 void atender_cpu_fetch(t_cpu* cpu, t_list* data);
+void atender_cpu_copy_mem(t_list* data, int cpu_fd);
 void atender_cpu_mov_in(t_list* data, int cpu_fd);
 void atender_cpu_mov_out(t_list* data, int fd);
 
