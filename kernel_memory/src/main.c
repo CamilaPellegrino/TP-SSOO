@@ -148,8 +148,11 @@ void* atender_cpu(void* arg){
                 t_list* data = recibir_paquete(cpu_fd);
                 atender_cpu_mov_out(data, cpu_fd);
                 break;
-            }            
-            default:{
+            }case CPU_KM__MOV_IN:{
+                log_debug(logger, "CPU pide: MOV_IN");
+                t_list* data = recibir_paquete(cpu_fd);
+                atender_cpu_mov_in(data, cpu_fd);
+            }default:{
                 log_warning(logger,"atender_cpu: op desconocida, op=%d", cod_op);
             }
         }
@@ -204,6 +207,22 @@ void atender_cpu_fetch(t_cpu* cpu, t_list* data){
     }
 
     list_destroy_and_destroy_elements(data, free);
+}
+
+void atender_cpu_mov_in(t_list* data, int cpu_fd){
+    int i = 0;
+    int base = *(int*)list_get(data, i++);
+    int tamanio = 1;
+    int pid = *(int*)list_get(data, i++);
+    t_evt* evt_read = iniciar_evt_read(pid, base, tamanio, cpu_fd);
+    t_data_read* data_read = (t_data_read*)evt_read->data;
+    agregar_evt_a_stick(evt_read);
+
+    sem_wait(&evt_read->s_fin);
+
+    t_paquete* paquete = crear_paquete(KM_CPU__RESPUESTA);
+    agregar_a_paquete(paquete, data_read->datos_leidos, 1);
+    enviar_paquete_y_liberarlo(paquete, cpu_fd);
 }
 
 void atender_cpu_mov_out(t_list* data, int cpu_fd){

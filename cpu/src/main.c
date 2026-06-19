@@ -701,6 +701,13 @@ void decode(char *instruccion, t_pcb *pcb,  t_instruccion_decodificada * instruc
         string_array_destroy(partes);
         return;
     }
+    else if(string_equals_ignore_case(partes[0], "MOV_IN")){
+        instruccion_decodificada->tipo = I_MOV_IN;
+        especificacion_registro* parametro_aux = obtener_registro(partes[1], pcb);
+        list_add(instruccion_decodificada->registros, parametro_aux);
+        string_array_destroy(partes);
+        return;
+    }
     else if(string_equals_ignore_case(partes[0], "EXIT")){
         iniciar_instr_exit(instruccion_decodificada, OK, "");
         string_array_destroy(partes);
@@ -860,12 +867,24 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
 }
 
 // instrucciones
-
+ 
 void ejecutar_mov_in(t_instruccion_decodificada* instr, t_pcb* pcb){
+    especificacion_registro* r_datos = list_get(instr->registros, 0);
+    uint32_t dir_logica = pcb->registros.si;
+    int dir_fisica = mmu(pcb, dir_logica, 1);
+    t_paquete* paquete = crear_paquete(CPU_KM__MOV_IN);
+    agregar_a_paquete(paquete, &dir_fisica, sizeof(dir_fisica));
+    agregar_a_paquete(paquete, &pcb->pid, sizeof(pcb->pid));
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
+    op_code cod_op = recibir_operacion(conexion_kernel_memory);
+    t_list* data = recibir_paquete(conexion_kernel_memory);
+    uint8_t valor = *(uint8_t*)list_get(data, 0);
+    escribir_registro(r_datos, valor);
 }
+
 void ejecutar_mov_out(t_instruccion_decodificada* instr, t_pcb* pcb){
     especificacion_registro* r_datos = list_get(instr->registros, 0);
-    uint8_t datos = leer_registro(r_datos);
+    uint32_t datos = leer_registro(r_datos);
     uint32_t dir_logica = pcb->registros.di;
     int dir_fisica = mmu(pcb, dir_logica, 1);
     t_paquete* paquete =  crear_paquete(CPU_KM__MOV_OUT);
