@@ -358,8 +358,8 @@ void destruir_proceso(t_proceso* p){
     free(p->pcb);
     list_destroy_and_destroy_elements(p->instrucciones, free);
     eliminar_segmentos(p);
-    pthread_mutex_destroy(&p->mutex);
     list_destroy(p->lista_segmentos);
+    pthread_mutex_destroy(&p->mutex);
 }
 
 void agregar_segmentos_al_paquete(t_list* segmentos, t_paquete* p){

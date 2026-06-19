@@ -232,7 +232,6 @@ void recibir_pcb_actualizado(t_list* valores){
     // pcb
     int* pid = list_get(valores, i++);
     t_proceso* proc = proceso_de_pid(*pid);
-
     if(proc == NULL){
         log_error(logger, "recibir_pcb_actualizado, Error: No se encontro proceso de pid %d", *pid);
         list_destroy_and_destroy_elements(valores, free);

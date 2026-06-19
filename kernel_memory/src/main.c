@@ -137,6 +137,7 @@ void* atender_cpu(void* arg){
                 atender_cpu_fetch(cpu, lista);
                 break;
             }case CPU_KM__ACTUALIZAR_PCB:{
+                log_debug(logger, "Pedido de actualizar contexto");
                 t_list* p = recibir_paquete(cpu_fd);
                 recibir_pcb_actualizado(p);
                 enviar_operacion(cpu_fd, KM_CPU__PCB_GUARDADO);
@@ -284,8 +285,8 @@ void* atender_scheduler(void*){
                 pthread_mutex_lock(&proceso->mutex);
                 list_remove_element(lista_procesos, proceso);
                 pthread_mutex_unlock(&proceso->mutex);
-                pthread_mutex_unlock(&m_lista_procesos);
                 destruir_proceso(proceso);
+                pthread_mutex_unlock(&m_lista_procesos);
                 log_debug(logger, "Exit de pid %d completo", pid);
                 break;
             }

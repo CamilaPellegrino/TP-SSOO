@@ -25,6 +25,7 @@ void* ejecutar();
 void inicializar_variables();
 void enviar_pcb_actualizado_a_km(t_pcb* pcb);
 void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p);
+void ejecutar_mov_in(t_instruccion_decodificada* instr, t_pcb* pcb);
 void ejecutar_mov_out(t_instruccion_decodificada* instr, t_pcb* pcb);
 void ejecutar_sleep(t_instruccion_decodificada* instr);
 void ejecutar_stdin(t_instruccion_decodificada* instr, t_pcb*);
@@ -39,6 +40,7 @@ void ejecutar_mem_alloc(t_instruccion_decodificada* instr);
 void ejecutar_mem_free(t_instruccion_decodificada* instr);
 
 int mmu(t_pcb* pcb, uint32_t dir_logica, uint32_t tamanio);
+void iniciar_instr_exit(t_instruccion_decodificada* instr, t_status_op s, char* msg);
 
 // variables globales
 t_log* logger;
@@ -520,7 +522,8 @@ void enviar_pcb_actualizado_a_km(t_pcb* pcb){
 
     enviar_paquete_y_liberarlo(p, conexion_kernel_memory);
 
-    recibir_operacion(conexion_kernel_memory);
+    op_code cod_op = recibir_operacion(conexion_kernel_memory);
+    log_debug(logger, "PCB cargado en km, op=%d", cod_op);
 }
 
 void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p){
@@ -581,15 +584,18 @@ void ciclo_instruccion(t_pcb *pcb){
         //FECH
         char *instruccion = fetch(pcb);
         if(instruccion == NULL){
-        log_error(logger, "FETCH devolvio NULL");
-        return;
+            log_error(logger, "FETCH devolvio NULL");
+            t_instruccion_decodificada * i = malloc(sizeof(t_instruccion_decodificada));
+            i->registros = list_create();
+            iniciar_instr_exit(i, ERROR, "Error en FETCH");
+            ejecutar_exit(i, pcb);
+            return;
         }
         
         //DECODE
         t_instruccion_decodificada * instruccion_decodificada = malloc(sizeof(t_instruccion_decodificada));
         decode(instruccion, pcb, instruccion_decodificada);
-        log_info(logger, "pc %i", pcb->registros.pc);
-        log_info( logger, "Instruccion: %s", instruccion);
+        log_info(logger, "Instruccion: %s (pc: %i)", instruccion, pcb->registros.pc);
         int pc_antiguo = pcb->registros.pc;
         //execute
         bool actualizar_contexto = execute(instruccion_decodificada, pcb);
@@ -696,7 +702,7 @@ void decode(char *instruccion, t_pcb *pcb,  t_instruccion_decodificada * instruc
         return;
     }
     else if(string_equals_ignore_case(partes[0], "EXIT")){
-        instruccion_decodificada->tipo = I_EXIT;
+        iniciar_instr_exit(instruccion_decodificada, OK, "");
         string_array_destroy(partes);
         return;
     }
@@ -769,6 +775,8 @@ void decode(char *instruccion, t_pcb *pcb,  t_instruccion_decodificada * instruc
         int* id_segmento = malloc(sizeof(int));
         *id_segmento = (int)strtol(partes[1], NULL, 10);
         list_add(instruccion_decodificada->registros, id_segmento);
+    }else{
+        iniciar_instr_exit(instruccion_decodificada, ERROR, "instruccion invalida");
     }
     string_array_destroy(partes);
     return;
@@ -786,14 +794,12 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
             log_info(logger, "despues de set, valor: %p",reg->ptro_reg);
             break;
         case I_SUM:
-            log_info(logger, "Ejecutando instruccion JNZ");
             especificacion_registro *destino = list_get(instruccion->registros,0);
             especificacion_registro *origen = list_get(instruccion->registros,1);
             uint32_t suma =leer_registro(destino)+leer_registro(origen);
             escribir_registro(destino, suma);
             break;
         case I_SUB:
-            log_info(logger, "Ejecutando instruccion SUB");
             especificacion_registro *minuendo = list_get(instruccion->registros,0);
             especificacion_registro *sustraendo = list_get(instruccion->registros,1);
             uint32_t resta =leer_registro(minuendo)-leer_registro(sustraendo);
@@ -801,7 +807,6 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
             log_info(logger, "hice sub");
             break;
         case I_JNZ:
-            log_info(logger, "Ejecutando instruccion JNZ");
             especificacion_registro* reg_ = list_get(instruccion->registros,0);
             int* nuevo_pc =list_get(instruccion->registros,1);
             log_info(logger, "pc %i", pcb->registros.pc);
@@ -811,6 +816,10 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
             break;
         case I_MOV_OUT:{
             ejecutar_mov_out(instruccion, pcb);
+            break;
+        }
+        case I_MOV_IN:{
+            ejecutar_mov_in(instruccion, pcb);
             break;
         }
         case I_SLEEP:
@@ -852,8 +861,9 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
 
 // instrucciones
 
+void ejecutar_mov_in(t_instruccion_decodificada* instr, t_pcb* pcb){
+}
 void ejecutar_mov_out(t_instruccion_decodificada* instr, t_pcb* pcb){
-    log_info(logger, "Ejecutando instruccion MOV_OUT");
     especificacion_registro* r_datos = list_get(instr->registros, 0);
     uint8_t datos = leer_registro(r_datos);
     uint32_t dir_logica = pcb->registros.di;
@@ -898,11 +908,16 @@ void ejecutar_init_proc(t_instruccion_decodificada* instr){
 }
 
 void ejecutar_exit(t_instruccion_decodificada* instr, t_pcb* pcb){
+    t_status_op status = *(t_status_op*)list_get(instr->registros, 0);
+    char* msg = (char*)list_get(instr->registros, 1);
+    log_info(logger, "<%d> EXIT[%s] %s", pcb->pid, status_op_a_string(status), msg ? msg : "");
     transicionar_thread_safe(LIBRE);
+    log_debug(logger, "por enviar contexto");
     enviar_pcb_actualizado_a_km(pcb);
+    log_debug(logger, "contexto enviado, mandando pedido a scheduler");
     t_paquete* data = crear_paquete(CPU_SCH__EXIT);
-    t_status_op status = OK;
     agregar_a_paquete(data, &status, sizeof(status));
+    agregar_string_a_paquete(data, msg ? msg : "");
     enviar_paquete_y_liberarlo(data, conexion_kernel_scheduler);
 }
 
@@ -1071,6 +1086,15 @@ int mmu(t_pcb* pcb, uint32_t dir_logica, uint32_t tamanio) {
 }
 
 // OTROS
+
+void iniciar_instr_exit(t_instruccion_decodificada* instr, t_status_op s, char* msg){
+    msg = msg == NULL ? "" : msg;
+    instr->tipo = I_EXIT;
+    t_status_op* status = malloc(sizeof(t_status_op)); 
+    *status = s;
+    list_add(instr->registros, status);
+    list_add(instr->registros, strdup(msg));
+}
 
 void inicializar_variables(){
     v_pedido_de_desalojo = false;

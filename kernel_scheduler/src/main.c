@@ -178,9 +178,10 @@ void* atender_cpu(t_cpu* cpu){
                 list_destroy_and_destroy_elements(data, free);
                 break;
             }case CPU_SCH__EXIT:{
-                log_info(logger, "## (<%d>) - Solicito syscall: <EXIT>", cpu->proceso->pid);
                 t_list* data = recibir_paquete(cpu_fd);
                 t_status_op status = *(t_status_op*)list_get(data, 0);
+                char* msg = list_get(data, 1);
+                log_info(logger, "## (<%d>) - Solicito syscall: <EXIT>[%s] %s", cpu->proceso->pid, status_op_a_string(status), msg);
                 pthread_mutex_lock(&cpu->mutex);
                 t_pcb* proceso_exit = cpu->proceso;
                 pthread_mutex_unlock(&cpu->mutex);

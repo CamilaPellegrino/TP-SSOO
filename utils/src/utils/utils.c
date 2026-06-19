@@ -329,6 +329,11 @@ t_log* iniciar_logger(char* ruta, char* process_name, t_log_level log_level)
 }
 
 // otras
+
+char* status_op_a_string(t_status_op s){
+	return s == OK ? "OK" : "ERROR";
+}
+
 pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo, t_log* logger){
     pthread_t hilo;
     int resultado = pthread_create(&hilo, NULL, funcion, arg);
