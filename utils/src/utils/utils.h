@@ -42,6 +42,7 @@ typedef enum
 	CPU_SCH__EJECUCION_DETENIDA,
 	CPU_SCH__MEM_ALLOC,
 	CPU_SCH__MEM_FREE,
+	CPU_KM__PSEGMENTOS,
 	IO_SCH__OK,
 	IO_SCH__ERROR,
 	// mensajes con destino a CPU

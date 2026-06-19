@@ -544,7 +544,62 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
 }
 
 
-
+////void pedir_contexto(int pid, t_pcb* pcb){
+//    t_paquete *paquete = crear_paquete(CPU_KM__PCONTEXTO);
+//    agregar_a_paquete(paquete, &pid, sizeof(int));
+//    enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
+//    
+//    op_code cod_op = recibir_operacion(conexion_kernel_memory);
+//
+//    if(cod_op != KM_CPU__RTA_CONTEXTO) {
+//        printf("ERROR CONTEXTO\n");
+//        exit(EXIT_FAILURE);
+//    }
+//    log_debug(logger, "recibiendo pcb");
+//    t_list* lista_contexto = recibir_paquete(conexion_kernel_memory);
+//
+//    int i = 0;
+//    pcb->pid = *(int*) list_get(lista_contexto, i++);
+//    pcb->ppid = *(int*)list_get(lista_contexto, i++);
+//    pcb->priodidad = *(int*)list_get(lista_contexto, i++);
+//
+//    pcb->registros.pc = *(uint32_t*) list_get(lista_contexto, i++);
+//
+//    pcb->registros.ax = *(uint8_t*) list_get(lista_contexto, i++);
+//    pcb->registros.bx = *(uint8_t*) list_get(lista_contexto, i++);
+//    pcb->registros.cx = *(uint8_t*) list_get(lista_contexto, i++);
+//    pcb->registros.dx = *(uint8_t*) list_get(lista_contexto, i++);
+//
+//    pcb->registros.eax = *(uint32_t*) list_get(lista_contexto, i++);
+//    pcb->registros.ebx = *(uint32_t*) list_get(lista_contexto, i++);
+//    pcb->registros.ecx = *(uint32_t*) list_get(lista_contexto, i++);
+//    pcb->registros.edx = *(uint32_t*) list_get(lista_contexto, i++);
+//
+//    pcb->registros.si = *(uint32_t*) list_get(lista_contexto, i++);
+//    pcb->registros.di = *(uint32_t*) list_get(lista_contexto, i++);
+//
+//    log_debug(logger, "ya cargue el nuevo pcb");
+//
+//    ///////////////////////niki//////////////////////////////////////
+//    //limpiar tabla anterior
+//    pcb->tabla_segmentos = list_create();
+//    //cargar nueva tabla
+//    int cant_segs =  *(int*) list_get(lista_contexto, i++);
+//    log_info(logger, "590");
+//    for(int s=0 ; s < cant_segs ; s++){
+//        t_segmento* seg = malloc(sizeof(t_segmento));
+//        log_info(logger,"593");
+//        seg->id_segmento  = *(int*)      list_get(lista_contexto, i++);
+//        seg->base         = *(uint32_t*) list_get(lista_contexto, i++);
+//        seg->limite       = *(uint32_t*) list_get(lista_contexto, i++);
+//        list_add(pcb->tabla_segmentos, seg);
+//    }
+//    log_info(logger, "br");
+//    ///////////////////////////////////////////////////////////////////
+//    list_destroy_and_destroy_elements(pcb -> tabla_segmentos, free);
+//    list_destroy_and_destroy_elements(lista_contexto, free);
+//
+//}
 void pedir_contexto(int pid, t_pcb* pcb){
     t_paquete *paquete = crear_paquete(CPU_KM__PCONTEXTO);
     agregar_a_paquete(paquete, &pid, sizeof(int));
@@ -578,27 +633,43 @@ void pedir_contexto(int pid, t_pcb* pcb){
 
     pcb->registros.si = *(uint32_t*) list_get(lista_contexto, i++);
     pcb->registros.di = *(uint32_t*) list_get(lista_contexto, i++);
+    
+    int cantidad_segmentos = *(int*) list_get(lista_contexto, i++);
 
-    log_debug(logger, "ya cargue el nuevo pcb");
-
-    ///////////////////////niki//////////////////////////////////////
-    //limpiar tabla anterior
-    list_destroy_and_destroy_elements(pcb -> tabla_segmentos, free);
-    pcb -> tabla_segmentos = list_create();
-
-    //cargar nueva tabla
-    int cant_segs =  *(int*) list_get(lista_contexto, i++);
-    for(int s=0 ; s < cant_segs ; s++){
-        t_segmento* seg = malloc(sizeof(t_segmento));
-        seg->id_segmento  = *(int*)      list_get(lista_contexto, i++);
-        seg->base         = *(uint32_t*) list_get(lista_contexto, i++);
-        seg->limite       = *(uint32_t*) list_get(lista_contexto, i++);
-        list_add(pcb->tabla_segmentos, seg);
+    list_clean_and_destroy_elements(pcb->tabla_segmentos, free);
+    for(int j = 0; j < cantidad_segmentos; j++) {
+        t_segmento* seg_recibido = malloc(sizeof(t_segmento));
+        memcpy(seg_recibido, list_get(lista_contexto, i++), sizeof(t_segmento));
+        log_debug(logger, "Recibiendo segmento de id: %d", seg_recibido->id_segmento);
+        list_add(pcb->tabla_segmentos, seg_recibido);
     }
-    ///////////////////////////////////////////////////////////////////
+    
     list_destroy_and_destroy_elements(lista_contexto, free);
-
 }
+void pedir_segmentos(int pid, t_pcb* pcb){
+    t_paquete *paquete = crear_paquete(CPU_KM__PSEGMENTOS);
+    agregar_a_paquete(paquete, &pid, sizeof(int));
+    enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
+    op_code cod_op = recibir_operacion(conexion_kernel_memory);
+
+    if(cod_op != KM_CPU__RTA_CONTEXTO) {
+        printf("ERROR CONTEXTO\n");
+        exit(EXIT_FAILURE);
+    }
+    t_list* lista_contexto = recibir_paquete(conexion_kernel_memory);
+    int i = 0;
+    int cantidad_segmentos = *(int*) list_get(lista_contexto,i++);
+
+    list_clean_and_destroy_elements(pcb->tabla_segmentos, free);
+    for(int j = 0; j < cantidad_segmentos; j++) {
+        t_segmento* seg_recibido = malloc(sizeof(t_segmento));
+        memcpy(seg_recibido, list_get(lista_contexto, i++), sizeof(t_segmento));
+        log_debug(logger, "Recibiendo segmento de id: %d", seg_recibido->id_segmento);
+        list_add(pcb->tabla_segmentos, seg_recibido);
+    }
+    list_destroy_and_destroy_elements(lista_contexto, free);
+}
+
 
 void enviar_pcb_actualizado_a_km(t_pcb* pcb){
     t_paquete* p = crear_paquete(CPU_KM__ACTUALIZAR_PCB);
