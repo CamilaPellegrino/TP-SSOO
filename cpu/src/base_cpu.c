@@ -108,6 +108,12 @@ void escribir_registro(especificacion_registro *reg, int valor){
     return;
 }
 
+
+//void * leerRegistro(especificacion_registro* reg){
+//    if(reg->tamanio ==sizeof(uint8_t))
+//        return*(uint8_t*)reg->ptro_reg;
+//    return*(uint32_t*)reg->ptro_reg;
+//}
 uint32_t leer_registro(especificacion_registro* reg){
     if(reg->tamanio ==sizeof(uint8_t))
         return*(uint8_t*)reg->ptro_reg;

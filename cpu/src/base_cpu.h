@@ -2,7 +2,7 @@
 #define BASE_CPU_H_
 
 #include <utils/utils.h>
-
+#include <math.h>
 typedef struct 
 {
     int tamanio;
@@ -42,18 +42,11 @@ typedef struct
 	// identificadores del proceso
 	int pid;
 	int ppid;
-	int priodidad; // le sacamos la prioridad? solo la necesita scheduler y ya la tiene
+	int priodidad; 
 	t_registros registros;
     t_list* tabla_segmentos;
+
 } t_pcb;
-
-typedef struct
-{
-	int id_segmento;
-	uint32_t base;
-    uint32_t limite;
-} t_segmento; //niki
-
 typedef struct{
 	void *ptro_reg;
 	int tamanio;
@@ -81,34 +74,39 @@ typedef enum {
     I_EXIT          // sys  no bloqueante
 } instrucciones;
 
+typedef enum{
+    LIBRE,
+    EXEC,
+    WAIT_SYS,
+    WAIT_SYS_Y_PROX_DESALOJO,
+    WAIT_MEM_ALLOC,
+    WAIT_MEM_ALLOC_Y_PROX_DESALOJO
+} t_estado_cpu;
+
+typedef enum{
+    PEDIR,
+    ENVIAR,
+    NADA
+}t_prox_accion;
 typedef struct {
     instrucciones tipo;
 
-    t_list * registros; // void*
+    t_list * registros; 
 
 } t_instruccion_decodificada;
 
+typedef struct {
+	int pid;
+    int id_segmento;
+    uint32_t base;  //dir fisica
+    uint32_t tamanio;
+} t_segmento;
 
-
-typedef enum{
-    SYSCALL_SLEEP,
-    SYSCALL_STDOUT,
-    SYSCALL_STDIN,
-    SYSCALL_EXIT,
-    SYSCALL_MUTEX_LOCK,
-    SYSCALL_MUTEX_UNLOCK,
-    SYSCALL_MUTEX_CREATE,
-    SYSCALL_MEM_ALLOC,
-    SYSCALL_MEM_FREE,
-    SYSCALL_INIT_PROC
-} t_syscall;
 
 t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd);
 void destruir_stick(t_stick* stick);
 t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
-
-////////////////////
 
 
 especificacion_registro * obtener_registro(char* registro_crudo, t_pcb *pcb);

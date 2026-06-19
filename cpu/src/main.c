@@ -5,7 +5,7 @@
 
 void mmu_escribir(t_pcb* pcb, uint32_t dir_logica, void* datos, uint32_t tamanio, bool* sf);
 void* mmu_leer(t_pcb* pcb, uint32_t dir_logica, uint32_t tamanio, bool* seg_fault);
-
+int mmu(t_pcb* pcb, uint32_t dir_logica, uint32_t tamanio);
 void conectarse_a_stick(char* ip, char* puerto, uint32_t tamanio);
 void recibir_sticks_de_km();
 void* ejecutar();
@@ -55,8 +55,8 @@ void ejecutar_set(t_instruccion_decodificada *instruccion, t_pcb *pcb);
 void ejecutar_sum(t_instruccion_decodificada *instruccion, t_pcb *pcb);
 void ejecutar_sub(t_instruccion_decodificada *instruccion, t_pcb *pcb);
 void ejecutar_jnz(t_instruccion_decodificada *instruccion, t_pcb *pcb);
-void ejecutar_mem_alloc(t_instruccion_decodificada *instruccion, t_pcb *pcb);
-void ejecutar_mem_free(t_instruccion_decodificada *instruccion, t_pcb *pcb);
+void ejecutar_mem_alloc(t_instruccion_decodificada *instruccion);
+void ejecutar_mem_free(t_instruccion_decodificada *instruccion);
 
 /////////////Funciones niki//////////////////////
 uint32_t seg_max_size_global = 265; // 
@@ -261,6 +261,7 @@ void* ejecutar(){
 
 void ciclo_instruccion(t_pcb *pcb){
         //FECH
+    while(1){    
         char *instruccion = fetch(pcb);
         if(instruccion == NULL){
         log_error(logger, "FETCH devolvio NULL");
@@ -286,6 +287,7 @@ void ciclo_instruccion(t_pcb *pcb){
         list_destroy_and_destroy_elements(instruccion_decodificada->registros, free);
         free(instruccion_decodificada);
         free(instruccion);
+    }
 }
 
 char* fetch(t_pcb *pcb){
@@ -516,11 +518,11 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
             return true;
             break;
         case I_MEM_ALLOC:
-            ejecutar_mem_alloc(instruccion, pcb);
+            ejecutar_mem_alloc(instruccion);
             return true;
             break;
         case I_MEM_FREE:
-            ejecutar_mem_free(instruccion, pcb);
+            ejecutar_mem_free(instruccion);
             return true;
             break;
         case I_STDIN:
@@ -618,7 +620,7 @@ void pedir_contexto(int pid, t_pcb* pcb){
     pcb->pid = *(int*) list_get(lista_contexto, i++);
     pcb->ppid = *(int*)list_get(lista_contexto, i++);
     pcb->priodidad = *(int*)list_get(lista_contexto, i++);
-
+    
     pcb->registros.pc = *(uint32_t*) list_get(lista_contexto, i++);
 
     pcb->registros.ax = *(uint8_t*) list_get(lista_contexto, i++);
@@ -633,17 +635,18 @@ void pedir_contexto(int pid, t_pcb* pcb){
 
     pcb->registros.si = *(uint32_t*) list_get(lista_contexto, i++);
     pcb->registros.di = *(uint32_t*) list_get(lista_contexto, i++);
-    
-    int cantidad_segmentos = *(int*) list_get(lista_contexto, i++);
 
-    list_clean_and_destroy_elements(pcb->tabla_segmentos, free);
-    for(int j = 0; j < cantidad_segmentos; j++) {
-        t_segmento* seg_recibido = malloc(sizeof(t_segmento));
-        memcpy(seg_recibido, list_get(lista_contexto, i++), sizeof(t_segmento));
-        log_debug(logger, "Recibiendo segmento de id: %d", seg_recibido->id_segmento);
-        list_add(pcb->tabla_segmentos, seg_recibido);
-    }
-    
+
+   // int cantidad_segmentos = *(int*) list_get(lista_contexto, i++);
+//
+   // list_clean_and_destroy_elements(pcb->tabla_segmentos, free);
+   // for(int j = 0; j < cantidad_segmentos; j++) {
+   //     t_segmento* seg_recibido = malloc(sizeof(t_segmento));
+   //     memcpy(seg_recibido, list_get(lista_contexto, i++), sizeof(t_segmento));
+   //     log_debug(logger, "Recibiendo segmento de id: %d", seg_recibido->id_segmento);
+   //     list_add(pcb->tabla_segmentos, seg_recibido);
+   // }
+   // 
     list_destroy_and_destroy_elements(lista_contexto, free);
 }
 void pedir_segmentos(int pid, t_pcb* pcb){
@@ -761,60 +764,80 @@ void ejecutar_copy_mem(t_instruccion_decodificada* instruccion, t_pcb* pcb){
     uint32_t destino = pcb->registros.di;
     bool seg_fault = false;
     void* buffer = mmu_leer(pcb, origen, tamanio, &seg_fault);
-    //if(seg_fault){
-    //    manejar_seg_fault(pcb);
-    //    return;
-    //}
+
     mmu_escribir(pcb, destino, buffer, tamanio, &seg_fault);
-    //if(seg_fault){
-    //    free(buffer);
-    //    manejar_seg_fault(pcb);
-    //    return;
-    //    }
     free(buffer);
 }
 
 void ejecutar_mov_in(t_instruccion_decodificada *instruccion, t_pcb *pcb){
     especificacion_registro *reg = list_get(instruccion->registros,0);
     u_int32_t dir_logica = pcb->registros.si;
-    bool sf = false;
     uint32_t tamanio = reg->tamanio;
-    int *buffer = mmu_leer(pcb, dir_logica, tamanio, &sf);
-    
-    escribir_registro(reg, *buffer);
-    free(buffer);
+    bool sf = false;
+    log_info(logger, "777");
+    void *buffer = mmu_leer(pcb, dir_logica, tamanio, &sf);
+    //int dir_fisica = mmu(pcb, dir_logica, tamanio);
+    uint32_t valor = 0;
+    memcpy(&valor, buffer, tamanio);
+    log_info(logger, 782);
+    escribir_registro(reg, valor);
+    return;
 }
 
 void ejecutar_mov_out(t_instruccion_decodificada *instruccion, t_pcb *pcb){
     especificacion_registro *reg = list_get(instruccion->registros,0);
-    uint32_t valor = leer_registro(reg);
-    u_int32_t dir_logica = pcb->registros.si;
-    bool sf = false;
+    void* valor = leer_registro(reg);
+    u_int32_t dir_logica = pcb->registros.di;
     uint32_t tamanio = reg->tamanio;
+    //int dir_fisica = mmu(pcb, dir_logica, tamanio);
+    bool sf = false;
     mmu_escribir(pcb, dir_logica, valor, tamanio, &sf);
-    
+    return;   
 }
 
 // syscalls a sch: 
-
-void ejecutar_mem_alloc(t_instruccion_decodificada *instruccion, t_pcb *pcb){
-    int* id_segmento = list_get(instruccion->registros, 0);
-    int* tamanio = list_get(instruccion->registros, 1);
-    t_paquete* paquete = crear_paquete(CPU_SCH__MEM_ALLOC);
-    agregar_a_paquete(paquete, &(pcb->pid), sizeof(int));
-    agregar_a_paquete(paquete, id_segmento, sizeof(int));
-    agregar_a_paquete(paquete, tamanio, sizeof(int));
-    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+//void ejecutar_mem_alloc(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+//    int* id_segmento = list_get(instruccion->registros, 0);
+//    int* tamanio = list_get(instruccion->registros, 1);
+//    t_paquete* paquete = crear_paquete(CPU_SCH__MEM_ALLOC);
+//    agregar_a_paquete(paquete, &(pcb->pid), sizeof(int));
+//    agregar_a_paquete(paquete, id_segmento, sizeof(int));
+//    agregar_a_paquete(paquete, tamanio, sizeof(int));
+//    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+//    return;
+//}
+//
+//
+//void ejecutar_mem_free(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+//    int* id_segmento = list_get(instruccion->registros, 0);
+//    t_paquete* paquete = crear_paquete(CPU_SCH__MEM_FREE);
+//    agregar_a_paquete(paquete, &pcb->pid, sizeof(int));
+//    agregar_a_paquete(paquete, id_segmento, sizeof(int));
+//    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+//    return;
+//}
+//
+void ejecutar_mem_free(t_instruccion_decodificada* instr){
+    //set_pedir_segmentos(true);
+    //transicionar_thread_safe(WAIT_SYS);
+    //int id_segmento = *(int*)list_get(instr->registros, 0);
+    //log_debug(logger, "Ejecutando MEM_FREE %d", id_segmento);
+    //t_paquete* paquete = crear_paquete(CPU_SCH__MEM_FREE);
+    //agregar_a_paquete(paquete, &id_segmento, sizeof(id_segmento));
+    //enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
     return;
 }
 
-
-void ejecutar_mem_free(t_instruccion_decodificada *instruccion, t_pcb *pcb){
-    int* id_segmento = list_get(instruccion->registros, 0);
-    t_paquete* paquete = crear_paquete(CPU_SCH__MEM_FREE);
-    agregar_a_paquete(paquete, &pcb->pid, sizeof(int));
-    agregar_a_paquete(paquete, id_segmento, sizeof(int));
-    enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
+void ejecutar_mem_alloc(t_instruccion_decodificada* instr){
+    //set_pedir_segmentos(true);
+    //transicionar_thread_safe(WAIT_MEM_ALLOC);
+    //int id_segmento = *(int*)list_get(instr->registros, 0);
+    //int tamanio = *(int*)list_get(instr->registros, 1);
+    //log_debug(logger, "Ejecutando MEM_ALLOC %d %d", id_segmento, tamanio);
+    //t_paquete* paquete = crear_paquete(CPU_SCH__MEM_ALLOC);
+    //agregar_a_paquete(paquete, &id_segmento, sizeof(id_segmento));
+    //agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
+    //enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
     return;
 }
 
@@ -935,6 +958,29 @@ void inicializar_variables(){
     pthread_mutex_init(&m_ejecutar, NULL);
     pthread_cond_init(&cond_ejecutar, NULL);
 }
+// ======== MMU ========
+int mmu(t_pcb* pcb, uint32_t dir_logica, uint32_t tamanio) {
+    uint32_t num_seg = floor(dir_logica / seg_max_size_global);
+    uint32_t desp    = dir_logica % seg_max_size_global;
+
+    log_debug(logger, "Num_seg: %d, desp: %d", num_seg, desp);
+
+    t_segmento* seg = NULL;
+    for (int i = 0; i < list_size(pcb->tabla_segmentos); i++) {
+        t_segmento* s = list_get(pcb->tabla_segmentos, i);
+        if ((uint32_t)s->id_segmento == num_seg) { seg = s; break; }
+    }
+    if (!seg || desp > seg->tamanio || desp + tamanio > seg->tamanio) { 
+        log_debug(logger, "Error: Segmentation fault, dir_logica: %d, tamanio: %d", dir_logica, tamanio);
+        return -1; 
+    }
+
+    uint32_t dir_fisica_abs = seg->base + desp;
+    uint32_t pendientes = tamanio, offset = dir_fisica_abs;
+    uint32_t buf_desp = 0, acum = 0;
+    log_debug(logger, "Direccion fisica traducida: %d", dir_fisica_abs);
+    return dir_fisica_abs;
+}
 
 void* mmu_leer(t_pcb* pcb, uint32_t dir_logica, uint32_t tamanio, bool* seg_fault){
     //*seg_fault;
@@ -952,7 +998,7 @@ void* mmu_leer(t_pcb* pcb, uint32_t dir_logica, uint32_t tamanio, bool* seg_faul
 
         }
     }
-    if(!seg || desplzamiento + tamanio > seg->limite){
+    if(!seg || desplzamiento + tamanio > seg->tamanio){
         *seg_fault= true;
         return NULL;
     }
@@ -991,7 +1037,7 @@ void* mmu_leer(t_pcb* pcb, uint32_t dir_logica, uint32_t tamanio, bool* seg_faul
     return buffer;
 }
 
-void mmu_escribir(t_pcb* pcb, uint32_t dir_logica, void* datos, uint32_t tamanio, bool* sf) {
+void mmu_escribir(t_pcb* pcb, uint32_t dir_logica, void *datos, uint32_t tamanio, bool* sf) {
     *sf = false;
     uint32_t num_seg = dir_logica / seg_max_size_global;
     uint32_t desp    = dir_logica % seg_max_size_global;
@@ -1001,7 +1047,7 @@ void mmu_escribir(t_pcb* pcb, uint32_t dir_logica, void* datos, uint32_t tamanio
         t_segmento* s = list_get(pcb->tabla_segmentos, i);
         if ((uint32_t)s->id_segmento == num_seg) { seg = s; break; }
     }
-    if (!seg || desp + tamanio > seg->limite) { *sf = true; return; }
+    if (!seg || desp + desp > seg->tamanio) { *sf = true; return; }
 
     uint32_t dir_fisica_abs = seg->base + desp;
     uint32_t pendientes = tamanio, offset = dir_fisica_abs;
