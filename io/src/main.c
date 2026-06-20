@@ -72,6 +72,7 @@ int main(int argc, char* argv[]) {
                 int tiempo = *(int*)list_get(paquete_datos , 1);
                 log_info(logger, " ## PID: %u - Haciendo sleep por %u milesegundos" , pid, tiempo);
                 usleep(tiempo*1000);
+                enviar_operacion(conexion_kernel_scheduler, IO_SCH__OK);
             break;
             }
             case STDIN: {
