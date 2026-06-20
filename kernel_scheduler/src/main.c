@@ -14,7 +14,7 @@ int main(int argc, char* argv[]) { // ejecucion con valgrind: valgrind --leak-ch
     t_config *config = iniciar_config(ruta_config); 
 
     // leer de config
-    char* ip = config_get_string_value (config, "IP");
+    char* ip_km = config_get_string_value (config, "IP_KM");
     char* puerto_kernel_memory = config_get_string_value (config, "PUERTO_KERNEL_MEMORY");
     char* puerto_kernel_scheduler = config_get_string_value (config, "PUERTO_KERNEL_SCHEDULER");
 
@@ -23,7 +23,7 @@ int main(int argc, char* argv[]) { // ejecucion con valgrind: valgrind --leak-ch
     // testear(); // descomentar esto si solo queres testear y defini el test en test.c
 
     // conectar a kernel memory
-    conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
+    conexion_kernel_memory = crear_conexion(ip_km, puerto_kernel_memory);
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
     log_info(logger, "## Conectado a Kernel Memory");
     handshake_cliente(conexion_kernel_memory, logger);

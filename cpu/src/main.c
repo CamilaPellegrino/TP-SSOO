@@ -100,7 +100,6 @@ int main(int argc, char* argv[]){
     saludar("cpu");
     
     t_config* config;
-    char *ip;
     char *puerto_kernel_scheduler;
     char *puerto_kernel_memory;
 
@@ -110,7 +109,8 @@ int main(int argc, char* argv[]){
     // iniciar config
     config = iniciar_config(ruta_config);
 
-    ip = config_get_string_value(config, "IP");
+    char*ip_sch = config_get_string_value(config, "IP_SCH");
+    char*ip_km = config_get_string_value(config, "IP_KM");
     
     // inicializar variables
     inicializar_variables();
@@ -119,7 +119,7 @@ int main(int argc, char* argv[]){
     puerto_kernel_scheduler = config_get_string_value(config, "PUERTO_KERNEL_SCHEDULER");
 
     // conectar a kernel scheduler
-    conexion_kernel_scheduler = crear_conexion(ip, puerto_kernel_scheduler);
+    conexion_kernel_scheduler = crear_conexion(ip_sch, puerto_kernel_scheduler);
     exit_si_error_conexion(conexion_kernel_scheduler, logger, "kernel scheduler");
     handshake_cliente(conexion_kernel_scheduler,logger);
     
@@ -129,7 +129,7 @@ int main(int argc, char* argv[]){
     enviar_paquete_y_liberarlo(paquete_conexion_sch, conexion_kernel_scheduler);
 
     // conectar a kernel memory
-    conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
+    conexion_kernel_memory = crear_conexion(ip_km, puerto_kernel_memory);
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
     handshake_cliente(conexion_kernel_memory,logger);
         
