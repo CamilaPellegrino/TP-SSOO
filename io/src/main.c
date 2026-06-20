@@ -12,15 +12,18 @@ int main(int argc, char* argv[]) {
     }
 
     char *ruta_config = argv[1];
-    t_tipo_io tipo_io = tipo_str_a_enum(argv[2]);
-    t_log * logger;
-    t_config* config;
     char* ip; 
     char * puerto_kernel_scheduler;
 
     //Setup inicial
-    logger = iniciar_logger("io.log", "ProcesoIO", LOG_LEVEL_INFO );
-    config = iniciar_config(ruta_config);
+    t_log * logger = iniciar_logger("io.log", "ProcesoIO", LOG_LEVEL_INFO );
+    
+    t_tipo_io tipo_io = tipo_str_a_enum(argv[2]);
+    if(tipo_io == INVALIDO){
+        log_error(logger, "Error: Tipo de IO desconocida. Opciones validas: SLEEP, STDIN, STDOUT");
+        exit(EXIT_FAILURE);
+    }
+    t_config* config = iniciar_config(ruta_config);
     
     if(config == NULL){
         printf("No se pudo cargar el config\n");
@@ -69,9 +72,9 @@ int main(int argc, char* argv[]) {
                 int tiempo = *(int*)list_get(paquete_datos , 1);
                 log_info(logger, " ## PID: %u - Haciendo sleep por %u milesegundos" , pid, tiempo);
                 usleep(tiempo*1000);
+                enviar_operacion(conexion_kernel_scheduler, IO_SCH__OK);
             break;
             }
-
             case STDIN: {
                 int tam = *(int*)list_get(paquete_datos , 1);
                 log_info(logger, " ## PID: %u - Ingrese %u caracteres: " , pid ,tam );
@@ -82,12 +85,9 @@ int main(int argc, char* argv[]) {
                 int len_a_copiar = (strlen(leido) > tam ) ? tam : strlen(leido);
                 memcpy(buffer, leido , len_a_copiar);
 
-                if(len_a_copiar < tam ){
-                    memset(buffer + len_a_copiar, '\0' , tam - len_a_copiar);
-
-                }
+                imprimir_bytes(buffer, tam);
                 
-                t_paquete* p_res = crear_paquete(IO_SCH__CONEXION);
+                t_paquete* p_res = crear_paquete(IO_SCH__OK);
                 agregar_a_paquete(p_res, buffer, tam);
                 enviar_paquete_y_liberarlo(p_res ,conexion_kernel_scheduler);
 
@@ -100,16 +100,16 @@ int main(int argc, char* argv[]) {
 
             case STDOUT: {
                 char* texto = (char*)list_get(paquete_datos , 1);
-                log_info(logger, " ## PID: %u -  %s " , pid , texto );
+                log_info(logger, " ## PID: <%u> - <%s> " , pid , texto );
                 printf("%s\n" , texto);
+                enviar_operacion(conexion_kernel_scheduler, IO_SCH__OK);
             break;
             }
+            default:
+                break;
         }
 
         log_info(logger, "## PID: %u - Fin de IO" ,pid);
-
-        //Notificar al Kernel que terminamos
-        enviar_operacion(conexion_kernel_scheduler , IO_SCH__OK);
 
         list_destroy_and_destroy_elements(paquete_datos , free);
     }
@@ -132,5 +132,5 @@ t_tipo_io tipo_str_a_enum(char* tipo_str){
     if(strcmp(tipo_str, "STDOUT") == 0){
         return STDOUT;
     }
-    return -1;
+    return INVALIDO;
 }

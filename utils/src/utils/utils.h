@@ -31,6 +31,11 @@ typedef enum
 	KM_SCH__BSOD,
 	KM_SCH__EXIT_OK,
 	KM_SCH__INIT_PROC_RESP,
+	KM_SCH__RTA_MEM_ALLOC,
+	KM_SCH__RTA_MEM_FREE,
+	KM_SCH__LECTURA,
+	KM_SCH__PEDIDO_COMPACTACION,
+	KM_SCH__COMPACTACION_COMPLETA,
 	CPU_SCH__INIT_PROC,
 	CPU_SCH__SLEEP,
 	CPU_SCH__STDIN,
@@ -38,31 +43,61 @@ typedef enum
 	CPU_SCH__MUTEX_CREATE,
 	CPU_SCH__MUTEX_LOCK,
 	CPU_SCH__MUTEX_UNLOCK,
+	CPU_SCH__MEM_ALLOC,
+	CPU_SCH__MEM_FREE,
 	CPU_SCH__EXIT,
+	CPU_SCH__EJECUCION_DETENIDA,
 	IO_SCH__OK,
 	IO_SCH__ERROR,
 	// mensajes con destino a CPU
 	SCH_CPU__NUEVO_STICK,
 	SCH_CPU__PID,
-	SCH_CPU__DETENER_EJECUCION,
-	SCH_CPU__REANUDAR_EJECUCION,
+	SCH_CPU__PEDIDO_DESALOJO,
+	SCH_CPU__FIN_SYSCALL,
+	SCH_CPU__SYS_BLOQUEANTE,
+	SCH_CPU__COMPACTACION,
+
 	KM_CPU__RESPUESTA,
 	KM_CPU__INSTRUCCION,
 	KM_CPU__RTA_CONTEXTO,
+	KM_CPU__STICKS,
+	KM_CPU__PCB_GUARDADO,
 	// mensajes con destino a KM
-	CPU_KM__PCONTEXTO,
-	CPU_KM__ACTUALIZAR_PCB,
 	KM_READ,
 	KM_WRITE,
-	KM_GET_INSTRUCTION,
+	CPU_KM__PCONTEXTO,
+	CPU_KM__PSEGMENTOS,
+	CPU_KM__ACTUALIZAR_PCB,
+	CPU_KM__FETCH,
 	SCH_KM__EXIT,
 	SCH_KM__INIT_PROC,
-	CPU_KM__FETCH,
+	SCH_KM__MEM_ALLOC,
+	SCH_KM__MEM_FREE,
+	CPU_KM__MOV_OUT,
+	CPU_KM__MOV_IN,
+	CPU_KM__COPY_MEM,
+	SCH_KM__COMENZAR_COMPACTACION,
+	SWAP_KM__OK,
 	// mensajes con destino a IO
 	SCH_IO__SOLICITUD,
-
-
+	// mensajes con destino a SWAP
+	KM_SWAP__ESCRITURA,
+	KM_SWAP__LECTURA,
+	// mensajes con destino a Sticks
+	X_STICK__ESCRITURA,
+	X_STICK__LECTURA,
+	// confirmaciones de sticks
+	STICK_X__OK,
+	STICK_X__ERROR,
+	// confirmaciones de KM
+	RTA_READ,
+	RTA_WRITE
 }op_code;
+
+typedef enum{
+	OK,
+	ERROR
+} t_status_op;
 
 typedef struct
 {
@@ -79,7 +114,8 @@ typedef enum
 {
 	SLEEP,
 	STDIN,
-	STDOUT
+	STDOUT,
+	INVALIDO
 } t_tipo_io;
 
 typedef enum
@@ -106,6 +142,7 @@ int crear_conexion(char* ip, char* puerto);
 void exit_si_error_conexion(int, t_log *, char *);
 void liberar_conexion(int socket_cliente);
 int iniciar_servidor(char*);
+int iniciar_servidor_o_exit(char* puerto, t_log* logger);
 int* esperar_cliente(int);
 
 // paquetes
@@ -138,4 +175,9 @@ t_config* iniciar_config(char*);
 t_log* iniciar_logger(char*, char*, t_log_level);
 t_log* iniciar_logger_log_level_string(char*, char*, char*);
 
-#endif  /* UTILS_H_ */ 
+// otras
+char* status_op_a_string(t_status_op s);
+pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo, t_log* logger);
+void imprimir_bytes(void* data, int tamanio);
+
+#endif  /* UTILS_H_ */
