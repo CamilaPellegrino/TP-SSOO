@@ -371,11 +371,11 @@ void* atender_km(void*){
                 int *tamanio_stick = list_get(lista_paquete, 2);
                 list_destroy_and_destroy_elements(lista_paquete, free);
                 
-                t_paquete* paquete = crear_paquete(SCH_CPU__NUEVO_STICK);
-                agregar_string_a_paquete(paquete, ip_stick);
-                agregar_string_a_paquete(paquete, puerto_stick);
-                agregar_a_paquete(paquete, tamanio_stick, sizeof(int));
-                enviar_paquete_a_todas_las_cpus(paquete);
+                // t_paquete* paquete = crear_paquete(SCH_CPU__NUEVO_STICK);
+                // agregar_string_a_paquete(paquete, ip_stick);
+                // agregar_string_a_paquete(paquete, puerto_stick);
+                // agregar_a_paquete(paquete, tamanio_stick, sizeof(int));
+                // enviar_paquete_a_todas_las_cpus(paquete);
                 break;
             }
             case KM_SCH__BSOD: {

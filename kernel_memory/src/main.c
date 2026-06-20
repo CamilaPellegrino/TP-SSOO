@@ -14,6 +14,9 @@ int main(int argc, char* argv[]) {
 
     int kernel_memory_fd = iniciar_servidor_o_exit(puerto, logger);
 
+    pthread_t thread_stick = crear_hilo_o_exit(atender_stick, NULL, "atender_stick", logger);
+    pthread_detach(thread_stick);
+
     while(true){
         int *cliente_fd = esperar_cliente(kernel_memory_fd);
         
@@ -55,8 +58,8 @@ void* atender_cliente(void *arg){
             enviar_nuevo_stick_a_scheduler(nuevo_stick, sch_fd);
             log_info(logger, "## Memory Stick de %d bytes Conectada", nuevo_stick->tamanio);
           
-            pthread_t thread_stick = crear_hilo_o_exit(atender_stick, nuevo_stick, "atender_stick", logger);
-            pthread_detach(thread_stick);
+            // pthread_t thread_stick = crear_hilo_o_exit(atender_stick, nuevo_stick, "atender_stick", logger);
+            // pthread_detach(thread_stick);
 
             list_destroy_and_destroy_elements(lista_paquete, free);
             break;
