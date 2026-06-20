@@ -431,7 +431,7 @@ void recibir_sticks_de_km(){
         exit(EXIT_FAILURE);
     }
     t_list* paquete = recibir_paquete(conexion_kernel_memory);
-    int desplazamiento = 0;
+    /*int desplazamiento = 0;
     int cantidad;
     memcpy(&cantidad, list_get(paquete, desplazamiento++), sizeof(int));
     for(int i = 0; i < cantidad; i++){
@@ -444,6 +444,7 @@ void recibir_sticks_de_km(){
 
         conectarse_a_stick(ip, puerto, tamanio);
     }
+    */
     list_destroy_and_destroy_elements(paquete, free);
 }
 
@@ -564,7 +565,6 @@ void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p){
 
 // ===================== Ciclo de instruccion =====================
 void* ejecutar(){
-    t_instruccion_decodificada* prox_instruccion;
     t_pcb* pcb = malloc(sizeof(t_pcb));
     pcb->tabla_segmentos = list_create();
     pcb->pid = -1;
@@ -957,7 +957,7 @@ void ejecutar_mov_in(t_instruccion_decodificada* instr, t_pcb* pcb){
     agregar_a_paquete(paquete, &dir_fisica, sizeof(dir_fisica));
     agregar_a_paquete(paquete, &pcb->pid, sizeof(pcb->pid));
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
-    op_code cod_op = recibir_operacion(conexion_kernel_memory);
+    /*op_code cod_op = */recibir_operacion(conexion_kernel_memory);
     t_list* data = recibir_paquete(conexion_kernel_memory);
     uint8_t valor = *(uint8_t*)list_get(data, 0);
     escribir_registro(r_datos, valor);
@@ -1073,7 +1073,6 @@ void ejecutar_stdin(t_instruccion_decodificada* instr, t_pcb* pcb){
     especificacion_registro *param2 = list_get(instr->registros,1);
     uint32_t dir_logica = leer_registro(param1);
     uint32_t tamanio = leer_registro(param2);
-    bool seg_fault = false;
     int base = mmu(pcb, dir_logica, tamanio); 
     if(base < 0){
         manejar_seg_fault(pcb);
@@ -1191,8 +1190,8 @@ int mmu(t_pcb* pcb, uint32_t dir_logica, uint32_t tamanio) {
     }
 
     uint32_t dir_fisica_abs = seg->base + desp;
-    uint32_t pendientes = tamanio, offset = dir_fisica_abs;
-    uint32_t buf_desp = 0, acum = 0;
+    // uint32_t pendientes = tamanio, offset = dir_fisica_abs;
+    // uint32_t buf_desp = 0, acum = 0;
     log_debug(logger, "Direccion fisica traducida: %d", dir_fisica_abs);
     return dir_fisica_abs;
 }
