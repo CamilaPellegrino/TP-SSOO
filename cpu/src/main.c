@@ -46,6 +46,7 @@ void ejecutar_mov_out(t_instruccion_decodificada* instr, t_pcb* pcb);
 void ejecutar_mem_alloc(t_instruccion_decodificada* instr);
 void ejecutar_mem_free(t_instruccion_decodificada* instr);
 
+void destruir_instruccion(t_instruccion_decodificada*);
 void manejar_seg_fault(t_pcb* pcb);
 int mmu(t_pcb* pcb, uint32_t dir_logica, uint32_t tamanio);
 void iniciar_instr_exit(t_instruccion_decodificada* instr, t_status_op s, char* msg);
@@ -597,6 +598,7 @@ void ciclo_instruccion(t_pcb *pcb){
             i->registros = list_create();
             iniciar_instr_exit(i, ERROR, "Error en FETCH");
             ejecutar_exit(i, pcb);
+            destruir_instruccion(i);
             return;
         }
         
@@ -616,8 +618,7 @@ void ciclo_instruccion(t_pcb *pcb){
         if(actualizar_contexto){
             enviar_pcb_actualizado_a_km(pcb);
         } 
-        list_destroy_and_destroy_elements(instruccion_decodificada->registros, free);
-        free(instruccion_decodificada);
+        destruir_instruccion(instruccion_decodificada);
         free(instruccion);
 }
 
@@ -929,6 +930,10 @@ void ejecutar_copy_mem(t_instruccion_decodificada* instruccion, t_pcb* pcb){
     // free(buffer);
     int dir_fisica_origen = mmu(pcb, origen, tamanio);
     int dir_fisica_destino = mmu(pcb, destino, tamanio);
+    if(dir_fisica_origen < 0 || dir_fisica_destino < 0){
+        manejar_seg_fault(pcb);
+        return;
+    }
     t_paquete* paquete = crear_paquete(CPU_KM__COPY_MEM);
     agregar_a_paquete(paquete, &pcb->pid, sizeof(pcb->pid));
     agregar_a_paquete(paquete, &dir_fisica_origen, sizeof(dir_fisica_origen));
@@ -943,6 +948,11 @@ void ejecutar_mov_in(t_instruccion_decodificada* instr, t_pcb* pcb){
     especificacion_registro* r_datos = list_get(instr->registros, 0);
     uint32_t dir_logica = pcb->registros.si;
     int dir_fisica = mmu(pcb, dir_logica, 1);
+    if(dir_fisica < 0){
+        manejar_seg_fault(pcb);
+        return;
+    }
+
     t_paquete* paquete = crear_paquete(CPU_KM__MOV_IN);
     agregar_a_paquete(paquete, &dir_fisica, sizeof(dir_fisica));
     agregar_a_paquete(paquete, &pcb->pid, sizeof(pcb->pid));
@@ -958,6 +968,11 @@ void ejecutar_mov_out(t_instruccion_decodificada* instr, t_pcb* pcb){
     uint32_t datos = leer_registro(r_datos);
     uint32_t dir_logica = pcb->registros.di;
     int dir_fisica = mmu(pcb, dir_logica, 1);
+    if(dir_fisica < 0){
+        manejar_seg_fault(pcb);
+        return;
+    }
+
     t_paquete* paquete =  crear_paquete(CPU_KM__MOV_OUT);
     agregar_a_paquete(paquete, &dir_fisica, sizeof(dir_fisica));
     agregar_a_paquete(paquete, &datos, sizeof(datos));
@@ -1042,6 +1057,10 @@ void ejecutar_stdout(t_instruccion_decodificada* instr, t_pcb* pcb){
     uint32_t dir_logica = leer_registro(param1);
     uint32_t tamanio = leer_registro(param2);
     int base = mmu(pcb, dir_logica , tamanio); 
+    if(base < 0){
+        manejar_seg_fault(pcb);
+        return;
+    }
     t_paquete* paquete = crear_paquete(CPU_SCH__STDOUT);
     agregar_a_paquete(paquete, &base, sizeof(base));
     agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
@@ -1056,7 +1075,10 @@ void ejecutar_stdin(t_instruccion_decodificada* instr, t_pcb* pcb){
     uint32_t tamanio = leer_registro(param2);
     bool seg_fault = false;
     int base = mmu(pcb, dir_logica, tamanio); 
-    
+    if(base < 0){
+        manejar_seg_fault(pcb);
+        return;
+    }
     t_paquete* paquete = crear_paquete(CPU_SCH__STDIN);
     agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
     agregar_a_paquete(paquete, &base, sizeof(base));
@@ -1178,7 +1200,12 @@ int mmu(t_pcb* pcb, uint32_t dir_logica, uint32_t tamanio) {
 // ======== OTROS ========
 
 void manejar_seg_fault(t_pcb* pcb){
-    log_debug(logger, "<%d>ERROR: seg_fault", pcb->pid);
+    log_debug(logger, "<%d> ERROR: seg_fault", pcb->pid);
+    t_instruccion_decodificada* i = malloc(sizeof(t_instruccion_decodificada));
+    i->registros = list_create();
+    iniciar_instr_exit(i, ERROR, "SEG_FAULT");
+    ejecutar_exit(i, pcb);
+    destruir_instruccion(i);
 }
 
 void iniciar_instr_exit(t_instruccion_decodificada* instr, t_status_op s, char* msg){
@@ -1190,6 +1217,12 @@ void iniciar_instr_exit(t_instruccion_decodificada* instr, t_status_op s, char* 
     list_add(instr->registros, strdup(msg));
 }
 
+
+
+void destruir_instruccion(t_instruccion_decodificada*i){
+    list_destroy_and_destroy_elements(i->registros, free);
+    free(i);
+}
 void inicializar_variables(){
     v_pedido_de_desalojo = false;
     pid_pendiente = -1;
