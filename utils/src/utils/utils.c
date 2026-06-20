@@ -329,6 +329,11 @@ t_log* iniciar_logger(char* ruta, char* process_name, t_log_level log_level)
 }
 
 // otras
+
+char* status_op_a_string(t_status_op s){
+	return s == OK ? "OK" : "ERROR";
+}
+
 pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo, t_log* logger){
     pthread_t hilo;
     int resultado = pthread_create(&hilo, NULL, funcion, arg);
@@ -338,6 +343,16 @@ pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hil
         exit(EXIT_FAILURE);
     }
     return hilo;
+}
+
+void imprimir_bytes(void* data, int tamanio){
+    uint8_t* bytes = (uint8_t*) data;
+        printf("Bytes: ");
+        for(int j = 0; j < tamanio; j++) {
+            printf("%02X ", bytes[j]);
+        }
+
+    printf("\n");
 }
 
 // // Definimos un tipo de puntero a función que acepte dos argumentos
