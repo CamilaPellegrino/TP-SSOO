@@ -25,7 +25,7 @@ void atender_sys(t_io* io, t_paquete* paquete_envio, char* sys_name){
 
     enviar_paquete_y_liberarlo(paquete_envio, io_fd);
 
-    op_code cod_op = recibir_operacion(io_fd);
+    /*op_code cod_op = */recibir_operacion(io_fd);
     log_debug(logger, "llego op de IO");
 }
 

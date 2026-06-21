@@ -71,9 +71,8 @@ void* atender_cliente(void *arg){
             t_list *lista_paquete = recibir_paquete(cliente_fd);
             int *cpu_id = list_get(lista_paquete, 0);
 
-            // agregar CPU a la lista de cpus
             t_cpu* cpu = iniciar_cpu(*cpu_id, cliente_fd);
-            list_add(lista_cpus, cpu);
+            // list_add(lista_cpus, cpu);
 
             // mandarle todos los sticks que se conectaron hasta ahora
             enviar_sticks_a_cpu(cliente_fd);
@@ -103,36 +102,11 @@ void* atender_cpu(void* arg){
         switch(cod_op) {
             case CPU_KM__PCONTEXTO:{
                 t_list *lista = recibir_paquete(cpu_fd);
-                int pid = *(int*)list_get(lista, 0);
-            
-                t_paquete* paquete = crear_paquete(KM_CPU__RTA_CONTEXTO);
-                t_proceso* proceso_actual = proceso_de_pid(pid);
-
-                if(proceso_actual != NULL){
-                    log_info(logger, "Enviando contexto de proceso <%d> a cpu <%d>", pid, cpu_id);
-                    agregar_pcb_al_paquete(proceso_actual->pcb, paquete);
-                    agregar_segmentos_al_paquete(proceso_actual->lista_segmentos, paquete);
-                    enviar_paquete_y_liberarlo(paquete, cpu_fd);
-                }else{
-                    log_error(logger, "Atender_cpu de id <%d>, Error: pid <%d> no encontrado", cpu_id, pid);
-                }
-                list_destroy_and_destroy_elements(lista, free);
+                atender_cpu_pcontexto(cpu, lista);
                 break;
             }case CPU_KM__PSEGMENTOS:{
                 t_list* lista = recibir_paquete(cpu_fd);
-                int pid = *(int*)list_get(lista, 0);
-                t_paquete* paquete = crear_paquete(KM_CPU__RTA_CONTEXTO);
-                t_proceso* proceso_actual = proceso_de_pid(pid);
-
-                if(proceso_actual != NULL){
-                    log_info(logger, "Enviando segmentos de proceso <%d> a cpu <%d>", pid, cpu_id);
-                    agregar_segmentos_al_paquete(proceso_actual->lista_segmentos, paquete);
-                    enviar_paquete_y_liberarlo(paquete, cpu_fd);
-                }else{
-                    log_error(logger, "Atender_cpu de id <%d>, Error: pid <%d> no encontrado", cpu_id, pid);
-                }
-                list_destroy_and_destroy_elements(lista, free);
-
+                atender_cpu_psegmentos(cpu, lista);
                 break;
             }          
             case CPU_KM__FETCH: {
@@ -171,24 +145,42 @@ void* atender_cpu(void* arg){
     return NULL;
 }
 
+void atender_cpu_psegmentos(t_cpu* cpu, t_list* data){
+    int pid = *(int*)list_get(data, 0);
+    t_paquete* paquete = crear_paquete(KM_CPU__RTA_CONTEXTO);
+    t_proceso* proceso_actual = proceso_de_pid_thread_safe(pid);
+
+    if(proceso_actual != NULL){
+        log_info(logger, "Enviando segmentos de proceso <%d> a cpu <%d>", pid, cpu->id);
+        pthread_mutex_lock(&proceso_actual->mutex);
+        t_list* segmentos = proceso_actual->lista_segmentos;
+        pthread_mutex_unlock(&proceso_actual->mutex);
+        agregar_segmentos_al_paquete(segmentos, paquete);
+        enviar_paquete_y_liberarlo(paquete, cpu->fd);
+    }else{
+        log_error(logger, "Atender_cpu de id <%d>, Error: pid <%d> no encontrado", cpu->id, pid);
+    }
+    list_destroy_and_destroy_elements(data, free);
+}
+
 void atender_cpu_pcontexto(t_cpu* cpu, t_list* data){
     int pid = *(int*)list_get(data, 0);
 
     t_paquete* paquete = crear_paquete(KM_CPU__RTA_CONTEXTO);
-    t_proceso* proceso_actual = proceso_de_pid(pid);
+    t_proceso* proceso_actual = proceso_de_pid_thread_safe(pid);
 
     if(proceso_actual != NULL){
         pthread_mutex_lock(&proceso_actual->mutex);
         log_info(logger, "Enviando contexto de proceso <%d> a cpu <%d>", pid, cpu->id);
         agregar_pcb_al_paquete(proceso_actual->pcb, paquete);
-        agregar_segmentos_al_paquete(proceso_actual->lista_segmentos, paquete);
-        enviar_paquete_y_liberarlo(paquete, cpu->fd);
+        t_list* segmentos_del_proc = proceso_actual->lista_segmentos;
         pthread_mutex_unlock(&proceso_actual->mutex);
+        agregar_segmentos_al_paquete(segmentos_del_proc, paquete);
+        enviar_paquete_y_liberarlo(paquete, cpu->fd);
     }else{
         log_error(logger, "Atender_cpu de id <%d>, Error: pid <%d> no encontrado", cpu->id, pid);
     }
     list_destroy_and_destroy_elements(data, free);
-
 }
 
 void atender_cpu_fetch(t_cpu* cpu, t_list* data){
@@ -306,7 +298,7 @@ void* atender_scheduler(void*){
                 log_info(logger, "Iniciando compactacion");
                 bool ok = compactar_memoria();
                 log_info(logger, "Compactacion completa");
-                imprimir_estado_mem();
+                imprimir_estado_mem_thread_safe();
                 if(!ok){
                     log_error(logger, "No se pudo compactar la memoria");
                     exit(EXIT_FAILURE);
@@ -324,11 +316,9 @@ void* atender_scheduler(void*){
                     pthread_mutex_unlock(&m_lista_procesos);
                     break;
                 }
-                pthread_mutex_lock(&proceso->mutex);
                 list_remove_element(lista_procesos, proceso);
-                pthread_mutex_unlock(&proceso->mutex);
-                destruir_proceso(proceso);
                 pthread_mutex_unlock(&m_lista_procesos);
+                destruir_proceso(proceso);
                 log_debug(logger, "Exit de pid %d completo", pid);
                 break;
             }
@@ -405,7 +395,7 @@ void atender_sch_mem_alloc(t_list* data){
     int pid = *(int*)list_get(data, i++);
     int id_segmento = *(int*)list_get(data, i++);
     int tamanio = *(int*)list_get(data, i++);
-    t_proceso* p = proceso_de_pid(pid);
+    t_proceso* p = proceso_de_pid_thread_safe(pid);
     t_status_op status = OK;
     if(p == NULL){
         log_debug(logger, "Proceso NULL");
@@ -438,7 +428,7 @@ void atender_sch_mem_free(t_list* data){
     int pid = *(int*)list_get(data, i++);
     int id_segmento = *(int*)list_get(data, i++);
     
-    t_proceso* p = proceso_de_pid(pid);
+    t_proceso* p = proceso_de_pid_thread_safe(pid);
     t_segmento* segmento = segmento_de_id(id_segmento);
     t_status_op status = OK;
     if(p == NULL || segmento == NULL){
@@ -447,7 +437,7 @@ void atender_sch_mem_free(t_list* data){
     }else{
         log_info(logger, "## <%d> Atendiendo syscall MEM_FREE %d", pid, id_segmento);
         eliminar_segmento_thread_safe(segmento, p);
-        imprimir_estado_mem();
+        imprimir_estado_mem_thread_safe();
     }
     t_paquete* paquete = crear_paquete(KM_SCH__RTA_MEM_FREE);
     agregar_a_paquete(paquete, &pid, sizeof(pid));

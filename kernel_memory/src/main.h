@@ -10,6 +10,7 @@
 
 void* atender_cliente(void *arg);
 void* atender_cpu(void* cpu);
+void atender_cpu_psegmentos(t_cpu* cpu, t_list* data);
 void atender_cpu_pcontexto(t_cpu* cpu, t_list* data);
 void atender_cpu_fetch(t_cpu* cpu, t_list* data);
 void atender_cpu_copy_mem(t_list* data, int cpu_fd);
@@ -26,7 +27,7 @@ void atender_sch_mem_free(t_list* data);
 
 t_log *logger;
 t_list *lista_sticks;
-t_list *lista_cpus;
+// t_list *lista_cpus;
 int sch_fd; 
 
 // listas para cosas de segmentos

@@ -366,9 +366,9 @@ void* atender_km(void*){
             case KM_SCH__NUEVO_STICK: {
                 log_info(logger, "Conexion de modulo stick");
                 t_list* lista_paquete = recibir_paquete(conexion_kernel_memory);
-                char* ip_stick = list_get(lista_paquete, 0);
-                char* puerto_stick = list_get(lista_paquete, 1);
-                int *tamanio_stick = list_get(lista_paquete, 2);
+                // char* ip_stick = list_get(lista_paquete, 0);
+                // char* puerto_stick = list_get(lista_paquete, 1);
+                // int *tamanio_stick = list_get(lista_paquete, 2);
                 list_destroy_and_destroy_elements(lista_paquete, free);
                 
                 // t_paquete* paquete = crear_paquete(SCH_CPU__NUEVO_STICK);

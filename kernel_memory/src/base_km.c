@@ -8,7 +8,7 @@ void inicializar_variables_globales(t_config* config){
     logger = iniciar_logger("kernel_memory.log", "ProcesoKernelMemory", log_level);
 
     lista_sticks           = list_create();
-    lista_cpus             = list_create();
+    // lista_cpus             = list_create();
     lista_segmentos_global = list_create();
     lista_huecos           = list_create();
     lista_procesos         = list_create();
@@ -142,12 +142,23 @@ t_evt* iniciar_evt_mover(int pid, int base_leer, int tamanio, int base_escribir)
 t_proceso* proceso_de_pid(int pid){
     for(int i = 0; i < list_size(lista_procesos); i++){
         t_proceso* proceso = list_get(lista_procesos, i);
+        pthread_mutex_lock(&proceso->mutex);
         if(proceso->pcb->pid == pid){
+            pthread_mutex_unlock(&proceso->mutex);
             return proceso;
         }
+        pthread_mutex_unlock(&proceso->mutex);
     }
     return NULL;
 }
+
+t_proceso* proceso_de_pid_thread_safe(int pid){
+    pthread_mutex_lock(&m_lista_procesos);
+    t_proceso* x = proceso_de_pid(pid);
+    pthread_mutex_unlock(&m_lista_procesos);
+    return x;
+}
+
 
 t_segmento* segmento_de_id(int id_segmento){
     pthread_mutex_lock(&m_lista_segmentos_global);
@@ -183,8 +194,12 @@ bool guardar_nuevo_proceso(int pid, int ppid, char* ruta){
     if(proceso == NULL){
         return false;
     }
+    pthread_mutex_lock(&m_lista_procesos);
     list_add(lista_procesos, proceso);
+    pthread_mutex_unlock(&m_lista_procesos);
+    pthread_mutex_lock(&proceso->mutex);
     log_info(logger, "Nuevo proceso de PID <%d> guardado", pcb->pid);
+    pthread_mutex_unlock(&proceso->mutex);
     return true;
 }
 
@@ -231,7 +246,7 @@ void recibir_pcb_actualizado(t_list* valores){
     int i = 0;
     // pcb
     int* pid = list_get(valores, i++);
-    t_proceso* proc = proceso_de_pid(*pid);
+    t_proceso* proc = proceso_de_pid_thread_safe(*pid);
     if(proc == NULL){
         log_error(logger, "recibir_pcb_actualizado, Error: No se encontro proceso de pid %d", *pid);
         list_destroy_and_destroy_elements(valores, free);
@@ -332,7 +347,14 @@ void liberar_evt(t_evt* evt){
     free(evt);
 }
 // Otros
-
+void imprimir_estado_mem_thread_safe(){
+    pthread_mutex_lock(&m_lista_segmentos_global);
+    imprimir_segmentos();
+    pthread_mutex_unlock(&m_lista_segmentos_global);
+    pthread_mutex_lock(&m_lista_huecos);
+    imprimir_huecos();
+    pthread_mutex_unlock(&m_lista_huecos);
+}
 
 void imprimir_estado_mem(){
     imprimir_segmentos();
@@ -344,6 +366,7 @@ void imprimir_huecos(){
     for(int i = 0; i < list_size(lista_huecos); i++){
         t_hueco* h = list_get(lista_huecos, i);
         if(h == NULL){
+            break;
         }
         printf("Hueco %d -> base: %d | tam: %u | ult_dir: %d\n", i, h->base, h->tamanio, h->base + h->tamanio - 1);
     }
@@ -351,7 +374,6 @@ void imprimir_huecos(){
 
 void imprimir_segmentos(){
     printf("SEGMENTOS:\n");
-    pthread_mutex_lock(&m_lista_segmentos_global);
     for(int i = 0; i < list_size(lista_segmentos_global); i++){
         t_segmento* s = list_get(lista_segmentos_global, i);
         printf(
@@ -362,5 +384,4 @@ void imprimir_segmentos(){
             s->base + s->tamanio - 1
         );
     }
-    pthread_mutex_unlock(&m_lista_segmentos_global);
 }

@@ -119,7 +119,7 @@ typedef enum {
 
 extern t_log *logger;
 extern t_list *lista_sticks;
-extern t_list *lista_cpus;
+// extern t_list *lista_cpus;
 extern int sch_fd; 
 
 // listas para cosas de segmentos
@@ -162,6 +162,8 @@ t_evt* iniciar_evt_mover(int pid, int base_leer, int tamanio, int base_escribir)
 
 // ...
 t_proceso* proceso_de_pid(int pid);
+
+t_proceso* proceso_de_pid_thread_safe(int pid);
 t_segmento* segmento_de_id(int id_segmento);
 t_stick* stick_por_id(int nro_stick);
 bool guardar_nuevo_proceso(int pid, int ppid, char* ruta_instrucciones);
@@ -184,7 +186,7 @@ char* ruta_completa(char* base, char* nombre_archivo);
 void liberar_evt(t_evt* evt);
 
 // Otros
-
+void imprimir_estado_mem_thread_safe();
 void imprimir_estado_mem();
 void imprimir_huecos();
 void imprimir_segmentos(); 

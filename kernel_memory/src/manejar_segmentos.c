@@ -42,7 +42,7 @@ t_segmento* crear_segmento(t_proceso* proceso, uint32_t id_segmento, uint32_t ta
     segmento->pid = proceso->pcb->pid;
 
     agregar_segmento_a_proceso(segmento, proceso);
-    imprimir_estado_mem();
+    imprimir_estado_mem_thread_safe();
     tamanio_total_libre -= segmento->tamanio;
     return segmento;
 }
@@ -79,7 +79,7 @@ bool hay_espacio_total(uint32_t tamanio){
 void agregar_espacio_mem(int bytes){
     crear_hueco(tamanio_total_mem, bytes);
     fusionar_huecos_contiguos();
-    imprimir_estado_mem();
+    imprimir_estado_mem_thread_safe();
 }
 
 bool existe_segmento_de_id_de_proc(int id, t_proceso* p){
@@ -95,10 +95,13 @@ bool existe_segmento_de_id_de_proc(int id, t_proceso* p){
 // thread safe
 t_segmento* crear_segmento_thread_safe(t_proceso* proceso, uint32_t id_segmento, uint32_t tamanio){
     pthread_mutex_lock(&m_manejar_memoria);
+    pthread_mutex_lock(&proceso->mutex);
     t_segmento* r = crear_segmento(proceso, id_segmento, tamanio);
+    pthread_mutex_unlock(&proceso->mutex);
     pthread_mutex_unlock(&m_manejar_memoria);
     return r;
 }
+
 
 bool eliminar_segmento_thread_safe(t_segmento* segmento, t_proceso* proceso){
     pthread_mutex_lock(&m_manejar_memoria);
@@ -355,11 +358,12 @@ void eliminar_segmentos(t_proceso* p){
 }
 
 void destruir_proceso(t_proceso* p){
+    pthread_mutex_lock(&p->mutex);
     free(p->pcb);
     list_destroy_and_destroy_elements(p->instrucciones, free);
+    pthread_mutex_unlock(&p->mutex);
     eliminar_segmentos(p);
     list_destroy(p->lista_segmentos);
-    pthread_mutex_destroy(&p->mutex);
 }
 
 void agregar_segmentos_al_paquete(t_list* segmentos, t_paquete* p){
