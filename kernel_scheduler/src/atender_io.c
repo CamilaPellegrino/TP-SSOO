@@ -86,7 +86,7 @@ void atender_io_stdin(t_io* io){
         }
         t_evt_std_in* data_evt = evt->data_evt;
         int tamanio = data_evt->tamanio;
-        int base = data_evt->base;
+        t_dir_fisica dir_fisica = data_evt->dir_fisica;
         t_pcb* proceso = evt->proceso;
 
         // mandar al modulo de io la solic (con todos los datos que haya en t_evt_sleep, en este caso seria el tiempo de sleep)
@@ -101,7 +101,7 @@ void atender_io_stdin(t_io* io){
         void* contenido = list_get(lista_paquete, 0);
 
         t_paquete* paquete = crear_paquete(KM_WRITE);
-        agregar_a_paquete(paquete, &base, sizeof(base));
+        agregar_a_paquete(paquete, &dir_fisica, sizeof(dir_fisica));
         agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
         agregar_a_paquete(paquete, contenido, tamanio);
         agregar_a_paquete(paquete, &proceso->pid, sizeof(proceso->pid));

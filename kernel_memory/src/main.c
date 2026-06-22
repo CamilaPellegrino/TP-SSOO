@@ -213,9 +213,14 @@ void atender_cpu_fetch(t_cpu* cpu, t_list* data){
 void atender_cpu_copy_mem(t_list* data, int cpu_fd){
     int i = 0;
     int pid = *(int*)list_get(data, i++);
-    int base_origen = *(int*)list_get(data, i++);
-    int base_destino = *(int*)list_get(data, i++);
+    t_dir_fisica dir_fisica_origen = *(t_dir_fisica*)list_get(data, i++);
+    t_dir_fisica dir_fisica_destino = *(t_dir_fisica*)list_get(data, i++);
+
     int tamanio = *(int*)list_get(data, i++);
+    
+    int base_origen = calc_dir_fisica(pid, dir_fisica_origen.id_segmento, dir_fisica_origen.offset);
+    int base_destino = calc_dir_fisica(pid, dir_fisica_destino.id_segmento, dir_fisica_destino.offset);
+
     t_evt* evt_copy_mem = iniciar_evt_mover(pid, base_origen, tamanio, base_destino);
 
     agregar_evt_a_stick(evt_copy_mem);
@@ -226,9 +231,10 @@ void atender_cpu_copy_mem(t_list* data, int cpu_fd){
 
 void atender_cpu_mov_in(t_list* data, int cpu_fd){
     int i = 0;
-    int base = *(int*)list_get(data, i++);
+    t_dir_fisica dir_fisica = *(t_dir_fisica*)list_get(data, i++);
     int tamanio = 1;
     int pid = *(int*)list_get(data, i++);
+    int base = calc_dir_fisica(pid, dir_fisica.id_segmento, dir_fisica.offset);
     t_evt* evt_read = iniciar_evt_read(pid, base, tamanio, cpu_fd);
     t_data_read* data_read = (t_data_read*)evt_read->data;
     agregar_evt_a_stick(evt_read);
@@ -242,10 +248,11 @@ void atender_cpu_mov_in(t_list* data, int cpu_fd){
 
 void atender_cpu_mov_out(t_list* data, int cpu_fd){
     int i = 0;
-    int base = *(int*)list_get(data, i++);
+    t_dir_fisica dir_fisica = *(t_dir_fisica*)list_get(data, i++);
     int tamanio = 1;
     void* datos_escritos = list_get(data, i++);
     int pid = *(int*)list_get(data, i++);
+    int base = calc_dir_fisica(pid, dir_fisica.id_segmento, dir_fisica.offset);
     t_evt* evt_write = iniciar_evt_write(pid, base, tamanio, datos_escritos, cpu_fd);
 
     agregar_evt_a_stick(evt_write);
@@ -330,10 +337,10 @@ void* atender_scheduler(void*){
 }
 
 void atender_sch_read(t_list* data){
-    int dir_fisica_base = *(int*) list_get(data, 0);
+    t_dir_fisica dir_fisica = *(t_dir_fisica*)list_get(data, 0);
     int tamanio = *(int*) list_get(data, 1);
     int pid =*(int*)  list_get(data, 2);
-    
+    int dir_fisica_base = calc_dir_fisica(pid, dir_fisica.id_segmento, dir_fisica.offset);
     log_debug(logger, "KM_WRITE | pid=%d | dir_fisica=%d | tamanio=%d", pid, dir_fisica_base, tamanio);
     
     t_evt* evt_read = iniciar_evt_read(pid, dir_fisica_base, tamanio, sch_fd);
@@ -353,11 +360,13 @@ void atender_sch_read(t_list* data){
 
 void atender_sch_write(t_list* data){
     int i = 0;
-    int base = *(int*) list_get(data, i++);
+    t_dir_fisica dir_fisica = *(t_dir_fisica*)list_get(data, i++);
     int tamanio = *(int*) list_get(data, i++);
     void* datos_escritos = list_get(data, i++);
     int pid =*(int*) list_get(data, i++);
     
+    int base = calc_dir_fisica(pid, dir_fisica.id_segmento, dir_fisica.offset);
+
     log_debug(logger, "KM_WRITE | pid=%d | base=%d | tamanio=%d", pid, base, tamanio);
     
     imprimir_bytes(datos_escritos,tamanio);

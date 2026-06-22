@@ -144,15 +144,15 @@ void* atender_cpu(t_cpu* cpu){
                 log_info(logger, "## (<%d>) - Solicito syscall: <STDIN>", cpu->proceso->pid);
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 int tamanio = *(int*)list_get(lista_paquete, 0);
-                int base = *(int*)list_get(lista_paquete, 1);
-                atender_cpu_syscall_stdin(tamanio, base, cpu);
+                t_dir_fisica dir_fisica = *(t_dir_fisica*)list_get(lista_paquete, 1);
+                atender_cpu_syscall_stdin(tamanio, dir_fisica, cpu);
                 break;
             }case CPU_SCH__STDOUT:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <STDOUT>", cpu->proceso->pid);
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
-                int base = *(int*)list_get(lista_paquete, 0); // TODO: cambiar nombre de la variable a dir_fisica
+                t_dir_fisica dir_fisica = *(t_dir_fisica*) list_get(lista_paquete, 0);
                 int tamanio = *(int*)list_get(lista_paquete, 1);
-                atender_cpu_syscall_stdout(tamanio, base, cpu);
+                atender_cpu_syscall_stdout(tamanio, dir_fisica, cpu);
                 break;
             }case CPU_SCH__INIT_PROC:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <INIT_PROC>", cpu->proceso->pid);
@@ -292,28 +292,26 @@ void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu){
 
 }
 
-void atender_cpu_syscall_stdout(int tamanio, int base, t_cpu* cpu){
+void atender_cpu_syscall_stdout(int tamanio, t_dir_fisica dir_fisica, t_cpu* cpu){
     t_pcb* proceso = cpu->proceso;
     int pid = proceso->pid;
     exec_a_blocked_cond_signal(proceso);
     liberar_cpu(cpu);
-    log_debug(logger, "tamanio a leer: %d, base: %d", tamanio, base);
 
     t_paquete* paquete = crear_paquete(KM_READ);
-    agregar_a_paquete(paquete, &base, sizeof(base));
+    agregar_a_paquete(paquete, &dir_fisica, sizeof(dir_fisica));
     agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
     agregar_a_paquete(paquete, &pid, sizeof(pid));
 
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
 }
 
-void atender_cpu_syscall_stdin(int tamanio, int base, t_cpu* cpu){
+void atender_cpu_syscall_stdin(int tamanio, t_dir_fisica dir_fisica, t_cpu* cpu){
     t_pcb* proceso = cpu->proceso;
     exec_a_blocked_cond_signal(proceso);
     liberar_cpu(cpu);
-    log_debug(logger, "tamanio a leer: %d, base:%d", tamanio, base);
 
-    t_evt* evt = iniciar_evt_std_in(tamanio, base, proceso);
+    t_evt* evt = iniciar_evt_std_in(tamanio, dir_fisica, proceso);
     cambiar_de_evt(proceso, evt);
     evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout", logger);
     

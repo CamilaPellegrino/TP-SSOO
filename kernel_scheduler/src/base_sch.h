@@ -71,7 +71,7 @@ typedef struct{
 
 typedef struct{
 	int tamanio;
-	int base;
+	t_dir_fisica dir_fisica;
 }t_evt_std_in;
 
 struct t_evt{
@@ -164,7 +164,7 @@ t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
 t_pcb* iniciar_pcb(int pid, int ppid, int prioridad, t_tipo_estado estado);
 t_evt* iniciar_evt_sleep(int tiempo_sleep, t_pcb* proceso);
-t_evt* iniciar_evt_std_in(int tamanio, int base, t_pcb* proceso);
+t_evt* iniciar_evt_std_in(int tamanio, t_dir_fisica, t_pcb* proceso);
 t_evt* iniciar_evt_std_out(char* datos_leidos, t_pcb* proceso);
 // Funciones para modificar
 void set_status(t_pcb* pcb, t_status_op status); 

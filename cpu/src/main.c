@@ -48,8 +48,11 @@ void ejecutar_mem_free(t_instruccion_decodificada* instr);
 
 void destruir_instruccion(t_instruccion_decodificada*);
 void manejar_seg_fault(t_pcb* pcb);
-int mmu(t_pcb* pcb, uint32_t dir_logica, uint32_t tamanio);
+bool mmu(t_pcb* pcb, uint32_t, uint32_t, uint32_t);
+uint32_t calc_id_segmento(int);
+uint32_t calc_offset(int);
 void iniciar_instr_exit(t_instruccion_decodificada* instr, t_status_op s, char* msg);
+t_dir_fisica iniciar_dir_fisica(int id_segmento, int offset);
 
 // variables globales
 t_log* logger;
@@ -928,12 +931,18 @@ void ejecutar_copy_mem(t_instruccion_decodificada* instruccion, t_pcb* pcb){
     // //    return;
     // //    }
     // free(buffer);
-    int dir_fisica_origen = mmu(pcb, origen, tamanio);
-    int dir_fisica_destino = mmu(pcb, destino, tamanio);
-    if(dir_fisica_origen < 0 || dir_fisica_destino < 0){
+    int id_segmento_origen = calc_id_segmento(origen);
+    int offset_origen = calc_offset(origen);
+
+    int id_segmento_destino = calc_id_segmento(destino);
+    int offset_destino = calc_offset(destino);
+    if(!mmu(pcb, tamanio, id_segmento_origen, offset_origen) || !mmu(pcb, tamanio, id_segmento_destino, offset_destino)){
         manejar_seg_fault(pcb);
         return;
     }
+    t_dir_fisica dir_fisica_origen = iniciar_dir_fisica(id_segmento_origen, offset_origen);
+    t_dir_fisica dir_fisica_destino = iniciar_dir_fisica(id_segmento_destino, offset_destino);
+
     t_paquete* paquete = crear_paquete(CPU_KM__COPY_MEM);
     agregar_a_paquete(paquete, &pcb->pid, sizeof(pcb->pid));
     agregar_a_paquete(paquete, &dir_fisica_origen, sizeof(dir_fisica_origen));
@@ -947,12 +956,14 @@ void ejecutar_copy_mem(t_instruccion_decodificada* instruccion, t_pcb* pcb){
 void ejecutar_mov_in(t_instruccion_decodificada* instr, t_pcb* pcb){
     especificacion_registro* r_datos = list_get(instr->registros, 0);
     uint32_t dir_logica = pcb->registros.si;
-    int dir_fisica = mmu(pcb, dir_logica, 1);
-    if(dir_fisica < 0){
+    int id_segmento = calc_id_segmento(dir_logica);
+    int offset = calc_offset(dir_logica);
+    if(!mmu(pcb, 1, id_segmento, offset)){
         manejar_seg_fault(pcb);
         return;
     }
-
+    t_dir_fisica dir_fisica = iniciar_dir_fisica(id_segmento, offset);
+    
     t_paquete* paquete = crear_paquete(CPU_KM__MOV_IN);
     agregar_a_paquete(paquete, &dir_fisica, sizeof(dir_fisica));
     agregar_a_paquete(paquete, &pcb->pid, sizeof(pcb->pid));
@@ -967,11 +978,13 @@ void ejecutar_mov_out(t_instruccion_decodificada* instr, t_pcb* pcb){
     especificacion_registro* r_datos = list_get(instr->registros, 0);
     uint32_t datos = leer_registro(r_datos);
     uint32_t dir_logica = pcb->registros.di;
-    int dir_fisica = mmu(pcb, dir_logica, 1);
-    if(dir_fisica < 0){
+    int id_segmento = calc_id_segmento(dir_logica);
+    int offset = calc_offset(dir_logica);
+    if(!mmu(pcb, 1, id_segmento, offset)){
         manejar_seg_fault(pcb);
         return;
     }
+    t_dir_fisica dir_fisica = iniciar_dir_fisica(id_segmento, offset);
 
     t_paquete* paquete =  crear_paquete(CPU_KM__MOV_OUT);
     agregar_a_paquete(paquete, &dir_fisica, sizeof(dir_fisica));
@@ -1056,13 +1069,17 @@ void ejecutar_stdout(t_instruccion_decodificada* instr, t_pcb* pcb){
     especificacion_registro *param2 = list_get(instr->registros,1);
     uint32_t dir_logica = leer_registro(param1);
     uint32_t tamanio = leer_registro(param2);
-    int base = mmu(pcb, dir_logica , tamanio); 
-    if(base < 0){
+    
+    int id_segmento = calc_id_segmento(dir_logica);
+    int offset = calc_offset(dir_logica);
+    if(!mmu(pcb, tamanio, id_segmento, offset)){
         manejar_seg_fault(pcb);
         return;
     }
+    t_dir_fisica dir_fisica = iniciar_dir_fisica(id_segmento, offset);
+
     t_paquete* paquete = crear_paquete(CPU_SCH__STDOUT);
-    agregar_a_paquete(paquete, &base, sizeof(base));
+    agregar_a_paquete(paquete, &dir_fisica, sizeof(dir_fisica));
     agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
 }
@@ -1073,14 +1090,18 @@ void ejecutar_stdin(t_instruccion_decodificada* instr, t_pcb* pcb){
     especificacion_registro *param2 = list_get(instr->registros,1);
     uint32_t dir_logica = leer_registro(param1);
     uint32_t tamanio = leer_registro(param2);
-    int base = mmu(pcb, dir_logica, tamanio); 
-    if(base < 0){
+    
+    int id_segmento = calc_id_segmento(dir_logica);
+    int offset = calc_offset(dir_logica);
+    if(!mmu(pcb, tamanio, id_segmento, offset)){
         manejar_seg_fault(pcb);
         return;
     }
+    t_dir_fisica dir_fisica = iniciar_dir_fisica(id_segmento, offset);
+
     t_paquete* paquete = crear_paquete(CPU_SCH__STDIN);
     agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
-    agregar_a_paquete(paquete, &base, sizeof(base));
+    agregar_a_paquete(paquete, &dir_fisica, sizeof(dir_fisica));
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_scheduler);
 }
 
@@ -1173,10 +1194,15 @@ uint32_t leer_registro(especificacion_registro* reg){
 }
 
 // ======== MMU ========
-int mmu(t_pcb* pcb, uint32_t dir_logica, uint32_t tamanio) {
-    uint32_t num_seg = floor(dir_logica / seg_max_size_global);
-    uint32_t desp    = dir_logica % seg_max_size_global;
 
+uint32_t calc_id_segmento(int dir_logica){
+    return floor(dir_logica / seg_max_size_global);
+}
+uint32_t calc_offset(int dir_logica){
+    return floor(dir_logica % seg_max_size_global);
+}
+
+bool mmu(t_pcb* pcb, uint32_t tamanio, uint32_t num_seg, uint32_t desp) {
     log_debug(logger, "Num_seg: %d, desp: %d", num_seg, desp);
 
     t_segmento* seg = NULL;
@@ -1185,15 +1211,9 @@ int mmu(t_pcb* pcb, uint32_t dir_logica, uint32_t tamanio) {
         if ((uint32_t)s->id_segmento == num_seg) { seg = s; break; }
     }
     if (!seg || desp > seg->tamanio || desp + tamanio > seg->tamanio) { 
-        log_debug(logger, "Error: Segmentation fault, dir_logica: %d, tamanio: %d", dir_logica, tamanio);
-        return -1; 
+        return false; 
     }
-
-    uint32_t dir_fisica_abs = seg->base + desp;
-    // uint32_t pendientes = tamanio, offset = dir_fisica_abs;
-    // uint32_t buf_desp = 0, acum = 0;
-    log_debug(logger, "Direccion fisica traducida: %d", dir_fisica_abs);
-    return dir_fisica_abs;
+    return true;
 }
 
 // ======== OTROS ========
@@ -1216,7 +1236,13 @@ void iniciar_instr_exit(t_instruccion_decodificada* instr, t_status_op s, char* 
     list_add(instr->registros, strdup(msg));
 }
 
+t_dir_fisica iniciar_dir_fisica(int id_segmento, int offset){
+    t_dir_fisica dir;
+    dir.id_segmento = id_segmento;
+    dir.offset = offset;
+    return dir;
 
+}
 
 void destruir_instruccion(t_instruccion_decodificada*i){
     list_destroy_and_destroy_elements(i->registros, free);

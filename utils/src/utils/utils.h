@@ -99,6 +99,10 @@ typedef enum{
 	ERROR
 } t_status_op;
 
+typedef struct{
+	int id_segmento;
+	int offset; 
+}t_dir_fisica;
 typedef struct
 {
 	int size;

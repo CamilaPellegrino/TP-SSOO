@@ -377,3 +377,24 @@ void agregar_segmentos_al_paquete(t_list* segmentos, t_paquete* p){
     }
     pthread_mutex_unlock(&m_manejar_memoria);
 }
+
+
+int calc_dir_fisica(int pid, int id_segmento, int offset){
+    t_proceso* proceso = proceso_de_pid_thread_safe(pid);
+    t_segmento* seg = NULL;
+    pthread_mutex_lock(&m_lista_segmentos_global);
+    pthread_mutex_lock(&proceso->mutex);
+    for(int i = 0; i<list_size(proceso->lista_segmentos); i++){
+        t_segmento* s = list_get(proceso->lista_segmentos, i);
+        if(s->id_segmento == id_segmento){
+            seg = s;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&proceso->mutex);
+    pthread_mutex_unlock(&m_lista_segmentos_global);
+    if(seg == NULL){
+        return -1;
+    }
+    return seg->base + offset;
+}
