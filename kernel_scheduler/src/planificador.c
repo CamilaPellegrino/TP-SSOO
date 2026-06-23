@@ -54,7 +54,7 @@ void* planificador_corto_plazo(){
 t_cpu* proxima_cpu_libre(){
     for(int i = 0; i< list_size(lista_cpus); i++){
         t_cpu* c = list_get(lista_cpus, i);
-        if(c->proceso == NULL){
+        if(get_proceso_de_cpu_thread_safe(c) == NULL){
             return c;
         }
     }
@@ -93,7 +93,7 @@ t_cpu* cpu_a_desalojar_por_prioridad(t_pcb* p){
 
 void asignar_proceso(t_pcb* proceso, t_cpu* cpu){
     // marcar que la cpu esta ocupada 
-    cpu->proceso = proceso;
+    set_proceso_thread_safe(cpu, proceso);
     int pid = proceso->pid;
 
     // le asigno a prox_cpu el proceso prox_proceso mandandole el pid

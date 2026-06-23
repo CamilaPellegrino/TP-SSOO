@@ -18,7 +18,6 @@ t_lista_estado* estado_susp_ready;
 t_lista_estado* estado_exit;
 
 t_list* lista_cpus;
-t_list* lista_io;
 
 t_log * logger;
 t_planificacion algoritmo;

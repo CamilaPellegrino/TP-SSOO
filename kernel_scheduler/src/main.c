@@ -86,8 +86,6 @@ void* atender_cliente(void *arg){
             log_info(logger, "Me llego io de tipo: %d", *tipo_io);
             t_io* io = iniciar_io(*tipo_io, cliente_fd);
 
-            list_add(lista_io, io);
-
             atender_io(io); 
             break;
         }default: 
@@ -159,7 +157,8 @@ void* atender_cpu(t_cpu* cpu){
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 char* instrucciones = list_get(lista_paquete, 0);
                 int prioridad = *(int*)list_get(lista_paquete, 1);
-                nuevo_proc(prioridad, cpu->proceso->pid, instrucciones);
+                t_pcb* proceso = get_proceso_de_cpu_thread_safe(cpu);
+                nuevo_proc(prioridad, proceso->pid, instrucciones);
                 list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
             }case CPU_SCH__MEM_ALLOC:{
@@ -240,7 +239,7 @@ void atender_cpu_syscall_mem_free(int id_segmento,t_cpu* cpu){
 }
        
 void atender_cpu_syscall_mem_alloc(int id_segmento, int tamanio, t_cpu* cpu){
-    t_pcb* proceso = cpu->proceso;
+    t_pcb* proceso = get_proceso_de_cpu_thread_safe(cpu);
     // exec_a_blocked_cond_signal(proceso);
     // liberar_cpu(cpu);
     log_debug(logger, "Id segmento: %d, tamanio: %d", id_segmento, tamanio);
@@ -293,7 +292,7 @@ void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu){
 }
 
 void atender_cpu_syscall_stdout(int tamanio, t_dir_fisica dir_fisica, t_cpu* cpu){
-    t_pcb* proceso = cpu->proceso;
+    t_pcb* proceso = get_proceso_de_cpu_thread_safe(cpu);
     int pid = proceso->pid;
     exec_a_blocked_cond_signal(proceso);
     liberar_cpu(cpu);
@@ -307,7 +306,7 @@ void atender_cpu_syscall_stdout(int tamanio, t_dir_fisica dir_fisica, t_cpu* cpu
 }
 
 void atender_cpu_syscall_stdin(int tamanio, t_dir_fisica dir_fisica, t_cpu* cpu){
-    t_pcb* proceso = cpu->proceso;
+    t_pcb* proceso = get_proceso_de_cpu_thread_safe(cpu);
     exec_a_blocked_cond_signal(proceso);
     liberar_cpu(cpu);
 
@@ -432,7 +431,7 @@ void* atender_km(void*){
                 // manejar_status_op(proceso, status);
                 t_cpu* cpu = cpu_de_pid(pid);
                 if(cpu == NULL){
-                    t_pcb* proceso = proceso_de_lista(pid, estado_exec->sublista);
+                    t_pcb* proceso = proceso_de_lista(pid, estado_exec);
                     exec_a_ready_cond_signal(proceso);
                     break;
                 }
@@ -450,7 +449,7 @@ void* atender_km(void*){
                 t_status_op status = *(t_status_op*)list_get(data, 1);
                 t_cpu* cpu = cpu_de_pid(pid);
                 if(cpu == NULL){
-                    t_pcb* proceso = proceso_de_lista(pid, estado_exec->sublista);
+                    t_pcb* proceso = proceso_de_lista(pid, estado_exec);
                     exec_a_ready_cond_signal(proceso);
                     break;
                 }
@@ -466,7 +465,7 @@ void* atender_km(void*){
                 t_list* data = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*) list_get(data, 0);
                 char* datos_leidos = list_get(data, 1);
-                t_pcb* proceso = proceso_de_lista(pid, estado_blocked->sublista);
+                t_pcb* proceso = proceso_de_lista(pid, estado_blocked);
 
                 t_evt* evt = iniciar_evt_std_out(datos_leidos, proceso);
                 
@@ -487,7 +486,7 @@ void* atender_km(void*){
                 log_debug(logger, "Llego data de WRITE completado");
                 t_list* data = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*) list_get(data, 0);
-                t_pcb* proceso = proceso_de_lista(pid, estado_blocked->sublista);
+                t_pcb* proceso = proceso_de_lista(pid, estado_blocked);
                 t_evt* evt = proceso->evt_actual;
                 pthread_mutex_lock(&evt->mutex);
 

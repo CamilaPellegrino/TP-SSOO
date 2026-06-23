@@ -15,7 +15,6 @@ void inicializar_variables_globales(t_config* config){
 
     // inicializar listas de otras cosas 
     lista_cpus         = list_create();
-	lista_io           = list_create();
     lista_mutex        = list_create();
 
     // inicializar semaforos
@@ -521,13 +520,17 @@ void manejar_status_op(t_pcb* proceso, t_status_op status){
 
 // obtener por clave
 
-t_pcb* proceso_de_lista(int pid, t_list* list){
+t_pcb* proceso_de_lista(int pid, t_lista_estado*estado){
+    pthread_mutex_lock(&estado->mutex);
+    t_list* list = estado->sublista;
     for(int i = 0; i < list_size(list); i++){
         t_pcb* proceso = list_get(list, i);
-        if(proceso->pid == pid){
+        if(get_pid_thread_safe(proceso) == pid){
+            pthread_mutex_unlock(&estado->mutex);
             return proceso;
         }
     }
+    pthread_mutex_unlock(&estado->mutex);
     return NULL;
 }
 
@@ -536,6 +539,28 @@ t_tipo_estado get_estado(t_pcb* p){
     t_tipo_estado e = p->estado;
     pthread_mutex_unlock(&p->mutex);
     return e;
+}
+
+int get_pid_thread_safe(t_pcb* p){
+    int ret = -1;
+    pthread_mutex_lock(&p->mutex);
+    ret = p->pid;
+    pthread_mutex_unlock(&p->mutex);
+    return ret;
+}
+
+
+t_pcb* get_proceso_de_cpu_thread_safe(t_cpu*cpu){
+    t_pcb* pcb = NULL;
+    pthread_mutex_lock(&cpu->mutex);
+    pcb = cpu->proceso;
+    pthread_mutex_unlock(&cpu->mutex);
+    return pcb;
+}
+void set_proceso_thread_safe(t_cpu* cpu, t_pcb* proceso){
+    pthread_mutex_lock(&cpu->mutex);
+    cpu->proceso = proceso;
+    pthread_mutex_unlock(&cpu->mutex);
 }
 
 // liberar
@@ -574,12 +599,8 @@ t_cpu* cpu_de_pid(int pid){
         if(cpu == NULL){
             continue;
         }
-        pthread_mutex_lock(&cpu->mutex);
-        bool es_el_pid = (
-            cpu->proceso != NULL &&
-            cpu->proceso->pid == pid
-        );
-        pthread_mutex_unlock(&cpu->mutex);
+        t_pcb* proc = get_proceso_de_cpu_thread_safe(cpu);
+        bool es_el_pid = (proc != NULL && get_pid_thread_safe(proc) == pid);
 
         if(es_el_pid){
             pthread_mutex_unlock(&m_lista_cpus);

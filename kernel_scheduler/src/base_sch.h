@@ -120,7 +120,6 @@ extern t_lista_estado* estado_susp_ready;
 extern t_lista_estado* estado_exit;
 
 extern t_list* lista_cpus;
-extern t_list* lista_io;
 
 extern t_list* queues_algorithms;  // algoritmo que usa cada cola cuando es CMN
 
@@ -145,7 +144,7 @@ extern pthread_mutex_t m_transicionar;
 extern pthread_mutex_t m_lista_evt_sleep;
 extern pthread_mutex_t m_lista_evt_stdin;
 extern pthread_mutex_t m_lista_evt_stdout;
-extern pthread_mutex_t m_lista_cpus;
+extern pthread_mutex_t m_lista_cpus; 
 extern pthread_mutex_t m_lista_mutex;
 extern pthread_mutex_t m_procesos_en_ready;
 extern pthread_mutex_t m_proximo_pid;
@@ -211,10 +210,14 @@ void manejar_status_op(t_pcb* proceso, t_status_op status);
 
 // obtener por clave
 
-t_pcb* proceso_de_lista(int pid, t_list* list);
+t_pcb* proceso_de_lista(int pid, t_lista_estado* estado);
 t_tipo_estado get_estado(t_pcb* p);
 void log_obligatorio_cambio_de_estado(int pid, char* estado_anterior, char* estado_actual);
 // liberar
+int get_pid_thread_safe(t_pcb* p);
+t_pcb* get_proceso_de_cpu_thread_safe(t_cpu*cpu);
+void set_proceso_thread_safe(t_cpu* cpu, t_pcb* proceso);
+
 void liberar_cpu(t_cpu* cpu);
 void liberar_pcb_de_exit(int pid);
 #endif /* BASE_SCH_H_ */
