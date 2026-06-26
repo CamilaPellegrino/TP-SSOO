@@ -427,13 +427,15 @@ void conectarse_a_stick(char* ip, char* puerto, uint32_t tamanio){
     list_add(lista_sticks, stick);
 }
 
-void recibir_sticks_de_km(){
+void recibir_sticks_de_km(){ // + seg_max_size
     op_code cod_op = recibir_operacion(conexion_kernel_memory);
     if(cod_op != KM_CPU__STICKS){
         log_error(logger, "Error: Kernel Memory no envio las sticks");
         exit(EXIT_FAILURE);
     }
     t_list* paquete = recibir_paquete(conexion_kernel_memory);
+    seg_max_size_global = *(int*)list_get(paquete, 0);
+    log_info(logger, "seg_max_size_global: %d", seg_max_size_global);
     /*int desplazamiento = 0;
     int cantidad;
     memcpy(&cantidad, list_get(paquete, desplazamiento++), sizeof(int));

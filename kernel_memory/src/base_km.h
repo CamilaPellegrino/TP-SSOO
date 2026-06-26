@@ -129,11 +129,14 @@ extern t_list *lista_huecos;
 extern t_list *lista_eventos_stick; 
 
 // variables para cosas de segmentos
-extern t_fit algoritmo_fit;
 extern int tamanio_total_mem;
 extern int tamanio_total_libre;
 
 // De config
+extern int segment_max_size;
+extern int instruction_delay_ms;
+extern int compaction_delay_ms;
+extern t_fit algoritmo_fit;
 extern char* scripts_basepath;
 extern char* puerto;
 
@@ -181,11 +184,14 @@ void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p);
 t_list* instrucciones_de_ruta(char* ruta);
 char* ruta_completa(char* base, char* nombre_archivo);
 
+
+t_fit allocation_strategy_str_to_enum(char* strategy_str);
 // liberar
 
 void liberar_evt(t_evt* evt);
 
 // Otros
+void esperar_ms(int ms);
 void imprimir_estado_mem_thread_safe();
 void imprimir_estado_mem();
 void imprimir_huecos();

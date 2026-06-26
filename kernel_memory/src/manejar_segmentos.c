@@ -171,6 +171,9 @@ bool compactar_memoria() {
     pthread_mutex_unlock(&m_lista_segmentos_global);
     pthread_mutex_unlock(&m_lista_huecos);
     pthread_mutex_unlock(&m_manejar_memoria);
+
+    esperar_ms(compaction_delay_ms);
+    
     return true;
 }
 

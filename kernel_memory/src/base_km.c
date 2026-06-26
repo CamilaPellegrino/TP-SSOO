@@ -14,7 +14,10 @@ void inicializar_variables_globales(t_config* config){
     lista_procesos         = list_create();
     lista_eventos_stick    = list_create();
 
-    algoritmo_fit = BEST_FIT;
+    segment_max_size = config_get_int_value(config, "SEGMENT_MAX_SIZE");
+    instruction_delay_ms = config_get_int_value(config, "INSTRUCTION_DELAY");
+    compaction_delay_ms = config_get_int_value(config, "COMPACTION_DELAY");
+    algoritmo_fit = allocation_strategy_str_to_enum(config_get_string_value(config, "ALLOCATION_STRATEGY"));
     tamanio_total_mem = 0;
     tamanio_total_libre = 0;
     
@@ -234,6 +237,7 @@ void enviar_nuevo_stick_a_scheduler(t_stick* nuevo_stick, int sch_fd){
 void enviar_sticks_a_cpu(int cpu_fd){
     t_paquete* paquete = crear_paquete(KM_CPU__STICKS);
     int cant_sticks = list_size(lista_sticks);
+    agregar_a_paquete(paquete, &segment_max_size, sizeof(segment_max_size));
     agregar_a_paquete(paquete, &cant_sticks, sizeof(int));
     for(int i = 0; i < cant_sticks; i++){
         t_stick* stick = list_get(lista_sticks, i);
@@ -340,6 +344,17 @@ char* ruta_completa(char* base, char* nombre_archivo){
     sprintf(resultado, "%s/%s", base, nombre_archivo);
     return resultado;
 }
+
+t_fit allocation_strategy_str_to_enum(char* strategy_str){
+    if(strcmp(strategy_str, "BEST")){
+        return BEST_FIT;
+    }
+    if(strcmp(strategy_str, "WORST")){
+        return WORST_FIT;
+    }
+    return -1;
+}
+
 // liberar
 
 void liberar_evt(t_evt* evt){
@@ -347,6 +362,12 @@ void liberar_evt(t_evt* evt){
     free(evt);
 }
 // Otros
+
+void esperar_ms(int ms){
+    usleep(ms * 1000);
+    return;
+}
+
 void imprimir_estado_mem_thread_safe(){
     pthread_mutex_lock(&m_lista_segmentos_global);
     imprimir_segmentos();

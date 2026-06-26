@@ -75,7 +75,7 @@ void* atender_cliente(void *arg){
             // list_add(lista_cpus, cpu);
 
             // mandarle todos los sticks que se conectaron hasta ahora
-            enviar_sticks_a_cpu(cliente_fd);
+            enviar_sticks_a_cpu(cliente_fd); // + seg_max_size
             pthread_t thread_cpu = crear_hilo_o_exit(atender_cpu, cpu, "atender_cpu", logger);
             pthread_detach(thread_cpu);
             list_destroy_and_destroy_elements(lista_paquete, free);
@@ -226,6 +226,9 @@ void atender_cpu_copy_mem(t_list* data, int cpu_fd){
     agregar_evt_a_stick(evt_copy_mem);
 
     sem_wait(&evt_copy_mem->s_fin);
+    
+    esperar_ms(instruction_delay_ms);
+
     enviar_operacion(cpu_fd, KM_CPU__RESPUESTA);
 }
 
@@ -240,6 +243,8 @@ void atender_cpu_mov_in(t_list* data, int cpu_fd){
     agregar_evt_a_stick(evt_read);
 
     sem_wait(&evt_read->s_fin);
+
+    esperar_ms(instruction_delay_ms);
 
     t_paquete* paquete = crear_paquete(KM_CPU__RESPUESTA);
     agregar_a_paquete(paquete, data_read->datos_leidos, 1);
@@ -259,6 +264,8 @@ void atender_cpu_mov_out(t_list* data, int cpu_fd){
 
     sem_wait(&evt_write->s_fin);
     
+    esperar_ms(instruction_delay_ms);
+
     enviar_operacion(cpu_fd, KM_CPU__RESPUESTA);
 }
 
@@ -350,6 +357,9 @@ void atender_sch_read(t_list* data){
     sem_wait(&evt_read->s_fin);
     t_data_read* d = (t_data_read*) evt_read->data;
     void* datos_leidos = d->datos_leidos;
+
+    esperar_ms(instruction_delay_ms);
+
     t_paquete* paquete = crear_paquete(RTA_READ);
     agregar_a_paquete(paquete, &pid, sizeof(pid));
     agregar_string_a_paquete(paquete, datos_leidos);
@@ -375,6 +385,9 @@ void atender_sch_write(t_list* data){
 
     agregar_evt_a_stick(evt_write);
     sem_wait(&evt_write->s_fin);
+
+    esperar_ms(instruction_delay_ms);
+
     t_paquete* paquete = crear_paquete(RTA_WRITE);
     agregar_a_paquete(paquete, &pid, sizeof(pid));
     enviar_paquete_y_liberarlo(paquete, sch_fd);
@@ -390,6 +403,7 @@ void atender_sch_init_proc(t_list* data){
     bool ok = guardar_nuevo_proceso(pid, ppid, ruta_instrucciones);
     list_destroy_and_destroy_elements(data, free);
 
+    esperar_ms(instruction_delay_ms);
 
     t_paquete* paquete_conf = crear_paquete(KM_SCH__INIT_PROC_RESP);
     agregar_a_paquete(paquete_conf, &pid, sizeof(int));
@@ -419,12 +433,18 @@ void atender_sch_mem_alloc(t_list* data){
                 status = ERROR;
                 if(hay_espacio_total_thread_safe(tamanio)){
                     log_info(logger, "## <%d> Se dispara compactación tras intentar MEM_ALLOC, tamanio libre: %d, tamanio a reservar: %d", pid, tamanio_total_libre, tamanio);
+                    
+                    esperar_ms(instruction_delay_ms);
+
                     enviar_operacion(sch_fd, KM_SCH__PEDIDO_COMPACTACION);
                     return;
                 }
             }
         }
     }
+
+    esperar_ms(instruction_delay_ms);
+
     t_paquete* paquete = crear_paquete(KM_SCH__RTA_MEM_ALLOC);
     agregar_a_paquete(paquete, &pid, sizeof(pid));
     agregar_a_paquete(paquete, &status, sizeof(status));
@@ -448,6 +468,9 @@ void atender_sch_mem_free(t_list* data){
         eliminar_segmento_thread_safe(segmento, p);
         imprimir_estado_mem_thread_safe();
     }
+    
+    esperar_ms(instruction_delay_ms);
+
     t_paquete* paquete = crear_paquete(KM_SCH__RTA_MEM_FREE);
     agregar_a_paquete(paquete, &pid, sizeof(pid));
     agregar_a_paquete(paquete, &status, sizeof(status));

@@ -37,11 +37,15 @@ t_list *lista_huecos;
 t_list *lista_eventos_stick;
 
 // variables para cosas de segmentos
-t_fit algoritmo_fit;
+
 int tamanio_total_mem;
 int tamanio_total_libre;
 
 // De config
+int segment_max_size;
+int instruction_delay_ms;
+int compaction_delay_ms;
+t_fit algoritmo_fit;
 char* scripts_basepath;
 char* puerto;
 
