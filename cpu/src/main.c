@@ -381,6 +381,7 @@ void set_enviar_contexto_y_desalojar(bool x){
 
 void procesar_desalojo_pendiente(t_pcb* pcb){
     log_debug(logger, "Pedido de desalojo detectado, pasando a LIBRE");
+    transicionar(LIBRE);
     enviar_pcb_actualizado_a_km(pcb);
     v_pedido_de_desalojo = false;
     enviar_confirmacion();
