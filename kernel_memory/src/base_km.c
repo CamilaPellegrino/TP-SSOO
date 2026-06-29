@@ -141,6 +141,19 @@ t_evt* iniciar_evt_mover(int pid, int base_leer, int tamanio, int base_escribir)
 
     return evt;
 }
+
+t_evt* iniciar_evt_suspender(int pid){
+    t_evt* evt = malloc(sizeof(t_evt));
+    evt->pid = pid;
+    evt->tipo = SUSPENSION;
+    evt->data = NULL;
+    pthread_mutex_init(&evt->mutex, NULL);
+    sem_init(&evt->s_fin, 0, 0);
+    return evt;
+}
+
+
+
 // ...
 t_proceso* proceso_de_pid(int pid){
     for(int i = 0; i < list_size(lista_procesos); i++){
@@ -161,7 +174,6 @@ t_proceso* proceso_de_pid_thread_safe(int pid){
     pthread_mutex_unlock(&m_lista_procesos);
     return x;
 }
-
 
 t_segmento* segmento_de_id(int id_segmento){
     pthread_mutex_lock(&m_lista_segmentos_global);

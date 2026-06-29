@@ -246,6 +246,7 @@ void* hilo_timeout(void* arg){
     if(suspender){
         log_debug(logger, "syscall no finalizo a tiempo, suspendiendo");
         blocked_a_susp_blocked(proceso);
+        suspender_proceso(proceso);
     }
     log_debug(logger, "hilo_timeout: finalizando");
     

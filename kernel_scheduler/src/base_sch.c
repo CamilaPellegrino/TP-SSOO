@@ -450,6 +450,14 @@ bool eliminar_proceso_de_lista(t_list* lista, t_pcb* proceso, char* nombre_lista
     return removido;
 }
 
+void suspender_proceso(t_pcb* proceso){
+    int pid = get_pid_thread_safe(proceso);
+    t_paquete* p = crear_paquete(SCH_KM__SUSPENDER);
+    agregar_a_paquete(p, &pid, sizeof(pid));
+    enviar_paquete_y_liberarlo(p, conexion_kernel_memory);
+}
+
+
 void agregar_proceso_a_lista(t_list* lista, t_pcb* proceso, t_tipo_estado nuevo_estado, pthread_mutex_t* m){
     if (proceso == NULL) {
         log_error(logger, "proceso NULL en agregar_proceso_a_lista");

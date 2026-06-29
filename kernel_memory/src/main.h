@@ -18,6 +18,8 @@ void atender_cpu_mov_in(t_list* data, int cpu_fd);
 void atender_cpu_mov_out(t_list* data, int fd);
 
 void* atender_scheduler(void*);
+
+void atender_sch_suspender(t_list* data);
 void atender_sch_read(t_list* data);
 void atender_sch_write(t_list* data);
 void atender_sch_init_proc(t_list* data);
@@ -29,7 +31,7 @@ t_log *logger;
 t_list *lista_sticks;
 // t_list *lista_cpus;
 int sch_fd; 
-
+int conexion_swap;
 // listas para cosas de segmentos
 t_list *lista_segmentos_global;
 t_list *lista_procesos;
@@ -40,6 +42,9 @@ t_list *lista_eventos_stick;
 
 int tamanio_total_mem;
 int tamanio_total_libre;
+
+int tam_bloque;
+int cant_bloques;
 
 // De config
 int segment_max_size;

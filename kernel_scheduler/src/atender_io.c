@@ -54,7 +54,6 @@ void atender_io_stdout(t_io* io){
 
         evt->syscall_finalizada = true;
         pthread_cond_signal(&evt->cond);
-        
         pthread_mutex_unlock(&evt->mutex);
         
         if(proceso->estado == BLOQUEADO){

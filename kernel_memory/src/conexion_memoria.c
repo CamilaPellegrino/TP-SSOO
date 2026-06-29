@@ -4,13 +4,27 @@ void* ejecutar_pedidos_lectura(t_list* pedidos, int tamanio_total);
 void ejecutar_pedidos_escritura(t_list* pedidos, void* bytes);
 typedef void (*t_handler)(t_evt*);
 
+t_list* lista_procesos_suspendidos;
+pthread_mutex_t m_list_procesos_suspendidos;
+t_bitarray* bitarray;
+pthread_mutex_t m_bitarray;
+
 // STICKS
 void* atender_stick(void* arg){
-
+    
+    lista_procesos_suspendidos = list_create();
+    pthread_mutex_init(&m_list_procesos_suspendidos, NULL);
+    pthread_mutex_init(&m_bitarray, NULL);
+    int bytes = (cant_bloques + 7) / 8;
+    char* bitmap = calloc(bytes, sizeof(char));
+    bitarray = bitarray_create_with_mode(bitmap, bytes, LSB_FIRST);
+    
     t_handler handlers[] = {
         [SCH_LECTURA]    = atender_sch_lectura,
         [SCH_ESCRITURA]  = atender_sch_escritura,
-        [SCH_MOVER]      = atender_sch_mover
+        [SCH_MOVER]      = atender_sch_mover,
+        [SUSPENSION]     = atender_suspension,
+        [DESUSPENSION]   = atender_desuspension
     };
 
     t_list* lista_evt = lista_eventos_stick;
@@ -39,6 +53,39 @@ void desconexion_por_bsod(){
     enviar_operacion(sch_fd, KM_SCH__BSOD);
     exit(EXIT_FAILURE);
 }
+
+void atender_suspension(t_evt* evt){
+    int pid = evt->pid;
+    log_info(logger, "Suspendiendo proceso <%d>", pid);
+    
+    t_proceso* proceso = proceso_de_pid_thread_safe(pid);
+    t_list* segmentos = proceso->lista_segmentos;
+    
+    for(int i = 0; i<list_size(segmentos);i++){
+        t_segmento* s = list_get(segmentos, i);
+        t_list* pedidos_lectura = pedidos_a_sticks_para_acceder_a(s->base, s->tamanio);
+        void* datos = ejecutar_pedidos_lectura(pedidos_lectura, s->tamanio);
+        t_list* bloques = bloques_necesarios_para_escribir_en_swap(s->tamanio);
+        if(bloques == NULL){
+            log_info(logger, "Segmento %d (base=%u, tamaño=%d): no hay bloques libres", i, s->base, s->tamanio);
+        }else{
+            log_info(logger, "Segmento %d (base=%u, tamaño=%d):", i, s->base, s->tamanio);
+            for(int j = 0; j < list_size(bloques); j++){
+                int* bloque = list_get(bloques, j);
+                log_info(logger, "    -> Bloque SWAP %d", *bloque);
+            }
+
+            list_destroy(bloques);
+        }
+        free(datos);
+    }
+    sem_post(&evt->s_fin);
+}
+
+void atender_desuspension(t_evt* evt){
+
+}
+
 
 void atender_sch_escritura(t_evt* evt){
     log_debug(logger, "Caso de SCH_escritura");
@@ -191,7 +238,55 @@ t_list* pedidos_a_sticks_para_acceder_a(int base, int tamanio){
 
     return pedidos;
 }
+
+t_list* bloques_necesarios_para_escribir_en_swap(int tamanio) {
+    int bloques_necesarios = (tamanio + tam_bloque - 1) / tam_bloque;
+
+    t_list* bloques = list_create();
+
+    pthread_mutex_lock(&m_bitarray);
+
+    for (int i = 0; i < cant_bloques && list_size(bloques) < bloques_necesarios; i++) {
+        if (!bitarray_test_bit(bitarray, i)) {
+            bitarray_set_bit(bitarray, i);
+
+            int* nro_bloque = malloc(sizeof(int));
+            *nro_bloque = i;
+            list_add(bloques, nro_bloque);
+        }
+    }
+
+    if (list_size(bloques) < bloques_necesarios) {
+
+        for (int i = 0; i < list_size(bloques); i++) {
+            int* bloque = list_get(bloques, i);
+            bitarray_clean_bit(bitarray, *bloque);
+            free(bloque);
+        }
+
+        list_destroy(bloques);
+        bloques = NULL;
+    }
+
+    pthread_mutex_unlock(&m_bitarray);
+
+    return bloques;
+}
+
 // SWAP
+
+int obtener_primer_bloque_libre(int cant_bloques) {
+    pthread_mutex_lock(&m_bitarray);
+    for (int i = 0; i < cant_bloques; i++) {
+        if (!bitarray_test_bit(bitarray, i)) {
+            return i;
+        }
+    }
+    pthread_mutex_unlock(&m_bitarray);
+
+    return -1; // No hay bloques libres
+}
+
 
 void atender_swap(int swap_fd){
     while(1){

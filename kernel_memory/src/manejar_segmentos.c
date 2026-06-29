@@ -117,6 +117,21 @@ bool hay_espacio_total_thread_safe(uint32_t tamanio){
     return r;
 }
 
+bool suspender_thread_safe(int pid){
+    pthread_mutex_lock(&m_manejar_memoria);
+    t_evt* evt = iniciar_evt_suspender(pid);
+
+    agregar_evt_a_stick(evt);
+    sem_wait(&evt->s_fin);
+
+    pthread_mutex_unlock(&m_manejar_memoria);
+    liberar_evt(evt);
+
+    return true;
+}
+
+
+
 bool compactar_memoria() {
     pthread_mutex_lock(&m_manejar_memoria);
     pthread_mutex_lock(&m_lista_huecos);

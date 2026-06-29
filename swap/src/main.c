@@ -17,7 +17,7 @@ void inicializar_variables_globales(t_config* config);
 
 int main(int argc, char* argv[]) {
     if(argc < 2){ 
-        printf("Se esperaban mas parametros. Ejemplo: ./bin/swap ./swap.config");
+        printf("Se esperaban mas parametros. Ejemplo: ./bin/swap swap.config");
         exit(EXIT_FAILURE);
     }
     char *ruta_config = argv[1];
@@ -37,7 +37,10 @@ int main(int argc, char* argv[]) {
     int conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory); 
     handshake_cliente(conexion_kernel_memory, logger);
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
-    enviar_operacion(conexion_kernel_memory, SWAP_KM__CONEXION);
+    t_paquete* conexion = crear_paquete(SWAP_KM__CONEXION);
+    agregar_a_paquete(conexion, &tam_bloque, sizeof(tam_bloque));
+    agregar_a_paquete(conexion, &cant_bloques, sizeof(cant_bloques));
+    enviar_paquete(conexion, conexion_kernel_memory);
 
     while(1){
         op_code cod_op = recibir_operacion(conexion_kernel_memory);

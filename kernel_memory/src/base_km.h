@@ -19,9 +19,9 @@ typedef enum
 {
 	SCH_LECTURA,
 	SCH_ESCRITURA,
-	SCH_MOVER // ,
-	// SUSPENSION
-	// DESUSPENSION
+	SCH_MOVER,
+	SUSPENSION,
+	DESUSPENSION
 }t_tipo_evt;
 
 typedef struct
@@ -121,7 +121,7 @@ extern t_log *logger;
 extern t_list *lista_sticks;
 // extern t_list *lista_cpus;
 extern int sch_fd; 
-
+extern int conexion_swap;
 // listas para cosas de segmentos
 extern t_list *lista_segmentos_global;
 extern t_list *lista_procesos;
@@ -132,6 +132,8 @@ extern t_list *lista_eventos_stick;
 extern int tamanio_total_mem;
 extern int tamanio_total_libre;
 
+extern int tam_bloque;
+extern int cant_bloques;
 // De config
 extern int segment_max_size;
 extern int instruction_delay_ms;
@@ -162,11 +164,15 @@ t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
 t_evt* iniciar_evt_read(int pid, int base, int tamanio,  int fd);
 t_evt* iniciar_evt_write(int pid, int base, int tamanio, void* bytes, int fd);
 t_evt* iniciar_evt_mover(int pid, int base_leer, int tamanio, int base_escribir);
+t_evt* iniciar_evt_suspender(int pid);
+
+
 
 // ...
 t_proceso* proceso_de_pid(int pid);
 
 t_proceso* proceso_de_pid_thread_safe(int pid);
+
 t_segmento* segmento_de_id(int id_segmento);
 t_stick* stick_por_id(int nro_stick);
 bool guardar_nuevo_proceso(int pid, int ppid, char* ruta_instrucciones);

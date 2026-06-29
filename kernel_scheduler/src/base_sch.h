@@ -189,6 +189,9 @@ void agregar_a_ready(t_pcb* proceso);
 bool eliminar_de_ready(t_pcb* proceso);
 void agregar_a_ready_CMN(t_pcb* proceso);
 bool eliminar_de_ready_CMN(t_pcb* proceso);
+
+void suspender_proceso(t_pcb* proceso);
+
 void agregar_proceso_a_lista(t_list* lista, t_pcb* proceso, t_tipo_estado nuevo_estado, pthread_mutex_t* m);
 bool eliminar_proceso_de_lista(t_list* lista, t_pcb* proceso, char* nombre_lista, pthread_mutex_t* m);
 t_pcb* nuevo_proc(int prioridad, int ppid, char* instrucciones); 

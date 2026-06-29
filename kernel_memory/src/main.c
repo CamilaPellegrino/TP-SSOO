@@ -64,8 +64,12 @@ void* atender_cliente(void *arg){
             list_destroy_and_destroy_elements(lista_paquete, free);
             break;
         }case SWAP_KM__CONEXION:{
-            log_warning(logger, "Conexion SWAP no atendida");
-            // atender_swap(cliente_fd);
+            log_info(logger, "Conexion SWAP");
+            t_list* data = recibir_paquete(cliente_fd);
+            conexion_swap = cliente_fd;
+            tam_bloque = *(int*)list_get(data, 0);
+            cant_bloques = *(int*)list_get(data, 1);
+            log_info(logger, "Tamaño de bloque: %d, cantidad de bloques: %d", tam_bloque, cant_bloques);
             break;
         }case CPU_KM__CONEXION:{
             t_list *lista_paquete = recibir_paquete(cliente_fd);
@@ -336,11 +340,22 @@ void* atender_scheduler(void*){
                 log_debug(logger, "Exit de pid %d completo", pid);
                 break;
             }
+            case SCH_KM__SUSPENDER:{
+                t_list* data = recibir_paquete(sch_fd);
+                atender_sch_suspender(data);
+                break;
+            }
             default:
                 log_warning(logger, "atender_scheduler: Operacion desconocida, cod_op=%d", cod_op);
         }
     }
     return NULL;
+}
+
+void atender_sch_suspender(t_list* data){
+    int pid = *(int*)list_get(data, 0);
+    log_info(logger, "## <%d> Suspendiendo proceso", pid);
+    bool suspendido = suspender_thread_safe(pid);
 }
 
 void atender_sch_read(t_list* data){
