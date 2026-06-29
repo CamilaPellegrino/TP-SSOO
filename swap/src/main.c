@@ -32,7 +32,8 @@ int main(int argc, char* argv[]) {
         printf("Error al abrir el archivo.\n");
         return 1;
     }
-
+    int fd = fileno(archivo_swap);
+    ftruncate(fd, cant_bloques * tam_bloque);
     //crear conexion con kernel memory
     int conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory); 
     handshake_cliente(conexion_kernel_memory, logger);
@@ -61,8 +62,8 @@ int main(int argc, char* argv[]) {
                 log_warning(logger, "Operacion desconocida, cod_op: %d", cod_op);
             }
         }
-        fclose(archivo_swap);
     }
+    fclose(archivo_swap);
     return 0;
 }
 
@@ -71,27 +72,28 @@ void atender_pedido_escritura(int cliente_fd, t_list* data){
     int bloque = *(int*)list_get(data, 0);
     void* contenido = list_get(data, 1);
     int tamanio_cont = *(int*)list_get(data, 2);
-    if(bloque > cant_bloques){
+    if(bloque >= cant_bloques){
         log_error(logger, "Escribiendo fuera de memoria de SWAP");
         return;
     }
-    int desplazamiento = (bloque-1) * tam_bloque;
+    imprimir_bytes(contenido, tamanio_cont);
+    int desplazamiento = bloque * tam_bloque;
     fseek(archivo_swap, desplazamiento, SEEK_SET);
-    fwrite(&contenido, tamanio_cont, 1, archivo_swap);
+    fwrite(contenido, tamanio_cont, 1, archivo_swap);
 
     log_info(logger, "## Escritura del bloque: <%d>", bloque);
-    enviar_mensaje("Escritura en el archivo.bin Exitosa", cliente_fd, SWAP_KM__OK);
+    enviar_operacion(cliente_fd, SWAP_KM__OK);
 }
 
 void atender_pedido_lectura(int cliente_fd, t_list* data){
     int bloque = *(int*)list_get(data, 0);
     int tamanio_cont = *(int*)list_get(data, 1);
     void* leido;
-    if(bloque > cant_bloques){
+    if(bloque >= cant_bloques){
         log_error(logger, "Leyendo fuera de memoria de SWAP");
         return;
     }
-    int desplazamiento = (bloque-1) * tam_bloque;
+    int desplazamiento = bloque * tam_bloque;
     fseek(archivo_swap, desplazamiento, SEEK_SET);
     fread(&leido, tamanio_cont, 1, archivo_swap);
 

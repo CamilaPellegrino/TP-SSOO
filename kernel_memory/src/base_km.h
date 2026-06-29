@@ -195,6 +195,10 @@ t_fit allocation_strategy_str_to_enum(char* strategy_str);
 // liberar
 
 void liberar_evt(t_evt* evt);
+void destruir_data_read(t_data_read* data);
+void destruir_data_write(t_data_write* data);
+void destruir_data_mover(t_data_mover* data);
+
 
 // Otros
 void esperar_ms(int ms);

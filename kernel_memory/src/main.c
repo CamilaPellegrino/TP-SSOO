@@ -17,7 +17,7 @@ int main(int argc, char* argv[]) {
     pthread_t thread_stick = crear_hilo_o_exit(atender_stick, NULL, "atender_stick", logger);
     pthread_detach(thread_stick);
 
-    while(true){
+    while(true){ 
         int *cliente_fd = esperar_cliente(kernel_memory_fd);
         
         log_info(logger, "Me llego un cliente, %d", *cliente_fd);
@@ -70,6 +70,7 @@ void* atender_cliente(void *arg){
             tam_bloque = *(int*)list_get(data, 0);
             cant_bloques = *(int*)list_get(data, 1);
             log_info(logger, "Tamaño de bloque: %d, cantidad de bloques: %d", tam_bloque, cant_bloques);
+            list_destroy_and_destroy_elements(data, free);
             break;
         }case CPU_KM__CONEXION:{
             t_list *lista_paquete = recibir_paquete(cliente_fd);
@@ -403,6 +404,7 @@ void atender_sch_write(t_list* data){
 
     esperar_ms(instruction_delay_ms);
 
+    liberar_evt(evt_write);
     t_paquete* paquete = crear_paquete(RTA_WRITE);
     agregar_a_paquete(paquete, &pid, sizeof(pid));
     enviar_paquete_y_liberarlo(paquete, sch_fd);

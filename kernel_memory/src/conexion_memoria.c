@@ -65,27 +65,43 @@ void atender_suspension(t_evt* evt){
         t_segmento* s = list_get(segmentos, i);
         t_list* pedidos_lectura = pedidos_a_sticks_para_acceder_a(s->base, s->tamanio);
         void* datos = ejecutar_pedidos_lectura(pedidos_lectura, s->tamanio);
-        t_list* bloques = bloques_necesarios_para_escribir_en_swap(s->tamanio);
+        list_destroy_and_destroy_elements(pedidos_lectura, free);
+        t_list* bloques = bloques_necesarios_para_escribir_en_swap(datos, s->tamanio);
         if(bloques == NULL){
             log_info(logger, "Segmento %d (base=%u, tamaño=%d): no hay bloques libres", i, s->base, s->tamanio);
         }else{
             log_info(logger, "Segmento %d (base=%u, tamaño=%d):", i, s->base, s->tamanio);
-            for(int j = 0; j < list_size(bloques); j++){
-                int* bloque = list_get(bloques, j);
-                log_info(logger, "    -> Bloque SWAP %d", *bloque);
-            }
-
-            list_destroy(bloques);
+            ejecutar_pedidos_escritura_en_swap(bloques);
         }
+        list_destroy_and_destroy_elements(bloques, liberar_data_escritura_bloque);
         free(datos);
     }
     sem_post(&evt->s_fin);
 }
-
+void liberar_data_escritura_bloque(void* d){
+    t_data_escritura_bloque* data = (t_data_escritura_bloque*) d;
+    free(data->contenido);
+    free(data);
+}
 void atender_desuspension(t_evt* evt){
 
 }
 
+void ejecutar_pedidos_escritura_en_swap(t_list* data){
+    for(int j = 0; j < list_size(data); j++){
+        t_data_escritura_bloque* bloque = list_get(data, j);
+        log_info(logger, "    -> Bloque SWAP: %d", bloque->num_bloque);
+        log_info(logger, "    -> contenido: %s", (char*)bloque->contenido);
+        log_info(logger, "    -> tamanio: %d", bloque->tamanio);
+        t_paquete* paquete = crear_paquete(KM_SWAP__ESCRITURA);
+        agregar_a_paquete(paquete, &bloque->num_bloque, sizeof(bloque->num_bloque));
+        agregar_a_paquete(paquete, bloque->contenido, bloque->tamanio);
+        agregar_a_paquete(paquete, &bloque->tamanio, sizeof(bloque->tamanio));
+        enviar_paquete_y_liberarlo(paquete, conexion_swap);
+        recibir_operacion(conexion_swap);
+    }
+
+}
 
 void atender_sch_escritura(t_evt* evt){
     log_debug(logger, "Caso de SCH_escritura");
@@ -101,6 +117,7 @@ void atender_sch_escritura(t_evt* evt){
 
     ejecutar_pedidos_escritura(pedidos, bytes);
 
+    list_destroy_and_destroy_elements(pedidos, free);
     sem_post(&evt->s_fin);
 }
 
@@ -239,43 +256,34 @@ t_list* pedidos_a_sticks_para_acceder_a(int base, int tamanio){
     return pedidos;
 }
 
-t_list* bloques_necesarios_para_escribir_en_swap(int tamanio) {
+t_list* bloques_necesarios_para_escribir_en_swap(void* contenido, int tamanio) {
     int bloques_necesarios = (tamanio + tam_bloque - 1) / tam_bloque;
-
+    int tam_f = tamanio % tam_bloque;
     t_list* bloques = list_create();
-
+    char* ptr = (char*)contenido;
     pthread_mutex_lock(&m_bitarray);
-
+    if(!bloques_libres_suficientes(bloques_necesarios)){
+        log_error(logger, "Error: No hay suficientes bloques libres para suspender");
+        pthread_mutex_unlock(&m_bitarray);
+        list_destroy(bloques);
+        return NULL;
+    }
+    int cant_bl = 0;
     for (int i = 0; i < cant_bloques && list_size(bloques) < bloques_necesarios; i++) {
         if (!bitarray_test_bit(bitarray, i)) {
             bitarray_set_bit(bitarray, i);
-
-            int* nro_bloque = malloc(sizeof(int));
-            *nro_bloque = i;
-            list_add(bloques, nro_bloque);
+            int tam = (cant_bl == bloques_necesarios - 1 && tam_f != 0) ? tam_f : tam_bloque;
+            t_data_escritura_bloque* data = iniciar_data_escritura_bloque(i, ptr, tam);
+            list_add(bloques, data);
+            ptr += tam;
+            cant_bl ++;
         }
     }
-
-    if (list_size(bloques) < bloques_necesarios) {
-
-        for (int i = 0; i < list_size(bloques); i++) {
-            int* bloque = list_get(bloques, i);
-            bitarray_clean_bit(bitarray, *bloque);
-            free(bloque);
-        }
-
-        list_destroy(bloques);
-        bloques = NULL;
-    }
-
     pthread_mutex_unlock(&m_bitarray);
-
     return bloques;
 }
 
-// SWAP
-
-int obtener_primer_bloque_libre(int cant_bloques) {
+int obtener_primer_bloque_libre() {
     pthread_mutex_lock(&m_bitarray);
     for (int i = 0; i < cant_bloques; i++) {
         if (!bitarray_test_bit(bitarray, i)) {
@@ -283,10 +291,32 @@ int obtener_primer_bloque_libre(int cant_bloques) {
         }
     }
     pthread_mutex_unlock(&m_bitarray);
-
-    return -1; // No hay bloques libres
+    return -1;
 }
 
+int cant_bloques_libres(){
+    int n = 0;
+    pthread_mutex_lock(&m_bitarray);
+    for (int i = 0; i < cant_bloques; i++) {
+        if (!bitarray_test_bit(bitarray, i)) {
+            n++;
+        }
+    }
+    pthread_mutex_unlock(&m_bitarray);
+    return n;
+}
+
+bool bloques_libres_suficientes(int n) {
+    int libres = 0;
+    for (int i = 0; i < cant_bloques; i++) {
+        if (!bitarray_test_bit(bitarray, i)) {
+            libres++;
+            if (libres >= n)
+                return true;
+        }
+    }
+    return false;
+}
 
 void atender_swap(int swap_fd){
     while(1){
@@ -296,7 +326,15 @@ void atender_swap(int swap_fd){
             log_warning(logger, "error, se desconecto SWAP");
             break;
         }
-        
     }
     log_info(logger, "cerrando hilo de swap");
+}
+
+t_data_escritura_bloque* iniciar_data_escritura_bloque(int num_bloque, void* contenido, int tamanio){
+    t_data_escritura_bloque* data = malloc(sizeof(t_data_escritura_bloque));
+    data->contenido = malloc(tamanio);
+    memcpy(data->contenido, contenido, tamanio);
+    data->num_bloque = num_bloque;
+    data->tamanio = tamanio;
+    return data;
 }

@@ -370,8 +370,38 @@ t_fit allocation_strategy_str_to_enum(char* strategy_str){
 // liberar
 
 void liberar_evt(t_evt* evt){
-    free(evt->data);
+    switch(evt->tipo){
+        case SCH_LECTURA:
+            destruir_data_read(evt->data);
+            break;
+        case SCH_ESCRITURA:
+            destruir_data_write(evt->data);
+            break;
+        case SCH_MOVER:
+            destruir_data_mover(evt->data);
+            break;
+        default:
+            break;
+    }
     free(evt);
+}
+
+void destruir_data_read(t_data_read* data){
+    if (data == NULL) return;
+    if (data->datos_leidos != NULL)
+        free(data->datos_leidos);
+    free(data);
+}
+void destruir_data_write(t_data_write* data){
+    if (data == NULL) return;
+    if (data->bytes != NULL)
+        free(data->bytes);
+
+    free(data);
+}
+void destruir_data_mover(t_data_mover* data){
+    if (data == NULL) return;
+    free(data);
 }
 // Otros
 
