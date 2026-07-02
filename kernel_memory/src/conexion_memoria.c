@@ -79,11 +79,10 @@ void atender_suspension(t_evt* evt){
         t_segmento_suspendido* ss = iniciar_segmento_suspendido(s->id_segmento, bloques, s->tamanio);
         list_add(proceso_suspendido->segmentos_suspendidos, ss);
         free(datos);
-        eliminar_segmento(s, proceso); // m tomado
     }
 
     sem_post(&evt->s_fin);
-    // liberar proceso
+    destruir_segmentos_de_proceso(proceso);
 }
 
 void atender_desuspension(t_evt* evt){
@@ -118,17 +117,18 @@ void desuspender_proceso(int pid){
         log_debug(logger, "creando segmento para id %d, tamanio %d", ss->id_segmento, ss->tamanio);
         t_segmento* s = crear_segmento_thread_safe(proceso_desup, ss->id_segmento, ss->tamanio);
         log_debug(logger, "creo segmento");
+        
         // escribir contenido en el segmento reservado
         t_list* pedidos = pedidos_a_sticks_para_acceder_a(s->base, s->tamanio);
         ejecutar_pedidos_escritura(pedidos, bytes);
 
-        // free(bytes);
+        free(bytes);
         list_destroy_and_destroy_elements(pedidos, free);
     }
     pthread_mutex_lock(&m_lista_procesos_suspendidos);
     list_remove_element(lista_procesos_suspendidos, proc_susp);
     pthread_mutex_unlock(&m_lista_procesos_suspendidos);
-    // liberar proceso suspendido
+    destruir_segmentos_de_proceso_suspendido(proc_susp);
 }
 
 void liberar_data_escritura_bloque(void* d){
@@ -173,7 +173,7 @@ void* ejecutar_pedidos_lectura_en_swap(t_list* data){
         void* contenido = list_get(data, 0);
         memcpy(buffer + offset, contenido, bloque->tamanio);
         offset += bloque->tamanio;
-
+        list_destroy_and_destroy_elements(data, free);
         free(contenido);
     }
     imprimir_bytes(buffer, tamanio_total);
@@ -466,4 +466,25 @@ t_proceso_suspendido* proceso_suspendido_de_pid_thread_safe(int pid){
     }
     pthread_mutex_unlock(&m_lista_procesos_suspendidos);
     return proceso;
+}
+
+void destruir_segmentos_de_proceso(t_proceso* p){
+    eliminar_segmentos(p);
+    list_destroy(p->lista_segmentos);
+    free(p);
+}
+void destruir_segmentos_de_proceso_suspendido(t_proceso_suspendido* p){
+    if (p == NULL){return;}
+    list_destroy_and_destroy_elements(p->segmentos_suspendidos, destruir_segmento);
+    free(p);
+}
+void destruir_segmento(void* data){
+    t_segmento_suspendido* segmento = (t_segmento_suspendido*) data;
+    list_destroy_and_destroy_elements(segmento->bloques, destruir_bloque);
+    free(segmento);
+}
+void destruir_bloque(void* data){
+    t_data_escritura_bloque* bloque = (t_data_escritura_bloque*) data;
+    free(bloque->contenido);
+    free(bloque);
 }

@@ -91,6 +91,7 @@ void* atender_pedidos(void* arg){
                 int tamanio_cont = *(int*)list_get(lista_paquete, 1);
                 void* contenido = list_get(lista_paquete, 2);
                 atender_pedido_escritura(dir_fisica, contenido, tamanio_cont, cliente_fd);
+                list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
             }case X_STICK__LECTURA:{
                 //Recibe la direccion y tamanio a leer
@@ -98,6 +99,7 @@ void* atender_pedidos(void* arg){
                 int dir_fisica = *(int*)list_get(lista_paquete, 0);
                 int tamanio_cont = *(int*)list_get(lista_paquete, 1);
                 atender_pedido_lectura(dir_fisica, tamanio_cont, cliente_fd);
+                list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
             }default:{
                 log_warning(logger, "Operacion desconocida, cod_op: %d", cod_op);

@@ -11,6 +11,7 @@ void agregar_espacio_mem_thread_safe(int bytes);
 bool existe_segmento_de_id_de_proc_thread_safe(int id, t_proceso* p);
 bool suspender_thread_safe(int pid);
 
+void eliminar_segmentos(t_proceso* p);
 
 void destruir_proceso(t_proceso* p);
 void agregar_segmentos_al_paquete(t_list* segmentos, t_paquete* p);
