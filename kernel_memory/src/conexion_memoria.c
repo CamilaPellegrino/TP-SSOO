@@ -150,7 +150,6 @@ void ejecutar_pedidos_escritura_en_swap(t_list* data){
         enviar_paquete_y_liberarlo(paquete, conexion_swap);
         recibir_operacion(conexion_swap);
     }
-
 }
 
 void* ejecutar_pedidos_lectura_en_swap(t_list* data){
@@ -174,7 +173,6 @@ void* ejecutar_pedidos_lectura_en_swap(t_list* data){
         memcpy(buffer + offset, contenido, bloque->tamanio);
         offset += bloque->tamanio;
         list_destroy_and_destroy_elements(data, free);
-        free(contenido);
     }
     imprimir_bytes(buffer, tamanio_total);
     return buffer;

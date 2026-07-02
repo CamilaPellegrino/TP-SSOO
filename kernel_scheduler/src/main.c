@@ -113,34 +113,34 @@ void* atender_cpu(t_cpu* cpu){
         }
         switch(cod_op){
             case CPU_SCH__SLEEP:{
-                log_info(logger, "## (<%d>) - Solicito syscall: <SLEEP>", cpu->proceso->pid);
+                log_info(logger, "## (<%d>) - Solicito syscall: <SLEEP>", get_pid_de_proceso_de_cpu_thread_safe(cpu));
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 int tiempo_sleep = *(int*)list_get(lista_paquete, 0);
                 atender_cpu_syscall_sleep(tiempo_sleep, cpu);
                 break;
             }case CPU_SCH__MUTEX_CREATE:{
-                log_info(logger, "## (<%d>) - Solicito syscall: <MUTEX_CREATE>", cpu->proceso->pid);
+                log_info(logger, "## (<%d>) - Solicito syscall: <MUTEX_CREATE>", get_pid_de_proceso_de_cpu_thread_safe(cpu));
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 char* nombre_mutex = (char*)list_get(lista_paquete, 0);
                 atender_cpu_syscall_mutex_create(nombre_mutex, cpu);
                 list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
             }case CPU_SCH__MUTEX_LOCK:{
-                log_info(logger, "## (<%d>) - Solicito syscall: <MUTEX_LOCK>", cpu->proceso->pid);
+                log_info(logger, "## (<%d>) - Solicito syscall: <MUTEX_LOCK>", get_pid_de_proceso_de_cpu_thread_safe(cpu));
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 char* nombre_mutex = (char*)list_get(lista_paquete, 0);
                 atender_cpu_syscall_mutex_lock(nombre_mutex, cpu);
                 list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
             }case CPU_SCH__MUTEX_UNLOCK:{
-                log_info(logger, "## (<%d>) - Solicito syscall: <MUTEX_UNLOCK>", cpu->proceso->pid);
+                log_info(logger, "## (<%d>) - Solicito syscall: <MUTEX_UNLOCK>", get_pid_de_proceso_de_cpu_thread_safe(cpu));
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 char* nombre_mutex = (char*)list_get(lista_paquete, 0);
                 atender_cpu_syscall_mutex_unlock(nombre_mutex, cpu);
                 list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
             }case CPU_SCH__STDIN:{
-                log_info(logger, "## (<%d>) - Solicito syscall: <STDIN>", cpu->proceso->pid);
+                log_info(logger, "## (<%d>) - Solicito syscall: <STDIN>", get_pid_de_proceso_de_cpu_thread_safe(cpu));
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 int tamanio = *(int*)list_get(lista_paquete, 0);
                 t_dir_fisica dir_fisica = *(t_dir_fisica*)list_get(lista_paquete, 1);
@@ -148,7 +148,7 @@ void* atender_cpu(t_cpu* cpu){
                 list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
             }case CPU_SCH__STDOUT:{
-                log_info(logger, "## (<%d>) - Solicito syscall: <STDOUT>", cpu->proceso->pid);
+                log_info(logger, "## (<%d>) - Solicito syscall: <STDOUT>", get_pid_de_proceso_de_cpu_thread_safe(cpu));
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 t_dir_fisica dir_fisica = *(t_dir_fisica*) list_get(lista_paquete, 0);
                 int tamanio = *(int*)list_get(lista_paquete, 1);
@@ -156,7 +156,7 @@ void* atender_cpu(t_cpu* cpu){
                 list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
             }case CPU_SCH__INIT_PROC:{
-                log_info(logger, "## (<%d>) - Solicito syscall: <INIT_PROC>", cpu->proceso->pid);
+                log_info(logger, "## (<%d>) - Solicito syscall: <INIT_PROC>", get_pid_de_proceso_de_cpu_thread_safe(cpu));
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 char* instrucciones = list_get(lista_paquete, 0);
                 int prioridad = *(int*)list_get(lista_paquete, 1);
@@ -165,7 +165,7 @@ void* atender_cpu(t_cpu* cpu){
                 list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
             }case CPU_SCH__MEM_ALLOC:{
-                log_info(logger, "## (<%d>) - Solicito syscall: <MEM_ALLOC>", cpu->proceso->pid);
+                log_info(logger, "## (<%d>) - Solicito syscall: <MEM_ALLOC>", get_pid_de_proceso_de_cpu_thread_safe(cpu));
                 t_list* data = recibir_paquete(cpu_fd);
                 int id_segmento = *(int*)list_get(data, 0);
                 int tamanio = *(int*)list_get(data, 1);
@@ -173,7 +173,7 @@ void* atender_cpu(t_cpu* cpu){
                 list_destroy_and_destroy_elements(data, free);
                 break;
             }case CPU_SCH__MEM_FREE:{
-                log_info(logger, "## (<%d>) - Solicito syscall: <MEM_FREE>", cpu->proceso->pid);
+                log_info(logger, "## (<%d>) - Solicito syscall: <MEM_FREE>", get_pid_de_proceso_de_cpu_thread_safe(cpu));
                 t_list* data = recibir_paquete(cpu_fd);
                 int id_segmento = *(int*)list_get(data, 0);
                 atender_cpu_syscall_mem_free(id_segmento, cpu);
@@ -183,7 +183,7 @@ void* atender_cpu(t_cpu* cpu){
                 t_list* data = recibir_paquete(cpu_fd);
                 t_status_op status = *(t_status_op*)list_get(data, 0);
                 char* msg = list_get(data, 1);
-                log_info(logger, "## (<%d>) - Solicito syscall: <EXIT>[%s] %s", cpu->proceso->pid, status_op_a_string(status), msg);
+                log_info(logger, "## (<%d>) - Solicito syscall: <EXIT>[%s] %s", get_pid_de_proceso_de_cpu_thread_safe(cpu), status_op_a_string(status), msg);
                 pthread_mutex_lock(&cpu->mutex);
                 t_pcb* proceso_exit = cpu->proceso;
                 pthread_mutex_unlock(&cpu->mutex);
@@ -275,7 +275,6 @@ void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu){
         exec_a_exit(cpu->proceso);
         liberar_cpu(cpu);
         return;
-        // TODO: no existe un mutex con ese nombre en lista_mutex, devolver a CPU codigo de error
     }
     t_pcb* proceso = cpu->proceso;
     bool reservado = m_wait(mutex, proceso);
@@ -286,13 +285,12 @@ void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu){
         log_debug(logger, "atender_cpu_syscall_mutex_lock: mutex %s no disponible, bloqueando proceso y desalojando de cpu", nombre_mutex);
         enviar_operacion(cpu->fd, SCH_CPU__SYS_BLOQUEANTE);
         liberar_cpu(cpu);
-        log_debug(logger, "test1: libero cpu");
         // bloquear proceso
         exec_a_blocked_cond_signal(proceso);
-        log_debug(logger, "test1: paso a blocked");
-
+        t_evt* evt = iniciar_evt_mutex_lock(proceso);
+        cambiar_de_evt(proceso, evt);
+        evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout", logger);
     }
-
 }
 
 void atender_cpu_syscall_stdout(int tamanio, t_dir_fisica dir_fisica, t_cpu* cpu){

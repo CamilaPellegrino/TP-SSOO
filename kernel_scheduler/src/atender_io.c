@@ -50,11 +50,7 @@ void atender_io_stdout(t_io* io){
         agregar_string_a_paquete(paquete_sys, datos_leidos);
 
         atender_sys(io, paquete_sys, "stdout");
-        pthread_mutex_lock(&evt->mutex);
-
-        evt->syscall_finalizada = true;
-        pthread_cond_signal(&evt->cond);
-        pthread_mutex_unlock(&evt->mutex);
+        finalizar_evento(evt);
         
         if(proceso->estado == BLOQUEADO){
             log_info(logger, "## (<%d>) finalizó IO y pasa a READY", proceso->pid);
@@ -63,7 +59,6 @@ void atender_io_stdout(t_io* io){
             log_info(logger, "## (<%d>) finalizó IO y pasa a SUSP_READY", proceso->pid);
             susp_blocked_a_susp_ready(proceso);
         }
-        pthread_join(evt->hilo_timeout, NULL); //estoy espserando que termine para que el hilo_timeout no intente acceder a evt 
         pthread_mutex_destroy(&evt->mutex);
         pthread_cond_destroy(&evt->cond);
         free(evt->data_evt);
@@ -95,13 +90,7 @@ void atender_io_stdin(t_io* io){
         
         atender_sys(io, paquete_sys, "stdin");
         
-        pthread_mutex_lock(&evt->mutex);
-
-        evt->syscall_finalizada = true;
-        pthread_cond_signal(&evt->cond);
-        
-        pthread_mutex_unlock(&evt->mutex);
-        pthread_join(evt->hilo_timeout, NULL); 
+        finalizar_evento(evt);
 
         t_list* lista_paquete = recibir_paquete(io->fd);
         void* contenido = list_get(lista_paquete, 0);

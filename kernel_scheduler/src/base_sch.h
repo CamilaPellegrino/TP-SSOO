@@ -156,7 +156,7 @@ void imprimir_estado_procesos();
 
 // funciones para inicializar cosas
 void inicializar_variables_globales(t_config* config);
-void inicializar_parametros_de_config(t_config* config);
+void inicializar_parametros_de_config(t_config* config); 
 t_lista_estado* inicializar_lista_estado(char* nombre, t_list* lista, bool init_m, t_tipo_estado tipo);
 t_list* queues_algorithms_a_t_list(char** queues_algorithms_str);
 t_cpu* iniciar_cpu(int id, int fd);
@@ -165,6 +165,7 @@ t_pcb* iniciar_pcb(int pid, int ppid, int prioridad, t_tipo_estado estado);
 t_evt* iniciar_evt_sleep(int tiempo_sleep, t_pcb* proceso);
 t_evt* iniciar_evt_std_in(int tamanio, t_dir_fisica, t_pcb* proceso);
 t_evt* iniciar_evt_std_out(char* datos_leidos, t_pcb* proceso);
+t_evt* iniciar_evt_mutex_lock(t_pcb* proceso);
 // Funciones para modificar
 void set_status(t_pcb* pcb, t_status_op status); 
 void cambiar_prioridad(t_pcb* proceso, int prioridad);
@@ -199,6 +200,7 @@ t_sublista_ready* sublista_ready_de_prioridad(int prioridad);
 void desbloquear_proceso(t_pcb* proceso);
 
 // funciones genericas
+void finalizar_evento(t_evt* evt);
 t_cpu* cpu_de_pid(int pid);
 void generica_transicion_de_estados(t_pcb* proceso, t_lista_estado*, t_lista_estado* add);
 t_planificacion obtener_algoritmo_planificacion(char *algoritmo_str);
@@ -216,6 +218,7 @@ void manejar_status_op(t_pcb* proceso, t_status_op status);
 t_pcb* proceso_de_lista(int pid, t_lista_estado* estado);
 
 t_pcb* get_proceso_de_pid_thread_safe(int pid);
+int get_pid_de_proceso_de_cpu_thread_safe(t_cpu* cpu);
 t_list* lista_from_enum(t_tipo_estado e);
 t_tipo_estado get_estado(t_pcb* p);
 void log_obligatorio_cambio_de_estado(int pid, char* estado_anterior, char* estado_actual);

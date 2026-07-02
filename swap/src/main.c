@@ -80,7 +80,7 @@ void atender_pedido_escritura(int cliente_fd, t_list* data){
     int desplazamiento = bloque * tam_bloque;
     fseek(archivo_swap, desplazamiento, SEEK_SET);
     fwrite(contenido, tamanio_cont, 1, archivo_swap);
-
+    // fflush(archivo_swap);
     log_info(logger, "## Escritura del bloque: <%d>", bloque);
     enviar_operacion(cliente_fd, SWAP_KM__OK);
 }

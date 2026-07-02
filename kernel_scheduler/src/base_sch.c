@@ -206,6 +206,16 @@ t_evt* iniciar_evt_std_out(char* datos_leidos, t_pcb* proceso){
     return evt;
 }
 
+t_evt* iniciar_evt_mutex_lock(t_pcb* proceso){
+    t_evt* evt = malloc(sizeof(t_evt));
+    evt->proceso = proceso;
+    evt->syscall_finalizada = false;
+    pthread_cond_init(&evt->cond, NULL);
+    pthread_mutex_init(&evt->mutex, NULL);
+    evt->data_evt = NULL;
+    return evt;
+}
+
 // funciones para modificar
 void cambiar_prioridad(t_pcb* proceso, int prioridad){
     if(algoritmo != CMN){
@@ -624,6 +634,11 @@ void set_proceso_thread_safe(t_cpu* cpu, t_pcb* proceso){
     pthread_mutex_unlock(&cpu->mutex);
 }
 
+int get_pid_de_proceso_de_cpu_thread_safe(t_cpu* cpu){
+    t_pcb* p = get_proceso_de_cpu_thread_safe(cpu);
+    return get_pid_thread_safe(p);
+}
+
 // liberar
 
 void liberar_cpu(t_cpu* cpu){
@@ -652,6 +667,16 @@ void liberar_pcb_de_exit(int pid){
 }
 
 // funciones genericas
+
+void finalizar_evento(t_evt* evt){
+        pthread_mutex_lock(&evt->mutex);
+
+        evt->syscall_finalizada = true;
+        pthread_cond_signal(&evt->cond);
+        
+        pthread_mutex_unlock(&evt->mutex);
+        pthread_join(evt->hilo_timeout, NULL); 
+}
 
 t_cpu* cpu_de_pid(int pid){
     pthread_mutex_lock(&m_lista_cpus);

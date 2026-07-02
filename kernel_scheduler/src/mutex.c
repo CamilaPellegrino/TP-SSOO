@@ -38,6 +38,9 @@ void m_signal(t_mutex* mutex, t_pcb* proceso){
         return;
     }
     t_pcb* siguiente = list_remove(mutex->procesos_en_espera, 0);
+    if(siguiente->evt_actual != NULL){
+        finalizar_evento(siguiente->evt_actual);
+    }
     mutex->duenio = siguiente;
     siguiente->mutex_esperado = NULL;
     desbloquear_proceso(siguiente);
