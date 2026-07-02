@@ -533,7 +533,7 @@ t_pcb* proceso_de_lista(int pid, t_lista_estado*estado){
     t_list* list = estado->sublista;
     for(int i = 0; i < list_size(list); i++){
         t_pcb* proceso = list_get(list, i);
-        if(get_pid_thread_safe(proceso) == pid){
+        if(proceso->pid == pid){
             pthread_mutex_unlock(&estado->mutex);
             return proceso;
         }
@@ -541,6 +541,58 @@ t_pcb* proceso_de_lista(int pid, t_lista_estado*estado){
     pthread_mutex_unlock(&estado->mutex);
     return NULL;
 }
+
+t_pcb* get_proceso_de_pid_thread_safe(int pid){
+    t_tipo_estado estados[] = {
+        NUEVO,
+        LISTO,
+        BLOQUEADO,
+        SUSP_BLOQUEADO,
+        SUSP_LISTO,
+        FINALIZADO
+    };
+
+    for (int e = 0; e < sizeof(estados) / sizeof(estados[0]); e++) {
+        t_list* lista = lista_from_enum(estados[e]);
+        pthread_mutex_lock(&m_transicionar);
+
+        for (int i = 0; i < list_size(lista); i++) {
+            t_pcb* pcb = list_get(lista, i);
+
+            if (pcb->pid == pid) {
+                pthread_mutex_unlock(&m_transicionar);
+                return pcb;
+            }
+        }
+        pthread_mutex_unlock(&m_transicionar);
+    }
+    return NULL;
+}
+t_list* lista_from_enum(t_tipo_estado e){
+    switch (e) {
+        case NUEVO:
+            return estado_new->sublista;
+
+        case LISTO:
+            return estado_ready->sublista;
+
+        case BLOQUEADO:
+            return estado_blocked->sublista;
+
+        case SUSP_BLOQUEADO:
+            return estado_susp_blocked->sublista;
+
+        case SUSP_LISTO:
+            return estado_susp_ready->sublista;
+
+        case FINALIZADO:
+            return estado_exit->sublista;
+
+        default:
+            return NULL;
+    }
+}
+
 
 t_tipo_estado get_estado(t_pcb* p){
     pthread_mutex_lock(&p->mutex);
@@ -565,6 +617,7 @@ t_pcb* get_proceso_de_cpu_thread_safe(t_cpu*cpu){
     pthread_mutex_unlock(&cpu->mutex);
     return pcb;
 }
+
 void set_proceso_thread_safe(t_cpu* cpu, t_pcb* proceso){
     pthread_mutex_lock(&cpu->mutex);
     cpu->proceso = proceso;

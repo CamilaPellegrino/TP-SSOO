@@ -95,8 +95,15 @@ void atender_io_stdin(t_io* io){
         
         atender_sys(io, paquete_sys, "stdin");
         
-        t_list* lista_paquete = recibir_paquete(io->fd);
+        pthread_mutex_lock(&evt->mutex);
 
+        evt->syscall_finalizada = true;
+        pthread_cond_signal(&evt->cond);
+        
+        pthread_mutex_unlock(&evt->mutex);
+        pthread_join(evt->hilo_timeout, NULL); 
+
+        t_list* lista_paquete = recibir_paquete(io->fd);
         void* contenido = list_get(lista_paquete, 0);
 
         t_paquete* paquete = crear_paquete(KM_WRITE);
@@ -106,6 +113,7 @@ void atender_io_stdin(t_io* io){
         agregar_a_paquete(paquete, &proceso->pid, sizeof(proceso->pid));
 
         enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
+        list_destroy_and_destroy_elements(lista_paquete, free);
     }
 }
 

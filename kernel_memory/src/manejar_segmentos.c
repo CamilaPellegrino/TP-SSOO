@@ -15,6 +15,8 @@ bool segmento_adelante_de_dir(t_segmento* s, int dir);
 
 // no thread safe
 t_segmento* crear_segmento(t_proceso* proceso, uint32_t id_segmento, uint32_t tamanio){
+    log_debug(logger, "creando seg");
+    imprimir_estado_mem();
     t_hueco* hueco_disp = ubicacion_de_proximo_segmento(tamanio);
     if(hueco_disp == NULL){
         if(tamanio_total_libre >= tamanio){
@@ -48,6 +50,7 @@ t_segmento* crear_segmento(t_proceso* proceso, uint32_t id_segmento, uint32_t ta
 }
 
 bool eliminar_segmento(t_segmento* segmento, t_proceso* proceso){
+    log_debug(logger, "semento eliminado");
     if(!segmento_del_proceso(segmento, proceso)){
         return false;
     }
@@ -104,7 +107,9 @@ t_segmento* crear_segmento_thread_safe(t_proceso* proceso, uint32_t id_segmento,
 
 
 bool eliminar_segmento_thread_safe(t_segmento* segmento, t_proceso* proceso){
+    log_debug(logger, "x1");
     pthread_mutex_lock(&m_manejar_memoria);
+    log_debug(logger, "x2");
     bool r = eliminar_segmento(segmento, proceso);
     pthread_mutex_unlock(&m_manejar_memoria);
     return r;
@@ -129,8 +134,6 @@ bool suspender_thread_safe(int pid){
 
     return true;
 }
-
-
 
 bool compactar_memoria() {
     pthread_mutex_lock(&m_manejar_memoria);

@@ -85,22 +85,27 @@ void atender_pedido_escritura(int cliente_fd, t_list* data){
     enviar_operacion(cliente_fd, SWAP_KM__OK);
 }
 
-void atender_pedido_lectura(int cliente_fd, t_list* data){
+void atender_pedido_lectura(int cliente_fd, t_list* data)
+{
     int bloque = *(int*)list_get(data, 0);
     int tamanio_cont = *(int*)list_get(data, 1);
-    void* leido;
-    if(bloque >= cant_bloques){
+
+    if (bloque >= cant_bloques) {
         log_error(logger, "Leyendo fuera de memoria de SWAP");
         return;
     }
+    void* leido = malloc(tamanio_cont);
     int desplazamiento = bloque * tam_bloque;
     fseek(archivo_swap, desplazamiento, SEEK_SET);
-    fread(&leido, tamanio_cont, 1, archivo_swap);
+    fread(leido, tamanio_cont, 1, archivo_swap);
 
     log_info(logger, "## Lectura del bloque: <%d>", bloque);
+
     t_paquete* paquete_respuesta = crear_paquete(SWAP_KM__OK);
     agregar_a_paquete(paquete_respuesta, leido, tamanio_cont);
     enviar_paquete_y_liberarlo(paquete_respuesta, cliente_fd);
+
+    free(leido);
 }
 
 void inicializar_variables_globales(t_config* config){

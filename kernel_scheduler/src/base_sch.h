@@ -214,6 +214,9 @@ void manejar_status_op(t_pcb* proceso, t_status_op status);
 // obtener por clave
 
 t_pcb* proceso_de_lista(int pid, t_lista_estado* estado);
+
+t_pcb* get_proceso_de_pid_thread_safe(int pid);
+t_list* lista_from_enum(t_tipo_estado e);
 t_tipo_estado get_estado(t_pcb* p);
 void log_obligatorio_cambio_de_estado(int pid, char* estado_anterior, char* estado_actual);
 // liberar

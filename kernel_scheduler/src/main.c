@@ -137,6 +137,7 @@ void* atender_cpu(t_cpu* cpu){
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 char* nombre_mutex = (char*)list_get(lista_paquete, 0);
                 atender_cpu_syscall_mutex_unlock(nombre_mutex, cpu);
+                list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
             }case CPU_SCH__STDIN:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <STDIN>", cpu->proceso->pid);
@@ -144,6 +145,7 @@ void* atender_cpu(t_cpu* cpu){
                 int tamanio = *(int*)list_get(lista_paquete, 0);
                 t_dir_fisica dir_fisica = *(t_dir_fisica*)list_get(lista_paquete, 1);
                 atender_cpu_syscall_stdin(tamanio, dir_fisica, cpu);
+                list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
             }case CPU_SCH__STDOUT:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <STDOUT>", cpu->proceso->pid);
@@ -151,6 +153,7 @@ void* atender_cpu(t_cpu* cpu){
                 t_dir_fisica dir_fisica = *(t_dir_fisica*) list_get(lista_paquete, 0);
                 int tamanio = *(int*)list_get(lista_paquete, 1);
                 atender_cpu_syscall_stdout(tamanio, dir_fisica, cpu);
+                list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
             }case CPU_SCH__INIT_PROC:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <INIT_PROC>", cpu->proceso->pid);
@@ -187,6 +190,7 @@ void* atender_cpu(t_cpu* cpu){
                 set_status(proceso_exit, status);
                 liberar_cpu(cpu);
                 manejar_proceso_exit(proceso_exit);
+                list_destroy_and_destroy_elements(data, free);
                 break;
             }case CPU_SCH__EJECUCION_DETENIDA: {
                 atender_cpu_ejecucion_detenida(cpu);
@@ -486,14 +490,16 @@ void* atender_km(void*){
                 log_debug(logger, "Llego data de WRITE completado");
                 t_list* data = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*) list_get(data, 0);
-                t_pcb* proceso = proceso_de_lista(pid, estado_blocked);
+                t_pcb* proceso = get_proceso_de_pid_thread_safe(pid);
+                if (proceso == NULL) {
+                    log_error(logger, "No encontré el proceso %d", pid);
+                    exit(EXIT_FAILURE); //TODO: sacar esta linea y pone break
+                }
                 t_evt* evt = proceso->evt_actual;
-                pthread_mutex_lock(&evt->mutex);
-
-                evt->syscall_finalizada = true;
-                pthread_cond_signal(&evt->cond);
-                
-                pthread_mutex_unlock(&evt->mutex);
+                if (evt == NULL) {
+                    log_error(logger, "Proceso %d sin evt_actual", pid);
+                    exit(EXIT_FAILURE); //TODO: sacar esta linea y pone break
+                }
                 
                 if(proceso->estado == BLOQUEADO){
                     log_info(logger, "## (<%d>) finalizó IO y pasa a READY", proceso->pid);
@@ -501,13 +507,14 @@ void* atender_km(void*){
                 }else if(proceso->estado == SUSP_BLOQUEADO){
                     log_info(logger, "## (<%d>) finalizó IO y pasa a SUSP_READY", proceso->pid);
                     susp_blocked_a_susp_ready(proceso);
+                    susp_ready_a_ready(proceso);
                 }
-                pthread_join(evt->hilo_timeout, NULL); 
                 pthread_mutex_destroy(&evt->mutex);
                 pthread_cond_destroy(&evt->cond);
                 cambiar_de_evt(proceso, NULL);
                 free(evt->data_evt);
                 free(evt);
+                list_destroy_and_destroy_elements(data, free);
                 break;
             }
             

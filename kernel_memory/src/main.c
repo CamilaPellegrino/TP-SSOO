@@ -391,6 +391,15 @@ void atender_sch_write(t_list* data){
     void* datos_escritos = list_get(data, i++);
     int pid =*(int*) list_get(data, i++);
     
+    if(proceso_suspendido_thread_safe(pid)){
+        log_debug(logger, "Proceso suspendido, desuspendiendo");
+        t_evt* evt_desuspender = iniciar_evt_suspender(pid);
+        evt_desuspender->tipo = DESUSPENSION;
+        agregar_evt_a_stick(evt_desuspender);
+        sem_wait(&evt_desuspender->s_fin);
+        liberar_evt(evt_desuspender);
+    }
+
     int base = calc_dir_fisica(pid, dir_fisica.id_segmento, dir_fisica.offset);
 
     log_debug(logger, "KM_WRITE | pid=%d | base=%d | tamanio=%d", pid, base, tamanio);
