@@ -152,13 +152,13 @@ extern pthread_mutex_t m_estado_global;
 // sockets
 extern int conexion_kernel_memory;
 
-void imprimir_estado_procesos();
 
 // funciones para inicializar cosas
+
 void inicializar_variables_globales(t_config* config);
 void inicializar_parametros_de_config(t_config* config); 
-t_lista_estado* inicializar_lista_estado(char* nombre, t_list* lista, bool init_m, t_tipo_estado tipo);
 t_list* queues_algorithms_a_t_list(char** queues_algorithms_str);
+t_lista_estado* inicializar_lista_estado(char* nombre, t_list* lista, bool init_m, t_tipo_estado tipo);
 t_cpu* iniciar_cpu(int id, int fd);
 t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
 t_pcb* iniciar_pcb(int pid, int ppid, int prioridad, t_tipo_estado estado);
@@ -166,15 +166,13 @@ t_evt* iniciar_evt_sleep(int tiempo_sleep, t_pcb* proceso);
 t_evt* iniciar_evt_std_in(int tamanio, t_dir_fisica, t_pcb* proceso);
 t_evt* iniciar_evt_std_out(char* datos_leidos, t_pcb* proceso);
 t_evt* iniciar_evt_mutex_lock(t_pcb* proceso);
-// Funciones para modificar
-void set_status(t_pcb* pcb, t_status_op status); 
-void cambiar_prioridad(t_pcb* proceso, int prioridad);
-void cambiar_de_evt(t_pcb* proceso, t_evt* evt);
-void cambiar_estado_global(t_estado_sch e);
+
 // funciones para destroy
+
 void destroy_pcb(t_pcb* pcb);
 
 // mover entre listas de procesos
+
 void blocked_a_susp_blocked(t_pcb* pid);
 void susp_blocked_a_susp_ready(t_pcb* pid);
 void susp_ready_a_ready(t_pcb* pid);
@@ -197,9 +195,40 @@ void agregar_proceso_a_lista(t_list* lista, t_pcb* proceso, t_tipo_estado nuevo_
 bool eliminar_proceso_de_lista(t_list* lista, t_pcb* proceso, char* nombre_lista, pthread_mutex_t* m);
 t_pcb* nuevo_proc(int prioridad, int ppid, char* instrucciones); 
 t_sublista_ready* sublista_ready_de_prioridad(int prioridad);
+
+// para desbloquear procesos
+
 void desbloquear_proceso(t_pcb* proceso);
+void manejar_status_op(t_pcb* proceso, t_status_op status);
+
+// obtener por clave y getters
+
+t_pcb* proceso_de_lista(int pid, t_lista_estado* estado);
+t_pcb* get_proceso_de_pid_thread_safe(int pid);
+t_list* lista_from_enum(t_tipo_estado e);
+t_tipo_estado get_estado(t_pcb* p);
+int get_pid_thread_safe(t_pcb* p);
+t_pcb* get_proceso_de_cpu_thread_safe(t_cpu*cpu);
+int get_pid_de_proceso_de_cpu_thread_safe(t_cpu* cpu);
+t_evt* get_evt_de_proceso(t_pcb* proceso);
+
+// funciones para modificar y setters
+
+void cambiar_prioridad(t_pcb* proceso, int prioridad);
+void set_status(t_pcb* pcb, t_status_op status); 
+void cambiar_de_evt(t_pcb* proceso, t_evt* evt);
+void cambiar_estado_global(t_estado_sch e);
+void set_proceso_thread_safe(t_cpu* cpu, t_pcb* proceso);
+
+// liberar
+
+void liberar_cpu(t_cpu* cpu);
+void liberar_pcb_de_exit(int pid);
+void liberar_evt(t_evt* evt, void (*free_data)(void*));
+void liberar_evt_stdout(void* arg);
 
 // funciones genericas
+
 void finalizar_evento(t_evt* evt);
 t_cpu* cpu_de_pid(int pid);
 void generica_transicion_de_estados(t_pcb* proceso, t_lista_estado*, t_lista_estado* add);
@@ -209,24 +238,12 @@ void enviar_paquete_a_todas_las_cpus(t_paquete* paquete);
 void pedido_desalojo_a_todas_las_cpus(op_code cod_op);
 bool hay_cpus_ejecutando();
 void sumar_milisegundos(struct timespec* ts, int milisegundos);
-void loguear_tamanio_listas_de_estado();
 t_planificacion algoritmo_de_proceso(t_pcb*);
-void manejar_status_op(t_pcb* proceso, t_status_op status);
 
-// obtener por clave
+// logs
 
-t_pcb* proceso_de_lista(int pid, t_lista_estado* estado);
-
-t_pcb* get_proceso_de_pid_thread_safe(int pid);
-int get_pid_de_proceso_de_cpu_thread_safe(t_cpu* cpu);
-t_list* lista_from_enum(t_tipo_estado e);
-t_tipo_estado get_estado(t_pcb* p);
 void log_obligatorio_cambio_de_estado(int pid, char* estado_anterior, char* estado_actual);
-// liberar
-int get_pid_thread_safe(t_pcb* p);
-t_pcb* get_proceso_de_cpu_thread_safe(t_cpu*cpu);
-void set_proceso_thread_safe(t_cpu* cpu, t_pcb* proceso);
+void loguear_tamanio_listas_de_estado();
+void imprimir_estado_procesos();
 
-void liberar_cpu(t_cpu* cpu);
-void liberar_pcb_de_exit(int pid);
 #endif /* BASE_SCH_H_ */
