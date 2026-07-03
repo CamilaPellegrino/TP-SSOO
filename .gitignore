@@ -7,6 +7,9 @@
 # Log files
 *.log
 
+# .dat files
+*.dat
+
 # Prerequisites
 *.d
 

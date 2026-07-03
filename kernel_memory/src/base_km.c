@@ -62,9 +62,6 @@ void destruir_stick(t_stick* stick){
 	free(stick);
 }
 
-
-
-
 t_cpu* iniciar_cpu(int id, int fd){
 	t_cpu* nuevo_cpu = malloc(sizeof(t_stick));
 	if (nuevo_cpu != NULL) {
@@ -152,8 +149,6 @@ t_evt* iniciar_evt_suspender(int pid){
     return evt;
 }
 
-
-
 // ...
 t_proceso* proceso_de_pid(int pid){
     for(int i = 0; i < list_size(lista_procesos); i++){
@@ -197,6 +192,7 @@ t_stick* stick_por_id(int nro_stick){
     }
     return (t_stick*)list_get(lista_sticks, nro_stick);
 }
+
 bool guardar_nuevo_proceso(int pid, int ppid, char* ruta){
     t_pcb* pcb = calloc(1, sizeof(t_pcb));
     if (pcb == NULL) {
@@ -318,6 +314,21 @@ void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p){
 
 }
 
+bool puedo_desuspender_sin_compactar(int pid){
+    return true;
+}
+
+bool intentar_desuspender(int pid){
+    if(puedo_desuspender_sin_compactar(pid)){
+        t_evt* evt_desup = iniciar_evt_suspender(pid);
+        evt_desup->tipo = DESUSPENSION;
+        agregar_evt_a_stick(evt_desup);
+        sem_wait(&evt_desup->s_fin);
+        liberar_evt(evt_desup);
+        return true;
+    }
+    return false;
+}
 
 // Manejo de rutas
 t_list* instrucciones_de_ruta(char* nombre_archivo){
@@ -392,6 +403,7 @@ void destruir_data_read(t_data_read* data){
         free(data->datos_leidos);
     free(data);
 }
+
 void destruir_data_write(t_data_write* data){
     if (data == NULL) return;
     if (data->bytes != NULL)
@@ -399,10 +411,12 @@ void destruir_data_write(t_data_write* data){
 
     free(data);
 }
+
 void destruir_data_mover(t_data_mover* data){
     if (data == NULL) return;
     free(data);
 }
+
 // Otros
 
 void esperar_ms(int ms){

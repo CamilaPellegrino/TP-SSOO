@@ -207,6 +207,7 @@ t_pcb* proceso_de_lista(int pid, t_lista_estado* estado);
 t_pcb* get_proceso_de_pid_thread_safe(int pid);
 t_list* lista_from_enum(t_tipo_estado e);
 t_tipo_estado get_estado(t_pcb* p);
+int get_prioridad_actual_thread_safe(t_pcb* p);
 int get_pid_thread_safe(t_pcb* p);
 t_pcb* get_proceso_de_cpu_thread_safe(t_cpu*cpu);
 int get_pid_de_proceso_de_cpu_thread_safe(t_cpu* cpu);
@@ -239,7 +240,8 @@ void pedido_desalojo_a_todas_las_cpus(op_code cod_op);
 bool hay_cpus_ejecutando();
 void sumar_milisegundos(struct timespec* ts, int milisegundos);
 t_planificacion algoritmo_de_proceso(t_pcb*);
-
+t_list* obtener_pcbs_ordenados_por_prioridad(t_list* procesos);
+void intentar_desuspender();
 // logs
 
 void log_obligatorio_cambio_de_estado(int pid, char* estado_anterior, char* estado_actual);

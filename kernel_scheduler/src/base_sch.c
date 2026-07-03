@@ -544,6 +544,13 @@ t_tipo_estado get_estado(t_pcb* p){
     return e;
 }
 
+int get_prioridad_actual_thread_safe(t_pcb* p){
+    pthread_mutex_lock(&p->mutex);
+    int n = p->prioridad_actual;
+    pthread_mutex_unlock(&p->mutex);
+    return n;
+}
+
 int get_pid_thread_safe(t_pcb* p){
     int ret = -1;
     pthread_mutex_lock(&p->mutex);
@@ -800,6 +807,34 @@ t_planificacion algoritmo_str_a_enum(char *algoritmo_str){
         return CMN;
     }
     return -1;
+}
+
+static bool mayor_prioridad(void* a, void* b) {
+    t_pcb* pcb_a = a;
+    t_pcb* pcb_b = b;
+    return get_prioridad_actual_thread_safe(pcb_a) < get_prioridad_actual_thread_safe(pcb_b);
+}
+
+t_list* obtener_pcbs_ordenados_por_prioridad(t_list* procesos) {
+    t_list* copia = list_duplicate(procesos);
+    list_sort(copia, mayor_prioridad);
+
+    return copia;
+}
+
+void intentar_desuspender(){
+    pthread_mutex_lock(&m_transicionar);
+    pthread_mutex_lock(&estado_susp_ready->mutex);
+    log_info(logger, "intentando desuspender procesos");
+    t_list* pcbs_ordenados = obtener_pcbs_ordenados_por_prioridad(estado_susp_ready->sublista);
+    for(int i = 0; i<list_size(pcbs_ordenados); i++){
+        int pid = get_pid_thread_safe((t_pcb*)list_get(pcbs_ordenados, i));
+        t_paquete* data = crear_paquete(SCH_KM__INTENTAR_DESUSPENDER);
+        agregar_a_paquete(data, &pid, sizeof(pid));
+        enviar_paquete_y_liberarlo(data, conexion_kernel_memory);
+    }
+    pthread_mutex_unlock(&estado_susp_ready->mutex);
+    pthread_mutex_unlock(&m_transicionar);
 }
 
 // logs

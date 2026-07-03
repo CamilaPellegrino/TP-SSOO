@@ -424,7 +424,8 @@ void* atender_km(void*){
                 }
                 list_destroy_and_destroy_elements(paquete, free);
                 break;
-            }case KM_SCH__RTA_MEM_ALLOC:{
+            }
+            case KM_SCH__RTA_MEM_ALLOC:{
                 log_debug(logger, "Syscall finalizada: MEM_ALLOC");
                 t_list* data = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*)list_get(data, 0);
@@ -444,7 +445,8 @@ void* atender_km(void*){
                 }
                 list_destroy_and_destroy_elements(data, free);
                 break;
-            }case KM_SCH__RTA_MEM_FREE: {
+            }
+            case KM_SCH__RTA_MEM_FREE: {
                 log_debug(logger, "Syscall finalizada: MEM_FREE");
                 t_list* data = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*)list_get(data, 0);
@@ -460,6 +462,8 @@ void* atender_km(void*){
                 }else{
                     log_warning(logger, "Estado ERROR de MEM_ALLOC"); // TODO: Pasar a EXIT
                 }
+                intentar_desuspender();
+
                 list_destroy_and_destroy_elements(data, free);
                 break;
             }
@@ -484,7 +488,8 @@ void* atender_km(void*){
                 sem_post(&s_evt_stdout);
                 log_debug(logger, "atender_cpu: sem_post(&s_evt_stdout)");     
                 break;       
-            }case RTA_WRITE: {
+            }
+            case RTA_WRITE: {
                 log_debug(logger, "Llego data de WRITE completado");
                 t_list* data = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*) list_get(data, 0);
@@ -515,7 +520,14 @@ void* atender_km(void*){
                 list_destroy_and_destroy_elements(data, free);
                 break;
             }
-            
+            case KM_SCH__DESUSPENDIDO: {
+                t_list* data = recibir_paquete(conexion_kernel_memory);
+                int pid = *(int*)list_get(data, 0);
+                log_info(logger, "Proceso desuspendido: %d", pid);
+                t_pcb* proceso = proceso_de_lista(pid, estado_susp_ready);
+                susp_ready_a_ready(proceso);
+                break;
+            }
             default: 
                 log_warning(logger, "Warning: Operacion desconocida, cod_op = %d",cod_op);
         }

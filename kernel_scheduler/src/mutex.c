@@ -3,6 +3,7 @@ void insertar_por_prioridad(t_list* l, t_pcb* p);
 void heredar_prioridad(t_pcb* d, t_pcb* w, t_list* visitados);
 void recalcular_prioridad(t_pcb* proc);
 bool ya_visitado(t_list* l, t_pcb* p);
+t_pcb* prox_duenio_mutex(t_list* espera);
 
 t_mutex* m_create(char* nombre){
     static int proximo_mutex_id = 0;
@@ -31,13 +32,13 @@ void m_signal(t_mutex* mutex, t_pcb* proceso){
         return;
     }
 
-    if(list_is_empty(mutex->procesos_en_espera)){
+    t_pcb* siguiente = prox_duenio_mutex(mutex->procesos_en_espera);
+    if(siguiente == NULL){
         log_debug(logger, "Nadie esperando mutex %s", mutex->nombre);
         mutex->duenio = NULL;
         pthread_mutex_unlock(&mutex->lock);
         return;
     }
-    t_pcb* siguiente = list_remove(mutex->procesos_en_espera, 0);
     t_evt* evt = get_evt_de_proceso(siguiente);
     if(evt != NULL){
         finalizar_evento(evt);
@@ -66,7 +67,8 @@ bool m_wait(t_mutex* mutex, t_pcb* proceso){
     log_info(logger, "## (<%d>) Bloqueado por Mutex <%s>", proceso->pid, mutex->nombre);
     proceso->mutex_esperado = mutex;
     
-    insertar_por_prioridad(mutex->procesos_en_espera, proceso);
+    // insertar_por_prioridad(mutex->procesos_en_espera, proceso);
+    list_add(mutex->procesos_en_espera, proceso);
     t_list* visitados = list_create();
     heredar_prioridad(mutex->duenio, proceso, visitados);
     list_destroy(visitados);
@@ -92,6 +94,27 @@ t_mutex* get_mutex(char* nombre){
     pthread_mutex_unlock(&m_lista_mutex);
 
     return encontrado;
+}
+
+t_pcb* prox_duenio_mutex(t_list* espera) {
+    int indice_mejor = -1;
+    t_pcb* mejor = NULL;
+
+    for (int i = 0; i < list_size(espera); i++) {
+        t_pcb* pcb = list_get(espera, i);
+
+        // if (get_estado(pcb) != BLOQUEADO){
+        //     continue;
+        // }
+        if (mejor == NULL || get_prioridad_actual_thread_safe(pcb) > get_prioridad_actual_thread_safe(mejor)) {
+            mejor = pcb;
+            indice_mejor = i;
+        }
+    }
+    if(indice_mejor == -1){
+        return NULL;
+    }
+    return list_remove(espera, indice_mejor);
 }
 
 void insertar_por_prioridad(t_list* l, t_pcb* p){

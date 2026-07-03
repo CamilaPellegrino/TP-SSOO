@@ -19,6 +19,7 @@ void atender_cpu_mov_out(t_list* data, int fd);
 
 void* atender_scheduler(void*);
 
+void atender_sch_intentar_desuspender(t_list* data);
 void atender_sch_suspender(t_list* data);
 void atender_sch_read(t_list* data);
 void atender_sch_write(t_list* data);

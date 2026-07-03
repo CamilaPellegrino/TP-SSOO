@@ -346,11 +346,26 @@ void* atender_scheduler(void*){
                 atender_sch_suspender(data);
                 break;
             }
+            case SCH_KM__INTENTAR_DESUSPENDER:{
+                t_list* data = recibir_paquete(sch_fd);
+                atender_sch_intentar_desuspender(data);
+                break;
+            }
             default:
                 log_warning(logger, "atender_scheduler: Operacion desconocida, cod_op=%d", cod_op);
         }
     }
     return NULL;
+}
+
+void atender_sch_intentar_desuspender(t_list* data){
+    int pid = *(int*)list_get(data, 0);
+    bool d = intentar_desuspender(pid);
+    if(d){
+        t_paquete* rta = crear_paquete(KM_SCH__DESUSPENDIDO);
+        agregar_a_paquete(rta, &pid, sizeof(pid));
+        enviar_paquete_y_liberarlo(rta, sch_fd);
+    }
 }
 
 void atender_sch_suspender(t_list* data){
