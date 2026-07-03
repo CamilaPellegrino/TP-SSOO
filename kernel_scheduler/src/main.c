@@ -368,6 +368,9 @@ void* atender_km(void*){
                 // char* ip_stick = list_get(lista_paquete, 0);
                 // char* puerto_stick = list_get(lista_paquete, 1);
                 // int *tamanio_stick = list_get(lista_paquete, 2);
+
+                intentar_desuspender();
+
                 list_destroy_and_destroy_elements(lista_paquete, free);
                 
                 // t_paquete* paquete = crear_paquete(SCH_CPU__NUEVO_STICK);
@@ -392,6 +395,8 @@ void* atender_km(void*){
 
                 cambiar_estado_global(PLANIF_ACTIVA);
                 
+                intentar_desuspender();
+
                 pthread_mutex_lock(&m_procesos_en_ready);
                 int size_ready = procesos_en_ready;
                 pthread_mutex_unlock(&m_procesos_en_ready);

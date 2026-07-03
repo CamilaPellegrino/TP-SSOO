@@ -323,7 +323,7 @@ t_log* iniciar_logger(char* ruta, char* process_name, t_log_level log_level)
 	t_log* nuevo_logger = log_create(ruta, process_name, 1, log_level);
 	if(nuevo_logger == NULL){
 		perror("error al iniciar el logger");
-		exit(EXIT_FAILURE); // termina el programa
+		exit(EXIT_FAILURE);
 	}
 	return nuevo_logger;
 }
