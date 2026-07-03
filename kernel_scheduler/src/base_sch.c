@@ -460,7 +460,7 @@ void manejar_status_op(t_pcb* proceso, t_status_op status){
             
             break;
         
-        }case ERROR:{
+        }default:{
             log_error(logger, "Error: Caso de status error no manejado");
             break;
         }
@@ -608,6 +608,13 @@ t_evt* get_evt_de_proceso(t_pcb* proceso){
     ret = proceso->evt_actual;
     pthread_mutex_unlock(&proceso->mutex);
     return ret;
+}
+
+t_status_op get_status(t_pcb* proceso){
+    pthread_mutex_lock(&proceso->mutex);
+    t_status_op s = proceso->status;
+    pthread_mutex_unlock(&proceso->mutex);
+    return s;
 }
 
 // funciones para modificar y setters

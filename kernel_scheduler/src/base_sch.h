@@ -212,7 +212,7 @@ int get_pid_thread_safe(t_pcb* p);
 t_pcb* get_proceso_de_cpu_thread_safe(t_cpu*cpu);
 int get_pid_de_proceso_de_cpu_thread_safe(t_cpu* cpu);
 t_evt* get_evt_de_proceso(t_pcb* proceso);
-
+t_status_op get_status(t_pcb* proceso);
 // funciones para modificar y setters
 
 void cambiar_prioridad(t_pcb* proceso, int prioridad);

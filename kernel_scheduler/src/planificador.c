@@ -128,6 +128,8 @@ void* planificador_largo_plazo(){
 }
 
 void manejar_proceso_exit(t_pcb* proceso){
+    t_status_op status = get_status(proceso);
+    log_info(logger, "## (<%d>) - <EXIT>[%s]", proceso->pid, status_op_a_string(status));
     exec_a_exit(proceso);
     loguear_tamanio_listas_de_estado();
     t_paquete* paquete_fin_proc = crear_paquete(SCH_KM__EXIT);

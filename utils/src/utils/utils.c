@@ -331,7 +331,18 @@ t_log* iniciar_logger(char* ruta, char* process_name, t_log_level log_level)
 // otras
 
 char* status_op_a_string(t_status_op s){
-	return s == OK ? "OK" : "ERROR";
+	static char* status_strings[] = {
+		"OK",
+		"ERROR",
+		"SEG_FAULT",
+		"RECURSO_NO_EXISTE",
+		"RECURSO_YA_EXISTE",
+		"INSTRUCCION_INVALIDA",
+		"FIN_INVALIDO"
+	};
+    if (s < 0 || s >= FIN_INVALIDO + 1)
+        return "UNKNOWN_STATUS";
+    return status_strings[s];
 }
 
 pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo, t_log* logger){

@@ -98,7 +98,6 @@ void* atender_cpu(t_cpu* cpu){
     int cpu_fd = cpu->fd;
     int cpu_id = cpu->id;
     intentar_planificar();
-    // sem_post(&s_nueva_cpu_libre); 
     log_info(logger, "## CPU <%d> Conectada", cpu_id);
     while(1){
         op_code cod_op = recibir_operacion(cpu_fd);
@@ -182,8 +181,7 @@ void* atender_cpu(t_cpu* cpu){
             }case CPU_SCH__EXIT:{
                 t_list* data = recibir_paquete(cpu_fd);
                 t_status_op status = *(t_status_op*)list_get(data, 0);
-                char* msg = list_get(data, 1);
-                log_info(logger, "## (<%d>) - Solicito syscall: <EXIT>[%s] %s", get_pid_de_proceso_de_cpu_thread_safe(cpu), status_op_a_string(status), msg);
+                log_info(logger, "## (<%d>) - Solicito syscall: <EXIT>[%s]", get_pid_de_proceso_de_cpu_thread_safe(cpu), status_op_a_string(status));
                 pthread_mutex_lock(&cpu->mutex);
                 t_pcb* proceso_exit = cpu->proceso;
                 pthread_mutex_unlock(&cpu->mutex);
@@ -260,6 +258,10 @@ void atender_cpu_syscall_mutex_unlock(char* nombre_mutex, t_cpu* cpu){
     t_mutex* mutex = get_mutex(nombre_mutex);
     t_pcb* proceso = cpu->proceso;
     if(mutex == NULL){
+        liberar_cpu(cpu);
+        enviar_operacion(cpu->fd, SCH_CPU__ERROR_SYSCALL);
+        set_status(proceso, RECURSO_NO_EXISTE);
+        manejar_proceso_exit(proceso);
         // TODO: no existe un mutex con ese nombre en lista_mutex, devolver a CPU codigo de error
     }
     m_signal(mutex, proceso);
@@ -269,14 +271,14 @@ void atender_cpu_syscall_mutex_unlock(char* nombre_mutex, t_cpu* cpu){
 
 void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu){
     t_mutex* mutex = get_mutex(nombre_mutex);
+    t_pcb* proceso = get_proceso_de_cpu_thread_safe(cpu);
     if(mutex == NULL){
-        log_error(logger, "NotFoundException: Mutex de nombre <%s> no declarado", nombre_mutex);
-        enviar_operacion(cpu->fd, SCH_CPU__PEDIDO_DESALOJO);
-        exec_a_exit(cpu->proceso);
         liberar_cpu(cpu);
+        enviar_operacion(cpu->fd, SCH_CPU__ERROR_SYSCALL);
+        set_status(proceso, RECURSO_NO_EXISTE);
+        manejar_proceso_exit(proceso);
         return;
     }
-    t_pcb* proceso = cpu->proceso;
     bool reservado = m_wait(mutex, proceso);
     if(reservado){
         log_debug(logger, "atender_cpu_syscall_mutex_lock: mutex %s reservado", nombre_mutex);
@@ -331,7 +333,7 @@ void atender_cpu_syscall_sleep(int tiempo_sleep, t_cpu* cpu){
     
     // crear evento
     t_evt* evt = iniciar_evt_sleep(tiempo_sleep, proceso);
-    // crear el hilo de timeout para que dps del timeout se suspenda el proceso
+
     evt->hilo_timeout = crear_hilo_o_exit(hilo_timeout, evt, "hilo_esperar_timeout", logger);
     
     // agregar evt a lista de evts
@@ -345,8 +347,15 @@ void atender_cpu_syscall_sleep(int tiempo_sleep, t_cpu* cpu){
 
 void atender_cpu_syscall_mutex_create(char* nombre_mutex, t_cpu* cpu){
     int cpu_fd = cpu->fd;
-    m_create(nombre_mutex);
-    
+    t_mutex* m = m_create(nombre_mutex);
+    if(m == NULL){
+        t_pcb* proceso = get_proceso_de_cpu_thread_safe(cpu);
+        liberar_cpu(cpu);
+        enviar_operacion(cpu->fd, SCH_CPU__ERROR_SYSCALL);
+        set_status(proceso, RECURSO_YA_EXISTE);
+        manejar_proceso_exit(proceso);
+        return;
+    }
     log_debug(logger, "nuevo mutex agregado, tamaño lista ahora: %d", list_size(lista_mutex));
 
     enviar_operacion(cpu_fd, SCH_CPU__FIN_SYSCALL); 

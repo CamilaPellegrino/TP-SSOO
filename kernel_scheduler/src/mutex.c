@@ -7,7 +7,7 @@ t_pcb* prox_duenio_mutex(t_list* espera);
 
 t_mutex* m_create(char* nombre){
     static int proximo_mutex_id = 0;
-    if(get_mutex(nombre)){
+    if(get_mutex(nombre) != NULL){
         return NULL;
     }
     t_mutex* m = malloc(sizeof(t_mutex));

@@ -240,7 +240,7 @@ void atender_cpu_copy_mem(t_list* data, int cpu_fd){
 void atender_cpu_mov_in(t_list* data, int cpu_fd){
     int i = 0;
     t_dir_fisica dir_fisica = *(t_dir_fisica*)list_get(data, i++);
-    int tamanio = 1;
+    int tamanio = *(int*)list_get(data, i++);
     int pid = *(int*)list_get(data, i++);
     int base = calc_dir_fisica(pid, dir_fisica.id_segmento, dir_fisica.offset);
     t_evt* evt_read = iniciar_evt_read(pid, base, tamanio, cpu_fd);
@@ -259,8 +259,10 @@ void atender_cpu_mov_in(t_list* data, int cpu_fd){
 void atender_cpu_mov_out(t_list* data, int cpu_fd){
     int i = 0;
     t_dir_fisica dir_fisica = *(t_dir_fisica*)list_get(data, i++);
-    int tamanio = 1;
+    int tamanio = *(int*)list_get(data, i++);
     void* datos_escritos = list_get(data, i++);
+    log_info(logger, "Por escribir con mov_out, tamanio: %d", tamanio);
+    imprimir_bytes(datos_escritos, tamanio);
     int pid = *(int*)list_get(data, i++);
     int base = calc_dir_fisica(pid, dir_fisica.id_segmento, dir_fisica.offset);
     t_evt* evt_write = iniciar_evt_write(pid, base, tamanio, datos_escritos, cpu_fd);
