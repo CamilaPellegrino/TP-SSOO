@@ -173,7 +173,7 @@ t_proceso* proceso_de_pid(int pid);
 
 t_proceso* proceso_de_pid_thread_safe(int pid);
 
-t_segmento* segmento_de_id(int id_segmento);
+t_segmento* segmento_de_id(int id_segmento, int pid);
 t_stick* stick_por_id(int nro_stick);
 bool guardar_nuevo_proceso(int pid, int ppid, char* ruta_instrucciones);
 

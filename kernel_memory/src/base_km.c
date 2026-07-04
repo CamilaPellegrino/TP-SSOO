@@ -170,13 +170,13 @@ t_proceso* proceso_de_pid_thread_safe(int pid){
     return x;
 }
 
-t_segmento* segmento_de_id(int id_segmento){
+t_segmento* segmento_de_id(int id_segmento, int pid){
     pthread_mutex_lock(&m_lista_segmentos_global);
 
     for(int i = 0; i < list_size(lista_segmentos_global); i++){
         t_segmento* s = list_get(lista_segmentos_global, i);
 
-        if(s->id_segmento == id_segmento){
+        if(s->id_segmento == id_segmento && s->pid == pid){
             pthread_mutex_unlock(&m_lista_segmentos_global);
             return s;
         }
@@ -454,7 +454,8 @@ void imprimir_segmentos(){
     for(int i = 0; i < list_size(lista_segmentos_global); i++){
         t_segmento* s = list_get(lista_segmentos_global, i);
         printf(
-            "Segmento %d -> base: %d | tam: %u | ult_dir: %d\n",
+            "<%d> Segmento %d -> base: %d | tam: %u | ult_dir: %d\n",
+            s->pid,
             s->id_segmento,
             s->base,
             s->tamanio,

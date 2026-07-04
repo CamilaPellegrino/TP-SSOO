@@ -339,7 +339,7 @@ void* atender_scheduler(void*){
                 }
                 list_remove_element(lista_procesos, proceso);
                 pthread_mutex_unlock(&m_lista_procesos);
-                destruir_proceso(proceso);
+                // destruir_proceso(proceso);
                 log_debug(logger, "Exit de pid %d completo", pid);
                 break;
             }
@@ -397,7 +397,7 @@ void atender_sch_read(t_list* data){
     agregar_a_paquete(paquete, &pid, sizeof(pid));
     agregar_string_a_paquete(paquete, datos_leidos);
     enviar_paquete_y_liberarlo(paquete, sch_fd);
-
+    imprimir_estado_mem_thread_safe();
     liberar_evt(evt_read);
 }
 
@@ -501,7 +501,7 @@ void atender_sch_mem_free(t_list* data){
     int id_segmento = *(int*)list_get(data, i++);
     
     t_proceso* p = proceso_de_pid_thread_safe(pid);
-    t_segmento* segmento = segmento_de_id(id_segmento);
+    t_segmento* segmento = segmento_de_id(id_segmento, pid);
     t_status_op status = OK;
     if(p == NULL || segmento == NULL){
         log_debug(logger, "Proceso o segmento no encontrados");
