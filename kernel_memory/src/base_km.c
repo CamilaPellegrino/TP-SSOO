@@ -3,7 +3,6 @@
 void inicializar_variables_globales(t_config* config){
 	puerto = config_get_string_value (config, "PUERTO_KERNEL_MEMORY");
     scripts_basepath = config_get_string_value(config, "SCRIPTS_BASEPATH");
-
     t_log_level log_level = log_level_from_string(config_get_string_value(config, "LOG_LEVEL"));
     logger = iniciar_logger("kernel_memory.log", "ProcesoKernelMemory", log_level);
 
@@ -17,7 +16,8 @@ void inicializar_variables_globales(t_config* config){
     segment_max_size = config_get_int_value(config, "SEGMENT_MAX_SIZE");
     instruction_delay_ms = config_get_int_value(config, "INSTRUCTION_DELAY");
     compaction_delay_ms = config_get_int_value(config, "COMPACTION_DELAY");
-    algoritmo_fit = allocation_strategy_str_to_enum(config_get_string_value(config, "ALLOCATION_STRATEGY"));
+    char* alloc_str = config_get_string_value(config, "ALLOCATION_STRATEGY");
+    algoritmo_fit = allocation_strategy_str_to_enum(alloc_str);
     tamanio_total_mem = 0;
     tamanio_total_libre = 0;
     
@@ -369,13 +369,17 @@ char* ruta_completa(char* base, char* nombre_archivo){
 }
 
 t_fit allocation_strategy_str_to_enum(char* strategy_str){
-    if(strcmp(strategy_str, "BEST")){
+    if(strcmp(strategy_str, "BEST") == 0){
+        log_info(logger, "Es BEST");
         return BEST_FIT;
     }
-    if(strcmp(strategy_str, "WORST")){
+
+    if(strcmp(strategy_str, "WORST") == 0){
+        log_info(logger, "Es WORST");
         return WORST_FIT;
     }
-    return -1;
+
+    return -1; 
 }
 
 // liberar

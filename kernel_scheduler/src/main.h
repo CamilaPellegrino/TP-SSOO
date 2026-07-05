@@ -25,6 +25,7 @@ t_list* queues_algorithms;
 int proximo_pid;
 int suspension_timeout;
 int quantum;
+bool queue_preemption;
 int procesos_en_ready;
 t_estado_sch estado_global;
 

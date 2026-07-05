@@ -108,6 +108,7 @@ extern t_planificacion algoritmo;  // CMN, FIFO o RR
 extern int proximo_pid;
 extern int suspension_timeout;
 extern int quantum;
+extern bool queue_preemption;
 extern int procesos_en_ready;
 extern t_estado_sch estado_global;
 
@@ -240,6 +241,7 @@ void pedido_desalojo_a_todas_las_cpus(op_code cod_op);
 bool hay_cpus_ejecutando();
 void sumar_milisegundos(struct timespec* ts, int milisegundos);
 t_planificacion algoritmo_de_proceso(t_pcb*);
+bool queue_preemption_from_string(char* str);
 t_list* obtener_pcbs_ordenados_por_prioridad(t_list* procesos);
 void intentar_desuspender();
 // logs

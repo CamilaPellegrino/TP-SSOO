@@ -12,6 +12,7 @@ int conexion_kernel_memory;
 int tamanio_stick;
 void* memoria_reservada = NULL;
 char* memoria_principal = NULL;
+int memory_delay = 0;
 
 int main(int argc, char* argv[]) {
     // ejemplo para ejecutar: ./bin/memory_stick ./memory_stick.config 32
@@ -29,6 +30,8 @@ int main(int argc, char* argv[]) {
     imprimir_bytes(memoria_reservada, tamanio_stick);
     // inciar config
     t_config* config = iniciar_config(ruta_config);
+
+    memory_delay = config_get_int_value(config, "MEMORY_DELAY");
 
     // conectarse a kernel memory
     char *ip = config_get_string_value(config, "IP");
@@ -119,13 +122,9 @@ void atender_pedido_escritura(int dir_fisica, void* contenido, int tamanio, int 
 
     void* destino = memoria_principal + dir_fisica;
     memcpy(destino, contenido, tamanio);
+    usleep(memory_delay * 1000);
     log_info(logger, "## Escritura de <%d> bytes", tamanio);
     enviar_operacion(cliente_fd, STICK_X__OK);
-    
-    //Comprueba si se escribio bien, despues borrar
-    // log_info(logger,"Comprobacion -> Leyendo el entero completo en dir %d: %s", dir_fisica, &memoria_principal[dir_fisica]);
-    printf("Comprobacion escritura: ");
-    imprimir_bytes(memoria_reservada, tamanio_stick);
     return;
 }
 
@@ -138,10 +137,8 @@ void atender_pedido_lectura(int dir_fisica, int tamanio, int cliente_fd) {
     // char* contenido_leido = malloc(tamanio +1); //El contenido que se ingresa siempre es un string (?
     // memcpy(contenido_leido, origen, tamanio);
     log_info(logger, "## Lectura de <%d> bytes", tamanio);
-    log_info(logger, "Se leyo en la direccion %d", dir_fisica);
+    usleep(memory_delay * 1000);
     t_paquete* paquete_respuesta = crear_paquete(STICK_X__OK);
-    printf("Comprobacion lectura: ");
-    imprimir_bytes(origen, tamanio);
     agregar_a_paquete(paquete_respuesta, origen, tamanio);
     enviar_paquete_y_liberarlo(paquete_respuesta, cliente_fd);
     return;

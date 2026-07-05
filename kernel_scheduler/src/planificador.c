@@ -25,7 +25,7 @@ void* planificador_corto_plazo(){
             continue;
         }
         pthread_mutex_unlock(&m_lista_cpus);
-        if(algoritmo == CMN){
+        if(algoritmo == CMN && queue_preemption){
             t_cpu* cpu_desalojable = cpu_a_desalojar_por_prioridad(proceso);
             if(cpu_desalojable != NULL){
                 pthread_mutex_lock(&m_lista_cpus);
@@ -33,7 +33,6 @@ void* planificador_corto_plazo(){
                 if(!cpu_desalojable->desalojando && cpu_desalojable->proceso != proceso){
                     cpu_desalojable->desalojando = true;
                     enviar_operacion(cpu_desalojable->fd, SCH_CPU__PEDIDO_DESALOJO);
-                    log_info(logger, "## desalojando cpu %d", cpu_desalojable->id);
                     agregar_a_ready_al_frente(proceso);
                     pthread_mutex_unlock(&cpu_desalojable->mutex);
                     pthread_mutex_unlock(&m_lista_cpus);
@@ -279,12 +278,15 @@ void* hilo_fin_quantum(void* arg){
 
     // timeout vencido o syscall finalizada
     log_debug(logger, "quantum vencido o proceso bloqueado antes del quantum");
+    pthread_mutex_lock(&cpu->mutex);
     if(!data_cond->cond_val && proceso->estado == EJECUTANDO){
         log_debug(logger, "## (<%d>) - Desalojado por fin de quantum", proceso->pid);
         // exec_a_ready(proceso);
         // liberar_cpu(cpu); 
+        cpu->desalojando = true;
         enviar_operacion(cpu->fd, SCH_CPU__PEDIDO_DESALOJO);
     }
+    pthread_mutex_unlock(&cpu->mutex);
     data_cond->cond_val = false;
     pthread_mutex_unlock(&data_cond->mutex_cond);
     log_debug(logger, "hilo_fin_quantum: finalizando");

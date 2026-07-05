@@ -59,7 +59,7 @@ void inicializar_parametros_de_config(t_config* config){
     // leer de config
     t_log_level log_level = log_level_from_string(config_get_string_value(config, "LOG_LEVEL"));
     logger = iniciar_logger("kernel_scheduler.log", "ProcesoKernelScheduler", log_level);
-
+    queue_preemption = queue_preemption_from_string(config_get_string_value(config, "QUEUE_PREEMPTION"));
     suspension_timeout = config_get_int_value(config, "SUSPENSION_TIMEOUT");
     algoritmo = obtener_algoritmo_planificacion(config_get_string_value(config, "PLANIFICATION_ALGORITHM"));
     char** queues_str = config_get_array_value(config, "QUEUES_ALGORITHMS");
@@ -814,6 +814,10 @@ t_planificacion algoritmo_str_a_enum(char *algoritmo_str){
         return CMN;
     }
     return -1;
+}
+
+bool queue_preemption_from_string(char* str){
+    return strcmp(str, "TRUE") == 0;
 }
 
 static bool mayor_prioridad(void* a, void* b) {
