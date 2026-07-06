@@ -121,10 +121,11 @@ bool hay_espacio_total_thread_safe(uint32_t tamanio){
 bool suspender_thread_safe(int pid){
     pthread_mutex_lock(&m_manejar_memoria);
     t_evt* evt = iniciar_evt_suspender(pid);
-
+    log_debug(logger, "Evento creado");
     agregar_evt_a_stick(evt);
+    log_debug(logger, "Evento agregado");
     sem_wait(&evt->s_fin);
-
+    log_debug(logger, "termino suspension ya, pos desbloquear manejar memoria");
     pthread_mutex_unlock(&m_manejar_memoria);
     liberar_evt(evt);
 
@@ -361,8 +362,13 @@ bool segmento_adelante_de_dir(t_segmento* s, int dir){
     return s->base > dir;
 }
 
-void eliminar_segmentos(t_proceso* p){
+void eliminar_segmentos_thread_safe(t_proceso* p){
     pthread_mutex_lock(&m_manejar_memoria);
+    eliminar_segmentos(p);
+    pthread_mutex_unlock(&m_manejar_memoria);
+}
+
+void eliminar_segmentos(t_proceso* p){
     pthread_mutex_lock(&p->mutex);
 
     while(!list_is_empty(p->lista_segmentos)){
@@ -371,7 +377,6 @@ void eliminar_segmentos(t_proceso* p){
     }
 
     pthread_mutex_unlock(&p->mutex);
-    pthread_mutex_unlock(&m_manejar_memoria);
 }
 
 void destruir_proceso(t_proceso* p){
@@ -379,7 +384,7 @@ void destruir_proceso(t_proceso* p){
     free(p->pcb);
     list_destroy_and_destroy_elements(p->instrucciones, free);
     pthread_mutex_unlock(&p->mutex);
-    eliminar_segmentos(p);
+    eliminar_segmentos_thread_safe(p);
     list_destroy(p->lista_segmentos);
 }
 
@@ -399,8 +404,8 @@ void agregar_segmentos_al_paquete(t_list* segmentos, t_paquete* p){
 int calc_dir_fisica(int pid, int id_segmento, int offset){
     t_proceso* proceso = proceso_de_pid_thread_safe(pid);
     t_segmento* seg = NULL;
-    pthread_mutex_lock(&m_lista_segmentos_global);
     pthread_mutex_lock(&proceso->mutex);
+    pthread_mutex_lock(&m_lista_segmentos_global);
     for(int i = 0; i<list_size(proceso->lista_segmentos); i++){
         t_segmento* s = list_get(proceso->lista_segmentos, i);
         if(s->id_segmento == id_segmento){

@@ -51,4 +51,5 @@ void destruir_segmentos_de_proceso(t_proceso* p);
 void destruir_segmentos_de_proceso_suspendido(t_proceso_suspendido* p);
 void destruir_segmento(void* data);
 void destruir_bloque(void* data);
+void imprimir_bitmap(void);
 #endif /* CONEXION_MEMORIA_H_ */

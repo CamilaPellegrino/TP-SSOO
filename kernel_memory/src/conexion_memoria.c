@@ -17,7 +17,7 @@ void* atender_stick(void* arg){
     int bytes = (cant_bloques + 7) / 8;
     char* bitmap = calloc(bytes, sizeof(char));
     bitarray = bitarray_create_with_mode(bitmap, bytes, LSB_FIRST);
-    
+    imprimir_bitmap();
     t_handler handlers[] = {
         [SCH_LECTURA]    = atender_sch_lectura,
         [SCH_ESCRITURA]  = atender_sch_escritura,
@@ -30,6 +30,7 @@ void* atender_stick(void* arg){
     while(1){
         sem_wait(&s_lista_eventos_stick);
         log_debug(logger, "Pedido a sticks");
+        imprimir_bitmap();
         
         pthread_mutex_lock(&m_lista_eventos_stick);
         if(list_is_empty(lista_evt)){
@@ -53,6 +54,7 @@ void desconexion_por_bsod(){
 }
 
 void atender_suspension(t_evt* evt){
+    imprimir_bitmap();
     int pid = evt->pid;
     log_info(logger, "Suspendiendo proceso <%d>", pid);
     
@@ -80,9 +82,11 @@ void atender_suspension(t_evt* evt){
         list_add(proceso_suspendido->segmentos_suspendidos, ss);
         free(datos);
     }
-
+    log_debug(logger, "Por hacer el post");
     sem_post(&evt->s_fin);
+    log_debug(logger, "Hice post, suspension finalizada");
     destruir_segmentos_de_proceso(proceso);
+    log_debug(logger, "Ya destrui los segmentos");
 }
 
 void atender_desuspension(t_evt* evt){
@@ -170,7 +174,7 @@ void* ejecutar_pedidos_lectura_en_swap(t_list* data){
         recibir_operacion(conexion_swap);
         t_list* data = recibir_paquete(conexion_swap);
         void* contenido = list_get(data, 0);
-        memcpy(buffer + offset, contenido, bloque->tamanio);
+        memcpy((char*)buffer + offset, contenido, bloque->tamanio);
         offset += bloque->tamanio;
         list_destroy_and_destroy_elements(data, free);
     }
@@ -409,7 +413,7 @@ void atender_swap(int swap_fd){
 t_data_escritura_bloque* iniciar_data_escritura_bloque(int num_bloque, void* contenido, int tamanio){
     t_data_escritura_bloque* data = malloc(sizeof(t_data_escritura_bloque));
     data->contenido = malloc(tamanio);
-    memcpy(data->contenido, contenido, tamanio);
+    memcpy((char*)data->contenido, contenido, tamanio);
     data->num_bloque = num_bloque;
     data->tamanio = tamanio;
     return data;
@@ -483,6 +487,17 @@ void destruir_segmento(void* data){
 }
 void destruir_bloque(void* data){
     t_data_escritura_bloque* bloque = (t_data_escritura_bloque*) data;
+    pthread_mutex_lock(&m_bitarray);
+    bitarray_clean_bit(bitarray, bloque->num_bloque);
+    pthread_mutex_unlock(&m_bitarray);
     free(bloque->contenido);
     free(bloque);
+}
+
+void imprimir_bitmap(void) {
+    printf("Bitmap: ");
+    for (int i = 0; i < cant_bloques; i++) {
+        printf("%d", bitarray_test_bit(bitarray, i));
+    }
+    printf("\n");
 }

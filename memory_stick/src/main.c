@@ -101,6 +101,7 @@ void* atender_pedidos(void* arg){
                 t_list* lista_paquete = recibir_paquete(cliente_fd);
                 int dir_fisica = *(int*)list_get(lista_paquete, 0);
                 int tamanio_cont = *(int*)list_get(lista_paquete, 1);
+                log_info(logger, "## Lectura, dir fisica: %d, tamanio: %d", dir_fisica, tamanio_cont);
                 atender_pedido_lectura(dir_fisica, tamanio_cont, cliente_fd);
                 list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
@@ -124,6 +125,7 @@ void atender_pedido_escritura(int dir_fisica, void* contenido, int tamanio, int 
     memcpy(destino, contenido, tamanio);
     usleep(memory_delay * 1000);
     log_info(logger, "## Escritura de <%d> bytes", tamanio);
+    imprimir_bytes(memoria_reservada, tamanio_stick);
     enviar_operacion(cliente_fd, STICK_X__OK);
     return;
 }
@@ -138,6 +140,7 @@ void atender_pedido_lectura(int dir_fisica, int tamanio, int cliente_fd) {
     // memcpy(contenido_leido, origen, tamanio);
     log_info(logger, "## Lectura de <%d> bytes", tamanio);
     usleep(memory_delay * 1000);
+    imprimir_bytes(origen, tamanio);
     t_paquete* paquete_respuesta = crear_paquete(STICK_X__OK);
     agregar_a_paquete(paquete_respuesta, origen, tamanio);
     enviar_paquete_y_liberarlo(paquete_respuesta, cliente_fd);
