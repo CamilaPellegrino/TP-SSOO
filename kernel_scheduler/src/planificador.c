@@ -95,6 +95,10 @@ void asignar_proceso(t_pcb* proceso, t_cpu* cpu){
     set_proceso_thread_safe(cpu, proceso);
     int pid = proceso->pid;
 
+    pthread_mutex_lock(&proceso->data_cond.mutex_cond);
+    proceso->data_cond.cond_val = false;
+    pthread_mutex_unlock(&proceso->data_cond.mutex_cond);
+
     // le asigno a prox_cpu el proceso prox_proceso mandandole el pid
     int cpu_fd = cpu->fd;
     t_paquete* paquete_asignar_proceso = crear_paquete(SCH_CPU__PID);         
@@ -198,10 +202,6 @@ void agregar_a_ready_al_frente(t_pcb* proceso){
 
             list_add_in_index(sublista->sublista, 0, proceso);
 
-            pthread_mutex_lock(&m_procesos_en_ready);
-            procesos_en_ready++;
-            pthread_mutex_unlock(&m_procesos_en_ready);
-
             pthread_mutex_unlock(&sublista->mutex);
             pthread_mutex_unlock(&estado_ready->mutex);
             break;
@@ -210,6 +210,9 @@ void agregar_a_ready_al_frente(t_pcb* proceso){
             log_error(logger, "Algoritmo desconocido");
             exit(EXIT_FAILURE);
     }
+    pthread_mutex_lock(&m_procesos_en_ready);
+    procesos_en_ready++;
+    pthread_mutex_unlock(&m_procesos_en_ready);
 }
 
 t_pcb* planificar_RR_y_FIFO(){
@@ -258,38 +261,39 @@ void* hilo_timeout(void* arg){
 void* hilo_fin_quantum(void* arg){
     t_cpu* cpu = (t_cpu*) arg;
     if(cpu == NULL || cpu->proceso == NULL){ return NULL; }
-    t_pcb* proceso = cpu->proceso;
+    t_pcb* proceso = get_proceso_de_cpu_thread_safe(cpu);
     struct timespec ts;
     log_debug(logger, "iniciando hilo_fin_quantum para pid <%d>", proceso->pid);
     if(proceso == NULL){
         log_debug(logger, "hilo_fin_quantum: cpu libre, terminando este hilo");
         return NULL;
     }
+    pthread_mutex_lock(&proceso->mutex);
     t_data_cond* data_cond = &proceso->data_cond;
+    pthread_mutex_unlock(&proceso->mutex);
 
     clock_gettime(CLOCK_REALTIME, &ts);
     sumar_milisegundos(&ts, quantum);
     int rc = 0;
-
+    
     pthread_mutex_lock(&data_cond->mutex_cond);
     while(!data_cond->cond_val && rc == 0){
         rc = pthread_cond_timedwait(&data_cond->cond, &data_cond->mutex_cond, &ts);
     }
+    int pid = get_pid_thread_safe(proceso);
 
-    // timeout vencido o syscall finalizada
-    log_debug(logger, "quantum vencido o proceso bloqueado antes del quantum");
+    log_debug(logger, "<%d> quantum vencido o proceso bloqueado antes del quantum", pid);
+
     pthread_mutex_lock(&cpu->mutex);
     if(!data_cond->cond_val && proceso->estado == EJECUTANDO){
-        log_debug(logger, "## (<%d>) - Desalojado por fin de quantum", proceso->pid);
-        // exec_a_ready(proceso);
-        // liberar_cpu(cpu); 
+        log_debug(logger, "## (<%d>) - Desalojado por fin de quantum", pid);
         cpu->desalojando = true;
         enviar_operacion(cpu->fd, SCH_CPU__PEDIDO_DESALOJO);
     }
     pthread_mutex_unlock(&cpu->mutex);
     data_cond->cond_val = false;
     pthread_mutex_unlock(&data_cond->mutex_cond);
-    log_debug(logger, "hilo_fin_quantum: finalizando");
+    log_debug(logger, "<%d> hilo_fin_quantum: finalizando", pid);
 
     return NULL;
 }

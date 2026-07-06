@@ -268,6 +268,7 @@ void atender_cpu_mov_out(t_list* data, int cpu_fd){
     imprimir_bytes(datos_escritos, tamanio);
     int pid = *(int*)list_get(data, i++);
     int base = calc_dir_fisica(pid, dir_fisica.id_segmento, dir_fisica.offset);
+    log_info(logger, "calcule dir fisica");
     t_evt* evt_write = iniciar_evt_write(pid, base, tamanio, datos_escritos, cpu_fd);
 
     agregar_evt_a_stick(evt_write);

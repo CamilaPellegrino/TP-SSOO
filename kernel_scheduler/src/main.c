@@ -405,11 +405,11 @@ void* atender_km(void*){
                 cambiar_estado_global(PLANIF_ACTIVA);
                 
                 intentar_desuspender();
-
                 pthread_mutex_lock(&m_procesos_en_ready);
                 int size_ready = procesos_en_ready;
                 pthread_mutex_unlock(&m_procesos_en_ready);
-
+                log_debug(logger, "Lei cant de procesos en ready: %d", size_ready);
+                imprimir_estado_procesos();
                 for(int i = 0; i<size_ready; i++){
                     intentar_planificar();
                 }

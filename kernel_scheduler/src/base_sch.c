@@ -271,6 +271,7 @@ void exec_a_blocked(t_pcb* proceso){
 }
 
 void exec_a_blocked_cond_signal(t_pcb* proceso){
+    log_debug(logger, "<%d> Exec a blocked cond signal", get_pid_thread_safe(proceso));
     if(algoritmo_de_proceso(proceso) != RR){
         exec_a_blocked(proceso);
         return;
@@ -297,9 +298,10 @@ void exec_a_ready(t_pcb* proceso){
 }
 
 void exec_a_ready_cond_signal(t_pcb* proceso){
+    log_debug(logger, "<%d> Exec a ready cond signal", get_pid_thread_safe(proceso));
+    exec_a_ready(proceso);
     pthread_mutex_lock(&proceso->data_cond.mutex_cond);
 
-    exec_a_ready(proceso);
     proceso->data_cond.cond_val = true;
     pthread_cond_signal(&proceso->data_cond.cond);
 
