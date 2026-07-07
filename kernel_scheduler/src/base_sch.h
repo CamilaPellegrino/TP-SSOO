@@ -200,7 +200,6 @@ t_sublista_ready* sublista_ready_de_prioridad(int prioridad);
 // para desbloquear procesos
 
 void desbloquear_proceso(t_pcb* proceso);
-void manejar_status_op(t_pcb* proceso, t_status_op status);
 
 // obtener por clave y getters
 

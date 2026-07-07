@@ -544,6 +544,10 @@ void* atender_km(void*){
                 susp_ready_a_ready(proceso);
                 break;
             }
+            case KM_SCH__SUSPENDIDO:{
+                intentar_desuspender();
+                break;
+            }
             default: 
                 log_warning(logger, "Warning: Operacion desconocida, cod_op = %d",cod_op);
         }

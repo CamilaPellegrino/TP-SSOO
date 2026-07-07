@@ -226,6 +226,7 @@ void blocked_a_susp_blocked(t_pcb* proceso){
 
 void susp_blocked_a_susp_ready(t_pcb* proceso){
     generica_transicion_de_estados(proceso, estado_susp_blocked, estado_susp_ready);
+    intentar_desuspender();
 }
 
 void susp_ready_a_ready(t_pcb* proceso){
@@ -452,20 +453,6 @@ void desbloquear_proceso(t_pcb* proceso){
     }else if(estado == BLOQUEADO){
         // si esta en blocked: mover a ready
         blocked_a_ready(proceso);
-    }
-}
-
-void manejar_status_op(t_pcb* proceso, t_status_op status){
-    switch (status){
-        case OK:{
-            desbloquear_proceso(proceso);
-            
-            break;
-        
-        }default:{
-            log_error(logger, "Error: Caso de status error no manejado");
-            break;
-        }
     }
 }
 
