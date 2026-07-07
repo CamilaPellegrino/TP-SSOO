@@ -473,11 +473,11 @@ void atender_sch_mem_alloc(t_list* data){
     }else{
         log_info(logger, "## <%d> Atendiendo syscall MEM_ALLOC %d %d", pid, id_segmento, tamanio);
         if(existe_segmento_de_id_de_proc_thread_safe(id_segmento, p)){
-            status = ERROR;
+            status = RECURSO_YA_EXISTE;
         }else{
             t_segmento* segmento = crear_segmento_thread_safe(p, id_segmento, tamanio);
             if(segmento == NULL){
-                status = ERROR;
+                status = MEM_INSUFICIENTE;
                 if(hay_espacio_total_thread_safe(tamanio)){
                     log_info(logger, "## <%d> Se dispara compactación tras intentar MEM_ALLOC, tamanio libre: %d, tamanio a reservar: %d", pid, tamanio_total_libre, tamanio);
                     

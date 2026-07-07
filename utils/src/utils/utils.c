@@ -338,9 +338,10 @@ char* status_op_a_string(t_status_op s){
 		"RECURSO_NO_EXISTE",
 		"RECURSO_YA_EXISTE",
 		"INSTRUCCION_INVALIDA",
-		"FIN_INVALIDO"
+		"FIN_INVALIDO",
+		"MEM_INSUFICIENTE"
 	};
-    if (s < 0 || s >= FIN_INVALIDO + 1)
+    if (s < 0 || s >= MEM_INSUFICIENTE + 1)
         return "UNKNOWN_STATUS";
     return status_strings[s];
 }

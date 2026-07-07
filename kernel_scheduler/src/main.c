@@ -444,8 +444,6 @@ void* atender_km(void*){
                 t_list* data = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*)list_get(data, 0);
                 t_status_op status = *(t_status_op*)list_get(data, 1);
-                // t_pcb* proceso = proceso_de_lista(pid, estado_exec->sublista);
-                // manejar_status_op(proceso, status);
                 t_cpu* cpu = cpu_de_pid(pid);
                 if(cpu == NULL){
                     t_pcb* proceso = proceso_de_lista(pid, estado_exec);
@@ -455,7 +453,11 @@ void* atender_km(void*){
                 if(status == OK){
                     enviar_operacion(cpu->fd, SCH_CPU__FIN_SYSCALL);
                 }else{
-                    log_warning(logger, "Estado ERROR de MEM_ALLOC"); // TODO: Pasar a EXIT
+                    t_pcb* proceso = get_proceso_de_cpu_thread_safe(cpu);
+                    liberar_cpu(cpu);
+                    enviar_operacion(cpu->fd, SCH_CPU__ERROR_SYSCALL);
+                    set_status(proceso, status);
+                    manejar_proceso_exit(proceso);
                 }
                 list_destroy_and_destroy_elements(data, free);
                 break;

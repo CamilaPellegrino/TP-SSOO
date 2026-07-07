@@ -262,7 +262,7 @@ void transicion_desde_wait_sys(op_code cod_op){
             break;
         }
         case SCH_CPU__SYS_BLOQUEANTE:
-            set_enviar_contexto_y_desalojar(true);
+            v_pedido_de_desalojo = true;
             pthread_cond_signal(&cond_ejecutar);
         case SCH_CPU__ERROR_SYSCALL: {
             transicionar(LIBRE);
@@ -279,7 +279,7 @@ void transicion_desde_wait_sys_y_prox_desalojo(op_code cod_op){
             // transicionar(LIBRE);
             // enviar_confirmacion();
             transicionar(LIBRE);
-            set_enviar_contexto_y_desalojar(true);
+            v_pedido_de_desalojo = true;
             pthread_cond_signal(&cond_ejecutar);
             break;
         }
@@ -344,7 +344,7 @@ void transicion_desde_wait_mem_alloc_y_prox_desalojo(op_code cod_op){
         case SCH_CPU__FIN_SYSCALL:{
             // transicionar(LIBRE);
             // enviar_confirmacion();
-            set_enviar_contexto_y_desalojar(true);
+            v_pedido_de_desalojo = true;
             pthread_cond_signal(&cond_ejecutar);
             break;
         }
@@ -412,12 +412,6 @@ void esperar_a_poder_ejecutar(t_pcb* pcb){
         if(v_pedido_de_desalojo){
             log_debug(logger, "Consumiendo desalojo");
             procesar_desalojo_pendiente(pcb);
-            transicionar(LIBRE);
-        }
-        if(get_enviar_contexto_y_desalojar()){
-            log_debug(logger, "Consumiendo enviar contexto y desalojar");
-            procesar_desalojo_pendiente(pcb);
-            set_enviar_contexto_y_desalojar(false);
         }
         if(estado_cpu == EXEC){
             break;
