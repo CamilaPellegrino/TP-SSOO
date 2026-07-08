@@ -314,21 +314,21 @@ void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p){
 
 }
 
-bool puedo_desuspender_sin_compactar(int pid){
-    return true;
-}
+// bool puedo_desuspender_sin_compactar(int pid){
+//     return true;
+// }
 
-bool intentar_desuspender(int pid){
-    if(puedo_desuspender_sin_compactar(pid)){
-        t_evt* evt_desup = iniciar_evt_suspender(pid);
-        evt_desup->tipo = DESUSPENSION;
-        agregar_evt_a_stick(evt_desup);
-        sem_wait(&evt_desup->s_fin);
-        liberar_evt(evt_desup);
-        return true;
-    }
-    return false;
-}
+// bool intentar_desuspender(int pid){
+//     if(puedo_desuspender_sin_compactar(pid)){
+//         t_evt* evt_desup = iniciar_evt_suspender(pid);
+//         evt_desup->tipo = DESUSPENSION;
+//         agregar_evt_a_stick(evt_desup);
+//         sem_wait(&evt_desup->s_fin);
+//         liberar_evt(evt_desup);
+//         return true;
+//     }
+//     return false;
+// }
 
 // Manejo de rutas
 t_list* instrucciones_de_ruta(char* nombre_archivo){

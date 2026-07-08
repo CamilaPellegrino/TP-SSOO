@@ -1,8 +1,7 @@
 #include "manejar_segmentos.h"
 // privadas
-t_hueco* ubicacion_de_proximo_segmento(uint32_t tamanio); 
-t_hueco* best_fit(uint32_t tamanio);
-t_hueco* worst_fit(uint32_t tamanio);
+t_hueco* best_fit(t_list* huecos, uint32_t tamanio);
+t_hueco* worst_fit(t_list* huecos, uint32_t tamanio);
 void agregar_segmento_a_proceso(t_segmento* segmento, t_proceso* proceso); 
 bool achicar_hueco(t_hueco* hueco, uint32_t seg_tam);
 bool segmento_del_proceso(t_segmento* segmento, t_proceso* proceso);
@@ -16,7 +15,7 @@ bool segmento_adelante_de_dir(t_segmento* s, int dir);
 // no thread safe
 t_segmento* crear_segmento(t_proceso* proceso, uint32_t id_segmento, uint32_t tamanio){
     log_debug(logger, "creando seg");
-    t_hueco* hueco_disp = ubicacion_de_proximo_segmento(tamanio);
+    t_hueco* hueco_disp = ubicacion_de_proximo_segmento(lista_huecos, tamanio);
     if(hueco_disp == NULL){
         if(tamanio_total_libre >= tamanio){
             log_debug(logger, "## Iniciando compactacion de memoria");
@@ -206,22 +205,22 @@ bool existe_segmento_de_id_de_proc_thread_safe(int id, t_proceso* p){
 }
 //privadas
 
-t_hueco* ubicacion_de_proximo_segmento(uint32_t tamanio){
+t_hueco* ubicacion_de_proximo_segmento(t_list* huecos, uint32_t tamanio){
     switch(algoritmo_fit){
         case BEST_FIT: {
-            return best_fit(tamanio);
+            return best_fit(huecos, tamanio);
         }case WORST_FIT: {
-            return worst_fit(tamanio);
+            return worst_fit(huecos, tamanio);
         }        
     }
     log_error(logger, "Error: Algoritmo de seleccion de huecos invalido, opciones validas: BEST_FIT, WORST_FIT");
     exit(EXIT_FAILURE);
 }
 
-t_hueco* best_fit(uint32_t tamanio){
+t_hueco* best_fit(t_list* huecos, uint32_t tamanio){
     t_hueco* hueco = NULL;
-    for(int i = 0; i < list_size(lista_huecos); i++){
-        t_hueco* hueco_actual = list_get(lista_huecos, i);
+    for(int i = 0; i < list_size(huecos); i++){
+        t_hueco* hueco_actual = list_get(huecos, i);
         if(hueco_actual->tamanio >= tamanio){
             if(hueco == NULL || hueco->tamanio > hueco_actual->tamanio) {
                 hueco = hueco_actual;
@@ -231,10 +230,10 @@ t_hueco* best_fit(uint32_t tamanio){
     return hueco;
 }
 
-t_hueco* worst_fit(uint32_t tamanio){
+t_hueco* worst_fit(t_list* huecos, uint32_t tamanio){
     t_hueco* hueco = NULL;
-    for(int i = 0; i < list_size(lista_huecos); i++){
-        t_hueco* hueco_actual = list_get(lista_huecos, i);
+    for(int i = 0; i < list_size(huecos); i++){
+        t_hueco* hueco_actual = list_get(huecos, i);
         if(hueco_actual->tamanio >= tamanio){
             if(hueco == NULL || hueco->tamanio < hueco_actual->tamanio) {
                 hueco = hueco_actual;
@@ -419,4 +418,16 @@ int calc_dir_fisica(int pid, int id_segmento, int offset){
         return -1;
     }
     return seg->base + offset;
+}
+
+void destruir_huecos(t_list* huecos){
+    if (huecos == NULL)
+        return;
+
+    while (!list_is_empty(huecos)) {
+        t_hueco* hueco = list_remove(huecos, 0);
+        free(hueco);
+    }
+
+    list_destroy(huecos);
 }

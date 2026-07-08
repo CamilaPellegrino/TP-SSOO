@@ -46,6 +46,10 @@ t_segmento_suspendido* iniciar_segmento_suspendido(int id_segmento, t_list*bloqu
 bool proceso_suspendido_thread_safe(int pid);
 t_proceso_suspendido* proceso_suspendido_de_pid_thread_safe(int pid);
 
+bool intentar_desuspender(int pid);
+bool puedo_desuspender_sin_compactar(int pid);
+t_list* copiar_huecos(t_list* originales);
+
 // liberar
 void destruir_segmentos_de_proceso(t_proceso* p);
 void destruir_segmentos_de_proceso_suspendido(t_proceso_suspendido* p);

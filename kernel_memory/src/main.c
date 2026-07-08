@@ -377,7 +377,7 @@ void atender_sch_intentar_desuspender(t_list* data){
 void atender_sch_suspender(t_list* data){
     int pid = *(int*)list_get(data, 0);
     log_info(logger, "## <%d> Suspendiendo proceso", pid);
-    bool suspendido = suspender_thread_safe(pid);
+    /*bool suspendido = */suspender_thread_safe(pid);
     enviar_operacion(sch_fd, KM_SCH__SUSPENDIDO);
 }
 

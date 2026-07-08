@@ -108,9 +108,7 @@ void desuspender_proceso(int pid){
         log_error(logger, "procdesup es null");
         exit(EXIT_FAILURE);
     }
-    pthread_mutex_lock(&m_lista_procesos);
-    list_add(lista_procesos, proceso_desup);
-    pthread_mutex_unlock(&m_lista_procesos);
+
     t_list* segmentos_suspendidos = proc_susp->segmentos_suspendidos;
     for(int i = 0; i<list_size(segmentos_suspendidos); i++){
         t_segmento_suspendido* ss = list_get(segmentos_suspendidos, i);
@@ -119,7 +117,7 @@ void desuspender_proceso(int pid){
         // reservar segmento en ram
         imprimir_bytes(bytes, ss->tamanio);
         log_debug(logger, "creando segmento para id %d, tamanio %d", ss->id_segmento, ss->tamanio);
-        t_segmento* s = crear_segmento_thread_safe(proceso_desup, ss->id_segmento, ss->tamanio);
+        t_segmento* s = crear_segmento(proceso_desup, ss->id_segmento, ss->tamanio);
         log_debug(logger, "creo segmento");
         
         // escribir contenido en el segmento reservado
@@ -133,6 +131,9 @@ void desuspender_proceso(int pid){
     list_remove_element(lista_procesos_suspendidos, proc_susp);
     pthread_mutex_unlock(&m_lista_procesos_suspendidos);
     destruir_segmentos_de_proceso_suspendido(proc_susp);
+    pthread_mutex_lock(&m_lista_procesos);
+    list_add(lista_procesos, proceso_desup);
+    pthread_mutex_unlock(&m_lista_procesos);
 }
 
 void liberar_data_escritura_bloque(void* d){
@@ -204,7 +205,7 @@ void atender_sch_escritura(t_evt* evt){
 void atender_sch_lectura(t_evt* evt){
     log_debug(logger, "Caso de SCH_lectura");
     t_data_read* data = (t_data_read*)evt->data;
-    int pid = evt->pid;
+    // int pid = evt->pid;
     int base = data->base;
     int tamanio = data->tamanio;
     t_list* pedidos = pedidos_a_sticks_para_acceder_a(base, tamanio);
@@ -220,7 +221,7 @@ void atender_sch_lectura(t_evt* evt){
 
 void atender_sch_mover(t_evt* evt){
     t_data_mover* data = (t_data_mover*)evt->data;
-    int pid = evt->pid;
+    // int pid = evt->pid;
     int tamanio_total = data->tamanio;
     log_debug(logger, "Caso de SCH_MOVER, base_leer:%d, tamanio:%d, base_escribir:%d", data->base_leer, tamanio_total, data->base_escribir);
     
@@ -469,6 +470,63 @@ t_proceso_suspendido* proceso_suspendido_de_pid_thread_safe(int pid){
     pthread_mutex_unlock(&m_lista_procesos_suspendidos);
     return proceso;
 }
+
+bool intentar_desuspender(int pid){
+    pthread_mutex_lock(&m_manejar_memoria);
+    if(puedo_desuspender_sin_compactar(pid)){
+        t_evt* evt_desup = iniciar_evt_suspender(pid);
+        evt_desup->tipo = DESUSPENSION;
+        agregar_evt_a_stick(evt_desup);
+        sem_wait(&evt_desup->s_fin);
+        pthread_mutex_unlock(&m_manejar_memoria);
+        liberar_evt(evt_desup);
+        return true;
+    }
+    pthread_mutex_unlock(&m_manejar_memoria);
+    return false;
+}
+bool puedo_desuspender_sin_compactar(int pid){
+    if (!proceso_suspendido_thread_safe(pid))
+        return false;
+
+    t_proceso_suspendido* proc = proceso_suspendido_de_pid_thread_safe(pid);
+    t_list* huecos_simulados = copiar_huecos(lista_huecos);
+    for (int i = 0; i < list_size(proc->segmentos_suspendidos); i++) {
+        t_segmento_suspendido* segmento = list_get(proc->segmentos_suspendidos, i);
+        t_hueco* hueco = ubicacion_de_proximo_segmento(huecos_simulados, segmento->tamanio);
+        if (hueco == NULL) {
+            destruir_huecos(huecos_simulados);
+            return false;
+        }
+        hueco->base += segmento->tamanio;
+        hueco->tamanio -= segmento->tamanio;
+
+        if (hueco->tamanio == 0) {
+            list_remove_element(huecos_simulados, hueco);
+            free(hueco);
+        }
+    }
+
+    destruir_huecos(huecos_simulados);
+    return true;
+}
+
+t_list* copiar_huecos(t_list* originales){
+    t_list* copia = list_create();
+
+    for (int i = 0; i < list_size(originales); i++) {
+        t_hueco* h = list_get(originales, i);
+
+        t_hueco* nuevo = malloc(sizeof(t_hueco));
+        nuevo->base = h->base;
+        nuevo->tamanio = h->tamanio;
+
+        list_add(copia, nuevo);
+    }
+    return copia;
+}
+
+// liberar
 
 void destruir_segmentos_de_proceso(t_proceso* p){
     eliminar_segmentos(p);

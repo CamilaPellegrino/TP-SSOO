@@ -187,8 +187,8 @@ void enviar_sticks_a_cpu(int cpu_fd);
 void recibir_pcb_actualizado(t_list* valores);
 void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p); 
 
-bool puedo_desuspender_sin_compactar(int pid);
-bool intentar_desuspender(int pid);
+// bool puedo_desuspender_sin_compactar(int pid);
+// bool intentar_desuspender(int pid);
 
 // Manejo de rutas
 
