@@ -116,6 +116,7 @@ void* atender_cpu(t_cpu* cpu){
                 t_list* lista_paquete = recibir_paquete(cpu_fd);
                 int tiempo_sleep = *(int*)list_get(lista_paquete, 0);
                 atender_cpu_syscall_sleep(tiempo_sleep, cpu);
+                list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
             }case CPU_SCH__MUTEX_CREATE:{
                 log_info(logger, "## (<%d>) - Solicito syscall: <MUTEX_CREATE>", get_pid_de_proceso_de_cpu_thread_safe(cpu));
@@ -419,6 +420,7 @@ void* atender_km(void*){
                 // t_list* data_pcb = recibir_paquete(conexion_kernel_memory);
                 // int pid = *(int*)list_get(data_pcb, 0);
                 // liberar_pcb_de_exit(pid);
+                intentar_desuspender();
                 break;
             }
             case KM_SCH__INIT_PROC_RESP:{
@@ -487,6 +489,7 @@ void* atender_km(void*){
                 t_list* data = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*) list_get(data, 0);
                 char* datos_leidos = list_get(data, 1);
+                list_destroy_and_destroy_elements(data, free); 
                 t_pcb* proceso = proceso_de_lista(pid, estado_blocked);
 
                 t_evt* evt = iniciar_evt_std_out(datos_leidos, proceso);
@@ -502,7 +505,7 @@ void* atender_km(void*){
                 pthread_mutex_unlock(&m_lista_evt_stdout);
 
                 sem_post(&s_evt_stdout);
-                log_debug(logger, "atender_cpu: sem_post(&s_evt_stdout)");     
+                log_debug(logger, "atender_cpu: sem_post(&s_evt_stdout)");    
                 break;       
             }
             case RTA_WRITE: {
@@ -542,6 +545,7 @@ void* atender_km(void*){
                 log_info(logger, "Proceso desuspendido: %d", pid);
                 t_pcb* proceso = proceso_de_lista(pid, estado_susp_ready);
                 susp_ready_a_ready(proceso);
+                list_destroy_and_destroy_elements(data, free);
                 break;
             }
             case KM_SCH__SUSPENDIDO:{

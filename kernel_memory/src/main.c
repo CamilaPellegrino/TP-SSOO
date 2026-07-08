@@ -294,11 +294,13 @@ void* atender_scheduler(void*){
             case SCH_KM__INIT_PROC:{
                 t_list* lista_paquete = recibir_paquete(sch_fd);
                 atender_sch_init_proc(lista_paquete);
+                list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
             }
             case KM_READ:{
                 t_list* data = recibir_paquete(sch_fd);
                 atender_sch_read(data);
+                list_destroy_and_destroy_elements(data, free);
                 break;
             }
             case KM_WRITE:{
@@ -343,18 +345,22 @@ void* atender_scheduler(void*){
                 }
                 list_remove_element(lista_procesos, proceso);
                 pthread_mutex_unlock(&m_lista_procesos);
-                // destruir_proceso(proceso);
+                destruir_proceso(proceso);
                 log_debug(logger, "Exit de pid %d completo", pid);
+                enviar_operacion(sch_fd, KM_SCH__EXIT_OK);
+                list_destroy_and_destroy_elements(data, free);
                 break;
             }
             case SCH_KM__SUSPENDER:{
                 t_list* data = recibir_paquete(sch_fd);
                 atender_sch_suspender(data);
+                list_destroy_and_destroy_elements(data, free);
                 break;
             }
             case SCH_KM__INTENTAR_DESUSPENDER:{
                 t_list* data = recibir_paquete(sch_fd);
                 atender_sch_intentar_desuspender(data);
+                list_destroy_and_destroy_elements(data, free);
                 break;
             }
             default:
@@ -449,7 +455,6 @@ void atender_sch_init_proc(t_list* data){
 
     char* ruta_instrucciones = (char*)list_get(data, i++);
     bool ok = guardar_nuevo_proceso(pid, ppid, ruta_instrucciones);
-    list_destroy_and_destroy_elements(data, free);
 
     esperar_ms(instruction_delay_ms);
 

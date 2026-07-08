@@ -211,6 +211,9 @@ void atender_sch_lectura(t_evt* evt){
     t_list* pedidos = pedidos_a_sticks_para_acceder_a(base, tamanio);
 
     void* datos_leidos = ejecutar_pedidos_lectura(pedidos, tamanio);
+
+    list_destroy_and_destroy_elements(pedidos, free);
+    
     printf("Datos: \n");
     imprimir_bytes(datos_leidos, tamanio);
     char* texto = (char*) datos_leidos;

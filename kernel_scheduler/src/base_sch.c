@@ -835,6 +835,7 @@ void intentar_desuspender(){
     }
     pthread_mutex_unlock(&estado_susp_ready->mutex);
     pthread_mutex_unlock(&m_transicionar);
+    list_destroy(pcbs_ordenados);
 }
 
 // logs
