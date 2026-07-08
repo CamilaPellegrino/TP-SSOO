@@ -2,7 +2,7 @@
 // Atender modulo IO: 
 void* atender_io(t_io* io){
     t_tipo_io tipo = io->tipo;
-    log_info(logger, "** Atendiendo al io de tipo %d", tipo);
+    log_debug(logger, "Atendiendo al io de tipo %d", tipo);
     switch(tipo){
         case SLEEP:
             atender_io_sleep(io);

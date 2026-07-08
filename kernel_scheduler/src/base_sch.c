@@ -737,7 +737,7 @@ void enviar_paquete_a_todas_las_cpus(t_paquete* paquete){
         
         t_cpu* cpu = list_get(lista_cpus, i);
         int cpu_fd = cpu->fd;
-        log_info(logger,"%d", cpu_fd);
+        log_debug(logger,"%d", cpu_fd);
         enviar_paquete(paquete, cpu_fd);
     }
     eliminar_paquete(paquete);
@@ -825,7 +825,7 @@ t_list* obtener_pcbs_ordenados_por_prioridad(t_list* procesos) {
 void intentar_desuspender(){
     pthread_mutex_lock(&m_transicionar);
     pthread_mutex_lock(&estado_susp_ready->mutex);
-    log_info(logger, "intentando desuspender procesos");
+    log_debug(logger, "intentando desuspender procesos");
     t_list* pcbs_ordenados = obtener_pcbs_ordenados_por_prioridad(estado_susp_ready->sublista);
     for(int i = 0; i<list_size(pcbs_ordenados); i++){
         int pid = get_pid_thread_safe((t_pcb*)list_get(pcbs_ordenados, i));
@@ -857,83 +857,55 @@ void loguear_tamanio_listas_de_estado(){
 
 }
 
-void imprimir_estado_procesos()
-{
+void imprimir_estado_procesos(void){
     pthread_mutex_lock(&m_transicionar);
 
     char* msg = string_new();
 
-    string_append(&msg, "\n========== ESTADO DE PROCESOS ==========\n");
-
-    string_append(&msg, "NEW: ");
-    for(int i = 0; i < list_size(estado_new->sublista); i++){
+    string_append(&msg, "NEW=[");
+    for (int i = 0; i < list_size(estado_new->sublista); i++) {
+        if (i) string_append(&msg, ",");
         t_pcb* p = list_get(estado_new->sublista, i);
-        string_append_with_format(&msg, "%d ", p->pid);
+        string_append_with_format(&msg, "%d", p->pid);
     }
-    string_append(&msg, "\n");
+    string_append(&msg, "] ");
 
-    string_append(&msg, "READY: ");
-    if(algoritmo == CMN){
-        for(int i = 0; i < list_size(estado_ready->sublista); i++){
+    string_append(&msg, "READY=[");
+    if (algoritmo == CMN) {
+        bool primero = true;
+        for (int i = 0; i < list_size(estado_ready->sublista); i++) {
             t_sublista_ready* sub = list_get(estado_ready->sublista, i);
-
-            string_append_with_format(&msg, "[P%d: ", i);
-
-            for(int j = 0; j < list_size(sub->sublista); j++){
+            for (int j = 0; j < list_size(sub->sublista); j++) {
+                if (!primero) string_append(&msg, ",");
                 t_pcb* p = list_get(sub->sublista, j);
-                string_append_with_format(&msg, "%d ", p->pid);
+                string_append_with_format(&msg, "%d", p->pid);
+                primero = false;
             }
-
-            string_append(&msg, "] ");
         }
     } else {
-        for(int i = 0; i < list_size(estado_ready->sublista); i++){
+        for (int i = 0; i < list_size(estado_ready->sublista); i++) {
+            if (i) string_append(&msg, ",");
             t_pcb* p = list_get(estado_ready->sublista, i);
-            string_append_with_format(&msg, "%d ", p->pid);
+            string_append_with_format(&msg, "%d", p->pid);
         }
     }
-    string_append(&msg, "\n");
+    string_append(&msg, "] ");
 
-    string_append(&msg, "EXEC: ");
-    for(int i = 0; i < list_size(estado_exec->sublista); i++){
-        t_pcb* p = list_get(estado_exec->sublista, i);
-        string_append_with_format(&msg, "%d ", p->pid);
+    t_lista_estado* estados[] = {estado_exec, estado_blocked, estado_susp_blocked, estado_susp_ready, estado_exit};
+    const char* nombres[] = {"EXEC", "BLOCKED", "SUSP_BLOCKED", "SUSP_READY", "EXIT"};
+
+    for (int e = 0; e < 5; e++) {
+        string_append_with_format(&msg, "%s=[", nombres[e]);
+        for (int i = 0; i < list_size(estados[e]->sublista); i++) {
+            if (i) string_append(&msg, ",");
+            t_pcb* p = list_get(estados[e]->sublista, i);
+            string_append_with_format(&msg, "%d", p->pid);
+        }
+        string_append(&msg, "] ");
     }
-    string_append(&msg, "\n");
-
-    string_append(&msg, "BLOCKED: ");
-    for(int i = 0; i < list_size(estado_blocked->sublista); i++){
-        t_pcb* p = list_get(estado_blocked->sublista, i);
-        string_append_with_format(&msg, "%d ", p->pid);
-    }
-    string_append(&msg, "\n");
-
-    string_append(&msg, "SUSP_BLOCKED: ");
-    for(int i = 0; i < list_size(estado_susp_blocked->sublista); i++){
-        t_pcb* p = list_get(estado_susp_blocked->sublista, i);
-        string_append_with_format(&msg, "%d ", p->pid);
-    }
-    string_append(&msg, "\n");
-
-    string_append(&msg, "SUSP_READY: ");
-    for(int i = 0; i < list_size(estado_susp_ready->sublista); i++){
-        t_pcb* p = list_get(estado_susp_ready->sublista, i);
-        string_append_with_format(&msg, "%d ", p->pid);
-    }
-    string_append(&msg, "\n");
-
-    string_append(&msg, "EXIT: ");
-    for(int i = 0; i < list_size(estado_exit->sublista); i++){
-        t_pcb* p = list_get(estado_exit->sublista, i);
-        string_append_with_format(&msg, "%d ", p->pid);
-    }
-    string_append(&msg, "\n");
-
-    string_append(&msg, "========================================");
 
     log_info(logger, "%s", msg);
 
     free(msg);
-
     pthread_mutex_unlock(&m_transicionar);
 }

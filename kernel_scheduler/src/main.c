@@ -83,7 +83,7 @@ void* atender_cliente(void *arg){
         }case IO_SCH__CONEXION: { 
             t_list *lista_paquete = recibir_paquete(cliente_fd);   // recibo un paquete con el tipo de io
             t_tipo_io *tipo_io = list_get(lista_paquete, 0);
-            log_info(logger, "Me llego io de tipo: %d", *tipo_io);
+            log_debug(logger, "Me llego io de tipo: %d", *tipo_io);
             t_io* io = iniciar_io(*tipo_io, cliente_fd);
 
             atender_io(io); 
@@ -98,7 +98,7 @@ void* atender_cpu(t_cpu* cpu){
     int cpu_fd = cpu->fd;
     int cpu_id = cpu->id;
     intentar_planificar();
-    log_info(logger, "## CPU <%d> Conectada", cpu_id);
+    log_debug(logger, "## CPU <%d> Conectada", cpu_id);
     while(1){
         op_code cod_op = recibir_operacion(cpu_fd);
         log_debug(logger, "llego operacion de cpu <%d>, op=%d", cpu_id, cod_op);
@@ -216,13 +216,13 @@ void atender_cpu_ejecucion_detenida(t_cpu* cpu){
         log_debug(logger, "no estaba desalojando, no hago nada");
         return;
     }
-    log_info(logger, "cpu <%d>: Ejecucion detenida", cpu->id);
+    log_debug(logger, "cpu <%d>: Ejecucion detenida", cpu->id);
     liberar_cpu(cpu);
     if(proceso != NULL){
         exec_a_ready_cond_signal(proceso);
     }
     if(e == COMPACTANDO && !hay_cpus_ejecutando()){
-        log_info(logger, "CPUs desalojadas, iniciando compactacion");
+        log_debug(logger, "CPUs desalojadas, iniciando compactacion");
         enviar_operacion(conexion_kernel_memory, SCH_KM__COMENZAR_COMPACTACION);
     }
 
@@ -266,7 +266,6 @@ void atender_cpu_syscall_mutex_unlock(char* nombre_mutex, t_cpu* cpu){
         // TODO: no existe un mutex con ese nombre en lista_mutex, devolver a CPU codigo de error
     }
     m_signal(mutex, proceso);
-    log_info(logger, "## (<%d>) Libera el Mutex <%s>", proceso->pid, nombre_mutex);
     enviar_operacion(cpu->fd, SCH_CPU__FIN_SYSCALL);
 }
 
@@ -544,7 +543,7 @@ void* atender_km(void*){
             case KM_SCH__DESUSPENDIDO: {
                 t_list* data = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*)list_get(data, 0);
-                log_info(logger, "Proceso desuspendido: %d", pid);
+                log_info(logger, "## <%d> Proceso desuspendido", pid);
                 t_pcb* proceso = proceso_de_lista(pid, estado_susp_ready);
                 susp_ready_a_ready(proceso);
                 list_destroy_and_destroy_elements(data, free);

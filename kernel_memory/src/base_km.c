@@ -239,7 +239,7 @@ void enviar_nuevo_stick_a_scheduler(t_stick* nuevo_stick, int sch_fd){
     agregar_string_a_paquete(paquete, nuevo_stick->puerto);
     agregar_a_paquete(paquete, &(nuevo_stick->tamanio), sizeof(int));
     enviar_paquete_y_liberarlo(paquete, sch_fd);
-    log_info(logger, "Enviando stick con IP %s al SCHED por el FD %d",nuevo_stick->ip, sch_fd);
+    log_debug(logger, "Enviando stick con IP %s al SCHED por el FD %d",nuevo_stick->ip, sch_fd);
 }
 
 void enviar_sticks_a_cpu(int cpu_fd){
@@ -370,12 +370,12 @@ char* ruta_completa(char* base, char* nombre_archivo){
 
 t_fit allocation_strategy_str_to_enum(char* strategy_str){
     if(strcmp(strategy_str, "BEST") == 0){
-        log_info(logger, "Es BEST");
+        log_debug(logger, "Es BEST");
         return BEST_FIT;
     }
 
     if(strcmp(strategy_str, "WORST") == 0){
-        log_info(logger, "Es WORST");
+        log_debug(logger, "Es WORST");
         return WORST_FIT;
     }
 

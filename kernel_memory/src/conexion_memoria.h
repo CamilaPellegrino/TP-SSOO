@@ -23,7 +23,6 @@ typedef struct{
 
 void* atender_stick(void* arg);
 void liberar_data_escritura_bloque(void* d);
-void atender_swap(int swap_fd);
 t_list* pedidos_a_sticks_para_acceder_a(int base, int tamanio);
 void atender_suspension(t_evt* evt);
 void atender_desuspension(t_evt* evt);

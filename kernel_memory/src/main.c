@@ -37,7 +37,7 @@ void* atender_cliente(void *arg){
         case SCH_KM__CONEXION: {
             char *msg = recibir_mensaje(cliente_fd);
             sch_fd = cliente_fd;
-            log_info(logger, "Me llego el scheduler, mensaje recibido: %s", msg);
+            log_debug(logger, "Me llego el scheduler, mensaje recibido: %s", msg);
             pthread_t thread_sch = crear_hilo_o_exit(atender_scheduler, NULL, "atender_scheduler", logger);
             pthread_detach(thread_sch);
             free(msg);
@@ -48,7 +48,7 @@ void* atender_cliente(void *arg){
             int tamanio = *(int*)list_get(lista_paquete, 0);
             char *puerto = list_get(lista_paquete, 1);
             char *ip = list_get(lista_paquete, 2);
-            log_info(logger, "Me llego un stick: %d, %s, %s", tamanio, puerto, ip);
+            log_debug(logger, "Me llego un stick: %d, %s, %s", tamanio, puerto, ip);
             
             t_stick* nuevo_stick = iniciar_stick(ip, puerto, tamanio, cliente_fd);
             
@@ -64,12 +64,11 @@ void* atender_cliente(void *arg){
             list_destroy_and_destroy_elements(lista_paquete, free);
             break;
         }case SWAP_KM__CONEXION:{
-            log_info(logger, "Conexion SWAP");
             t_list* data = recibir_paquete(cliente_fd);
             conexion_swap = cliente_fd;
             tam_bloque = *(int*)list_get(data, 0);
             cant_bloques = *(int*)list_get(data, 1);
-            log_info(logger, "Tamaño de bloque: %d, cantidad de bloques: %d", tam_bloque, cant_bloques);
+            log_info(logger, "## Swap conectado, Tamaño de bloque: %d, cantidad de bloques: %d", tam_bloque, cant_bloques);
             list_destroy_and_destroy_elements(data, free);
             
             pthread_t thread_stick = crear_hilo_o_exit(atender_stick, NULL, "atender_stick", logger);
@@ -126,7 +125,7 @@ void* atender_cpu(void* arg){
                 t_list* p = recibir_paquete(cpu_fd);
                 recibir_pcb_actualizado(p);
                 enviar_operacion(cpu_fd, KM_CPU__PCB_GUARDADO);
-                log_info(logger, "PCB actualizado");
+                log_debug(logger, "PCB actualizado");
                 break;
             }case CPU_KM__MOV_OUT:{
                 log_debug(logger, "CPU pide: MOV_OUT");
@@ -160,7 +159,7 @@ void atender_cpu_psegmentos(t_cpu* cpu, t_list* data){
     t_proceso* proceso_actual = proceso_de_pid_thread_safe(pid);
 
     if(proceso_actual != NULL){
-        log_info(logger, "Enviando segmentos de proceso <%d> a cpu <%d>", pid, cpu->id);
+        log_debug(logger, "Enviando segmentos de proceso <%d> a cpu <%d>", pid, cpu->id);
         pthread_mutex_lock(&proceso_actual->mutex);
         t_list* segmentos = proceso_actual->lista_segmentos;
         pthread_mutex_unlock(&proceso_actual->mutex);
@@ -180,7 +179,7 @@ void atender_cpu_pcontexto(t_cpu* cpu, t_list* data){
 
     if(proceso_actual != NULL){
         pthread_mutex_lock(&proceso_actual->mutex);
-        log_info(logger, "Enviando contexto de proceso <%d> a cpu <%d>", pid, cpu->id);
+        log_debug(logger, "Enviando contexto de proceso <%d> a cpu <%d>", pid, cpu->id);
         agregar_pcb_al_paquete(proceso_actual->pcb, paquete);
         t_list* segmentos_del_proc = proceso_actual->lista_segmentos;
         pthread_mutex_unlock(&proceso_actual->mutex);
@@ -206,7 +205,7 @@ void atender_cpu_fetch(t_cpu* cpu, t_list* data){
     pthread_mutex_unlock(&m_lista_procesos);
 
     if(proceso != NULL){
-        log_info(logger, "FETCH recibido PID: %d PC: %u", pid, pc);
+        log_debug(logger, "FETCH recibido PID: %d PC: %u", pid, pc);
         char* instruccion = list_get(proceso->instrucciones, pc);
         t_paquete* paquete = crear_paquete(KM_CPU__INSTRUCCION);
         agregar_string_a_paquete(paquete, instruccion);
@@ -265,11 +264,11 @@ void atender_cpu_mov_out(t_list* data, int cpu_fd){
     t_dir_fisica dir_fisica = *(t_dir_fisica*)list_get(data, i++);
     int tamanio = *(int*)list_get(data, i++);
     void* datos_escritos = list_get(data, i++);
-    log_info(logger, "Por escribir con mov_out, tamanio: %d", tamanio);
+    log_debug(logger, "Por escribir con mov_out, tamanio: %d", tamanio);
     imprimir_bytes(datos_escritos, tamanio);
     int pid = *(int*)list_get(data, i++);
     int base = calc_dir_fisica(pid, dir_fisica.id_segmento, dir_fisica.offset);
-    log_info(logger, "calcule dir fisica");
+    log_debug(logger, "calcule dir fisica");
     t_evt* evt_write = iniciar_evt_write(pid, base, tamanio, datos_escritos, cpu_fd);
 
     agregar_evt_a_stick(evt_write);

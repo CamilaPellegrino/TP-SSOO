@@ -25,16 +25,17 @@ t_mutex* m_create(char* nombre){
 
 void m_signal(t_mutex* mutex, t_pcb* proceso){
     pthread_mutex_lock(&mutex->lock);
-
+    char* nombre_mutex = mutex->nombre;
     if(mutex->duenio != proceso){
         log_debug(logger, "hizo signal un proc que no tenia asignado el mutex");
         pthread_mutex_unlock(&mutex->lock);
         return;
     }
 
+    log_info(logger, "## (<%d>) Libera el Mutex <%s>", proceso->pid, nombre_mutex);
     t_pcb* siguiente = prox_duenio_mutex(mutex->procesos_en_espera);
     if(siguiente == NULL){
-        log_debug(logger, "Nadie esperando mutex %s", mutex->nombre);
+        log_debug(logger, "Nadie esperando mutex %s", nombre_mutex);
         mutex->duenio = NULL;
         pthread_mutex_unlock(&mutex->lock);
         return;

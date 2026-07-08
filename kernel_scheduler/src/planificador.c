@@ -117,7 +117,7 @@ void asignar_proceso(t_pcb* proceso, t_cpu* cpu){
 void* planificador_largo_plazo(){
     while(1){
         sem_wait(&s_nuevo_proceso_new);
-        log_info(logger, "planificador_largo_plazo: ejecutando");
+        log_debug(logger, "planificador_largo_plazo: ejecutando");
         pthread_mutex_lock(&estado_new->mutex);
         if(list_is_empty(estado_new->sublista)){
             pthread_mutex_unlock(&estado_new->mutex);
@@ -286,7 +286,7 @@ void* hilo_fin_quantum(void* arg){
 
     pthread_mutex_lock(&cpu->mutex);
     if(!data_cond->cond_val && proceso->estado == EJECUTANDO){
-        log_debug(logger, "## (<%d>) - Desalojado por fin de quantum", pid);
+        log_info(logger, "## (<%d>) - Desalojado por fin de quantum", pid);
         cpu->desalojando = true;
         enviar_operacion(cpu->fd, SCH_CPU__PEDIDO_DESALOJO);
     }

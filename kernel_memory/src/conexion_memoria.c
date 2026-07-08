@@ -43,7 +43,7 @@ void* atender_stick(void* arg){
 
         handlers[evt->tipo](evt);
     };
-    log_info(logger, "cerrando hilo de stick");
+    log_debug(logger, "cerrando hilo de stick");
     return NULL;
 }
 
@@ -73,9 +73,9 @@ void atender_suspension(t_evt* evt){
         list_destroy_and_destroy_elements(pedidos_lectura, free);
         t_list* bloques = bloques_necesarios_para_escribir_en_swap(datos, s->tamanio);
         if(bloques == NULL){
-            log_info(logger, "Segmento %d (base=%u, tamaño=%d): no hay bloques libres", i, s->base, s->tamanio);
+            log_debug(logger, "Segmento %d (base=%u, tamaño=%d): no hay bloques libres", i, s->base, s->tamanio);
         }else{
-            log_info(logger, "Segmento %d (base=%u, tamaño=%d):", i, s->base, s->tamanio);
+            log_debug(logger, "Segmento %d (base=%u, tamaño=%d):", i, s->base, s->tamanio);
             ejecutar_pedidos_escritura_en_swap(bloques);
         }
         t_segmento_suspendido* ss = iniciar_segmento_suspendido(s->id_segmento, bloques, s->tamanio);
@@ -145,9 +145,9 @@ void liberar_data_escritura_bloque(void* d){
 void ejecutar_pedidos_escritura_en_swap(t_list* data){
     for(int j = 0; j < list_size(data); j++){
         t_data_escritura_bloque* bloque = list_get(data, j);
-        log_info(logger, "    -> Bloque SWAP: %d", bloque->num_bloque);
-        log_info(logger, "    -> contenido: %s", (char*)bloque->contenido);
-        log_info(logger, "    -> tamanio: %d", bloque->tamanio);
+        log_debug(logger, "    -> Bloque SWAP: %d", bloque->num_bloque);
+        log_debug(logger, "    -> contenido: %s", (char*)bloque->contenido);
+        log_debug(logger, "    -> tamanio: %d", bloque->tamanio);
         t_paquete* paquete = crear_paquete(KM_SWAP__ESCRITURA);
         agregar_a_paquete(paquete, &bloque->num_bloque, sizeof(bloque->num_bloque));
         agregar_a_paquete(paquete, bloque->contenido, bloque->tamanio);
@@ -402,17 +402,6 @@ bool bloques_libres_suficientes(int n) {
     return false;
 }
 
-void atender_swap(int swap_fd){
-    while(1){
-        log_info(logger, "****Atendiendo al SWAP");
-        op_code cod_op = recibir_operacion(swap_fd);
-        if(cod_op == -1){
-            log_warning(logger, "error, se desconecto SWAP");
-            break;
-        }
-    }
-    log_info(logger, "cerrando hilo de swap");
-}
 
 t_data_escritura_bloque* iniciar_data_escritura_bloque(int num_bloque, void* contenido, int tamanio){
     t_data_escritura_bloque* data = malloc(sizeof(t_data_escritura_bloque));

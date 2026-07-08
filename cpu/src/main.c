@@ -168,7 +168,7 @@ int main(int argc, char* argv[]){
         }
         switch(cod_op){
             case SCH_CPU__NUEVO_STICK: {
-                log_info(logger, "Conexion de modulo stick");
+                log_debug(logger, "Conexion de modulo stick");
                 t_list * lista_del_paquete = recibir_paquete(conexion_kernel_scheduler);
                 
                 char* ip_stick = list_get(lista_del_paquete, 0);
@@ -432,7 +432,7 @@ void conectarse_a_stick(char* ip, char* puerto, uint32_t tamanio){
 
     handshake_cliente(conexion_memory_stick, logger);
 
-    log_info(logger, "Conectado a stick -> ip: %s, puerto: %s", ip, puerto);
+    log_debug(logger, "Conectado a stick -> ip: %s, puerto: %s", ip, puerto);
 
     // crear stick
     t_stick* stick = iniciar_stick(ip, puerto, tamanio, conexion_memory_stick);
@@ -449,7 +449,7 @@ void recibir_sticks_de_km(){ // + seg_max_size
     }
     t_list* paquete = recibir_paquete(conexion_kernel_memory);
     seg_max_size_global = *(int*)list_get(paquete, 0);
-    log_info(logger, "seg_max_size_global: %d", seg_max_size_global);
+    log_debug(logger, "seg_max_size_global: %d", seg_max_size_global);
     /*int desplazamiento = 0;
     int cantidad;
     memcpy(&cantidad, list_get(paquete, desplazamiento++), sizeof(int));
@@ -913,7 +913,6 @@ void ejecutar_sub(t_instruccion_decodificada *instruccion, t_pcb *pcb){
     especificacion_registro *sustraendo = list_get(instruccion->registros,1);
     uint32_t resta =leer_registro(minuendo)-leer_registro(sustraendo);
     escribir_registro(minuendo, resta);
-    log_info(logger, "hice sub");
     return;
 }
 
@@ -921,10 +920,10 @@ void ejecutar_jnz(t_instruccion_decodificada *instruccion, t_pcb *pcb){
     log_info(logger, "Ejecutando instruccion JNZ");
     especificacion_registro* reg_ = list_get(instruccion->registros,0);
     int* nuevo_pc =list_get(instruccion->registros,1);
-    log_info(logger, "pc %i", pcb->registros.pc);
+    log_debug(logger, "pc antes: %i", pcb->registros.pc);
     if(leer_registro(reg_) != 0)
         pcb->registros.pc = *nuevo_pc;
-    log_info(logger, "pc %i", pcb->registros.pc);
+    log_debug(logger, "pc despues: %i", pcb->registros.pc);
     return;
 }
 
@@ -1250,7 +1249,7 @@ void manejar_seg_fault(t_pcb* pcb){
 }
 
 void iniciar_instr_exit(t_instruccion_decodificada* instr, t_status_op s){
-    log_info(logger, "En exit");
+    log_debug(logger, "En exit");
     instr->tipo = I_EXIT;
     t_status_op* status = malloc(sizeof(t_status_op)); 
     *status = s;
