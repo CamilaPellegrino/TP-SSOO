@@ -150,6 +150,7 @@ void* atender_cpu(void* arg){
     }
     close(cpu_fd);
     log_info(logger, "cerrando hilo de CPU");
+    destroy_cpu(cpu);
     return NULL;
 }
 

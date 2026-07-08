@@ -488,8 +488,10 @@ void* atender_km(void*){
             case RTA_READ: {
                 t_list* data = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*) list_get(data, 0);
-                char* datos_leidos = list_get(data, 1);
-                list_destroy_and_destroy_elements(data, free); 
+                char* datos_leidos = strdup(list_get(data, 1));
+
+                list_destroy_and_destroy_elements(data, free);
+                
                 t_pcb* proceso = proceso_de_lista(pid, estado_blocked);
 
                 t_evt* evt = iniciar_evt_std_out(datos_leidos, proceso);

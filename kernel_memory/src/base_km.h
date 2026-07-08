@@ -199,7 +199,7 @@ char* ruta_completa(char* base, char* nombre_archivo);
 t_fit allocation_strategy_str_to_enum(char* strategy_str);
 
 // liberar
-
+void destroy_cpu(t_cpu* cpu);
 void liberar_evt(t_evt* evt);
 void destruir_data_read(t_data_read* data);
 void destruir_data_write(t_data_write* data);

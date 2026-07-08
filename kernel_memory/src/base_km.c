@@ -384,6 +384,10 @@ t_fit allocation_strategy_str_to_enum(char* strategy_str){
 
 // liberar
 
+void destroy_cpu(t_cpu* cpu){
+    free(cpu);
+}
+
 void liberar_evt(t_evt* evt){
     switch(evt->tipo){
         case SCH_LECTURA:
