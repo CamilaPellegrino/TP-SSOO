@@ -27,7 +27,7 @@ int main(int argc, char* argv[]) {
     memoria_principal = (char*) memoria_reservada; //Para ir avanzando de a 1 byte
 
     logger = iniciar_logger("memory_stick.log", "ProcesoMemorySticks", LOG_LEVEL_INFO);
-    imprimir_bytes(memoria_reservada, tamanio_stick);
+    // imprimir_bytes(memoria_reservada, tamanio_stick);
     // inciar config
     t_config* config = iniciar_config(ruta_config);
 
@@ -61,7 +61,7 @@ int main(int argc, char* argv[]) {
     // esperar clientes
     while(true){
         int *cliente_fd = esperar_cliente(memory_stick_fd);
-        log_info(logger, "Me llego un cliente, %d", *cliente_fd);
+        log_debug(logger, "Me llego un cliente, %d", *cliente_fd);
         handshake_servidor(*cliente_fd, logger);
         //creamos el hilo para atender multiples CPUs
         pthread_t thread = crear_hilo_o_exit(atender_cliente, cliente_fd, "atender_cliente", logger);
@@ -71,7 +71,7 @@ int main(int argc, char* argv[]) {
 }
 
 void* atender_pedidos(void* arg){
-    log_info(logger, "atendiendo pedidos de cliente");
+    log_debug(logger, "atendiendo pedidos de cliente");
     t_cliente* cliente = (t_cliente*) arg;
     int cliente_fd = cliente->fd;
     while(1){
@@ -101,7 +101,7 @@ void* atender_pedidos(void* arg){
                 t_list* lista_paquete = recibir_paquete(cliente_fd);
                 int dir_fisica = *(int*)list_get(lista_paquete, 0);
                 int tamanio_cont = *(int*)list_get(lista_paquete, 1);
-                log_info(logger, "## Lectura, dir fisica: %d, tamanio: %d", dir_fisica, tamanio_cont);
+                log_info(logger, "## Lectura de <%d> bytes", tamanio_cont);
                 atender_pedido_lectura(dir_fisica, tamanio_cont, cliente_fd);
                 list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
@@ -117,7 +117,7 @@ void atender_pedido_escritura(int dir_fisica, void* contenido, int tamanio, int 
     
     // Validar que la dirección + el contenido no se pase de la memoria total
     if (dir_fisica + tamanio > tamanio_stick) {
-        log_error(logger, "Intento de escribir fuera de memoria.");
+        log_error(logger, "Error: Intento de escribir fuera de memoria");
         return;
     }
 
@@ -125,14 +125,14 @@ void atender_pedido_escritura(int dir_fisica, void* contenido, int tamanio, int 
     memcpy(destino, contenido, tamanio);
     usleep(memory_delay * 1000);
     log_info(logger, "## Escritura de <%d> bytes", tamanio);
-    imprimir_bytes(memoria_reservada, tamanio_stick);
+    // imprimir_bytes(memoria_reservada, tamanio_stick);
     enviar_operacion(cliente_fd, STICK_X__OK);
     return;
 }
 
 void atender_pedido_lectura(int dir_fisica, int tamanio, int cliente_fd) {
     if ((dir_fisica + tamanio) > tamanio_stick) {
-        log_error(logger, "Segmentation fault! Intento de leer fuera de memoria. Dir: %d", dir_fisica);
+        log_error(logger, "Segmentation fault: Intento de leer fuera de memoria. Dir: %d", dir_fisica);
         return;
     }
     void* origen = memoria_principal + dir_fisica;
@@ -140,7 +140,7 @@ void atender_pedido_lectura(int dir_fisica, int tamanio, int cliente_fd) {
     // memcpy(contenido_leido, origen, tamanio);
     log_info(logger, "## Lectura de <%d> bytes", tamanio);
     usleep(memory_delay * 1000);
-    imprimir_bytes(origen, tamanio);
+    // imprimir_bytes(origen, tamanio);
     t_paquete* paquete_respuesta = crear_paquete(STICK_X__OK);
     agregar_a_paquete(paquete_respuesta, origen, tamanio);
     enviar_paquete_y_liberarlo(paquete_respuesta, cliente_fd);
@@ -160,7 +160,7 @@ void* atender_cliente(void *arg){
             log_info(logger, "## CPU <%d> Conectada", *cpu_id);
             
             t_cliente* cliente_cpu = iniciar_cliente(cliente_fd, CLIENTE_CPU);
-            atender_pedidos(cliente_cpu);
+            // atender_pedidos(cliente_cpu);
             break;
         }
         default:

@@ -48,7 +48,7 @@ void ejecutar_mem_free(t_instruccion_decodificada* instr);
 
 void destruir_instruccion(t_instruccion_decodificada*);
 void manejar_seg_fault(t_pcb* pcb);
-bool mmu(t_pcb* pcb, uint32_t, uint32_t, uint32_t);
+int mmu(t_pcb* pcb, uint32_t, uint32_t, uint32_t);
 uint32_t calc_id_segmento(int);
 uint32_t calc_offset(int);
 void iniciar_instr_exit(t_instruccion_decodificada* instr, t_status_op s);
@@ -107,11 +107,12 @@ int main(int argc, char* argv[]){
     char *puerto_kernel_scheduler;
     char *puerto_kernel_memory;
 
-    // crear logger
-    logger = iniciar_logger("cpu.log", "ProcesoCPU", LOG_LEVEL_DEBUG);
-
     // iniciar config
     config = iniciar_config(ruta_config);
+
+    // crear logger
+    t_log_level log_level = log_level_from_string(config_get_string_value(config, "LOG_LEVEL"));
+    logger = iniciar_logger("cpu.log", "ProcesoCPU", log_level);
 
     char*ip_sch = config_get_string_value(config, "IP_SCH");
     char*ip_km = config_get_string_value(config, "IP_KM");
@@ -410,7 +411,7 @@ void esperar_a_poder_ejecutar(t_pcb* pcb){
     pthread_mutex_lock(&m_estado_cpu);
     while(1){
         if(v_pedido_de_desalojo){
-            log_debug(logger, "Consumiendo desalojo");
+            log_info(logger, "## Interrupción recibida");
             procesar_desalojo_pendiente(pcb);
         }
         if(estado_cpu == EXEC){
@@ -620,14 +621,16 @@ void ciclo_instruccion(t_pcb *pcb){
             destruir_instruccion(i);
             return;
         }
+        int pid = pcb->pid;
+        log_info(logger, "## PID: <%d> - FETCH - Program Counter: <%d>", pid, pcb->registros.pc);
         
         //DECODE
         t_instruccion_decodificada * instruccion_decodificada = malloc(sizeof(t_instruccion_decodificada));
         decode(instruccion, pcb, instruccion_decodificada);
-        log_info(logger, "Instruccion: %s (pc: %i)", instruccion, pcb->registros.pc);
         int pc_antiguo = pcb->registros.pc;
         //execute
         bool actualizar_contexto = execute(instruccion_decodificada, pcb);
+        log_info(logger, "## PID: <%d> - Ejecutando: <%s>", pid, instruccion);
         if(instruccion_decodificada->tipo == I_MEM_ALLOC){
             enviar_pcb_actualizado_a_km(pcb);
         }
@@ -899,7 +902,7 @@ void ejecutar_set(t_instruccion_decodificada *instruccion, t_pcb *pcb){
 }
 
 void ejecutar_sum(t_instruccion_decodificada *instruccion, t_pcb *pcb){
-    log_info(logger, "Ejecutando instruccion JNZ");
+    log_info(logger, "Ejecutando instruccion SUM");
     especificacion_registro *destino = list_get(instruccion->registros,0);
     especificacion_registro *origen = list_get(instruccion->registros,1);
     uint32_t suma =leer_registro(destino)+leer_registro(origen);
@@ -938,7 +941,7 @@ void ejecutar_copy_mem(t_instruccion_decodificada* instruccion, t_pcb* pcb){
 
     int id_segmento_destino = calc_id_segmento(destino);
     int offset_destino = calc_offset(destino);
-    if(!mmu(pcb, tamanio, id_segmento_origen, offset_origen) || !mmu(pcb, tamanio, id_segmento_destino, offset_destino)){
+    if(mmu(pcb, tamanio, id_segmento_origen, offset_origen) == -1 || mmu(pcb, tamanio, id_segmento_destino, offset_destino) == -1){
         manejar_seg_fault(pcb);
         return;
     }
@@ -961,12 +964,12 @@ void ejecutar_mov_in(t_instruccion_decodificada* instr, t_pcb* pcb){
     int id_segmento = calc_id_segmento(dir_logica);
     int offset = calc_offset(dir_logica);
     int tamanio = r_datos->tamanio;
-    if(!mmu(pcb, tamanio, id_segmento, offset)){
+    int dir_fisica_stick = mmu(pcb, tamanio, id_segmento, offset);
+    if(dir_fisica_stick == -1){
         manejar_seg_fault(pcb);
         return;
     }
     t_dir_fisica dir_fisica = iniciar_dir_fisica(id_segmento, offset);
-    
     t_paquete* paquete = crear_paquete(CPU_KM__MOV_IN);
     agregar_a_paquete(paquete, &dir_fisica, sizeof(dir_fisica));
     agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
@@ -975,6 +978,7 @@ void ejecutar_mov_in(t_instruccion_decodificada* instr, t_pcb* pcb){
     /*op_code cod_op = */recibir_operacion(conexion_kernel_memory);
     t_list* data = recibir_paquete(conexion_kernel_memory);
     uint8_t valor = *(uint8_t*)list_get(data, 0);
+    log_info(logger, "PID: <%d> - Acción: <LEER> - Dirección Física: <%d> - Valor: <%d>", pcb->pid, dir_fisica_stick, valor);
     escribir_registro(r_datos, valor);
 }
 
@@ -985,12 +989,14 @@ void ejecutar_mov_out(t_instruccion_decodificada* instr, t_pcb* pcb){
     int id_segmento = calc_id_segmento(dir_logica);
     int offset = calc_offset(dir_logica);
     int tamanio = r_datos->tamanio;
-    if(!mmu(pcb, tamanio, id_segmento, offset)){
+    int dir_fisica_stick = mmu(pcb, tamanio, id_segmento, offset);
+    if(dir_fisica_stick == -1){
         manejar_seg_fault(pcb);
         return;
     }
     t_dir_fisica dir_fisica = iniciar_dir_fisica(id_segmento, offset);
 
+    log_info(logger, "PID: <%d> - Acción: <ESCRIBIR> - Dirección Física: <%d> - Valor: <%s>", pcb->pid, dir_fisica_stick, (char*)datos);
     t_paquete* paquete =  crear_paquete(CPU_KM__MOV_OUT);
     agregar_a_paquete(paquete, &dir_fisica, sizeof(dir_fisica));
     agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
@@ -1076,7 +1082,8 @@ void ejecutar_stdout(t_instruccion_decodificada* instr, t_pcb* pcb){
     
     int id_segmento = calc_id_segmento(dir_logica);
     int offset = calc_offset(dir_logica);
-    if(!mmu(pcb, tamanio, id_segmento, offset)){
+    int dir_fisica_stick = mmu(pcb, tamanio, id_segmento, offset);
+    if(dir_fisica_stick == -1){
         manejar_seg_fault(pcb);
         return;
     }
@@ -1097,7 +1104,7 @@ void ejecutar_stdin(t_instruccion_decodificada* instr, t_pcb* pcb){
     
     int id_segmento = calc_id_segmento(dir_logica);
     int offset = calc_offset(dir_logica);
-    if(!mmu(pcb, tamanio, id_segmento, offset)){
+    if(mmu(pcb, tamanio, id_segmento, offset) == -1){
         manejar_seg_fault(pcb);
         return;
     }
@@ -1223,18 +1230,24 @@ uint32_t calc_offset(int dir_logica){
     return floor(dir_logica % seg_max_size_global);
 }
 
-bool mmu(t_pcb* pcb, uint32_t tamanio, uint32_t num_seg, uint32_t desp) {
-    log_debug(logger, "Num_seg: %d, desp: %d", num_seg, desp);
-
+int mmu(t_pcb* pcb, uint32_t tamanio, uint32_t num_seg, uint32_t desp) {
     t_segmento* seg = NULL;
+
     for (int i = 0; i < list_size(pcb->tabla_segmentos); i++) {
         t_segmento* s = list_get(pcb->tabla_segmentos, i);
-        if ((uint32_t)s->id_segmento == num_seg) { seg = s; break; }
+        if ((uint32_t)s->id_segmento == num_seg) {
+            seg = s;
+            break;
+        }
     }
-    if (!seg || desp > seg->tamanio || desp + tamanio > seg->tamanio) { 
-        return false; 
+
+    if (seg == NULL ||
+        desp > seg->tamanio ||
+        desp + tamanio > seg->tamanio) {
+        return -1;
     }
-    return true;
+
+    return (int32_t)(seg->base + desp);
 }
 
 // ======== OTROS ========

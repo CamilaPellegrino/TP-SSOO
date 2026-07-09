@@ -19,6 +19,7 @@ t_lista_estado* estado_exit;
 
 t_list* lista_cpus;
 
+t_log_level log_level;
 t_log * logger;
 t_planificacion algoritmo;
 t_list* queues_algorithms;  

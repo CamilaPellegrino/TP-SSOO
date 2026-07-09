@@ -25,7 +25,7 @@ int main(int argc, char* argv[]) {
     
     t_config* config = iniciar_config(ruta_config);
     inicializar_variables_globales(config);
-    log_info(logger, "archivo= %d, bloque= %d", tam_archivo, tam_bloque);
+    log_debug(logger, "archivo= %d, bloque= %d", tam_archivo, tam_bloque);
     cant_bloques = tam_archivo/tam_bloque;
     archivo_swap = fopen(ruta, "w+b");
     if (archivo_swap == NULL) {
@@ -37,6 +37,9 @@ int main(int argc, char* argv[]) {
     //crear conexion con kernel memory
     int conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory); 
     handshake_cliente(conexion_kernel_memory, logger);
+    
+    log_info(logger, "## Conectado a Kernel Memory");
+
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
     t_paquete* conexion = crear_paquete(SWAP_KM__CONEXION);
     agregar_a_paquete(conexion, &tam_bloque, sizeof(tam_bloque));

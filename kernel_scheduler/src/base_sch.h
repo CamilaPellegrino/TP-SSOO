@@ -103,8 +103,10 @@ typedef enum{
 };
 
 // variables globales 
+
+extern t_log_level log_level;
 extern t_log* logger;
-extern t_planificacion algoritmo;  // CMN, FIFO o RR
+extern t_planificacion algoritmo; 
 extern int proximo_pid;
 extern int suspension_timeout;
 extern int quantum;

@@ -57,7 +57,7 @@ void inicializar_variables_globales(t_config* config){
 
 void inicializar_parametros_de_config(t_config* config){
     // leer de config
-    t_log_level log_level = log_level_from_string(config_get_string_value(config, "LOG_LEVEL"));
+    log_level = log_level_from_string(config_get_string_value(config, "LOG_LEVEL"));
     logger = iniciar_logger("kernel_scheduler.log", "ProcesoKernelScheduler", log_level);
     queue_preemption = queue_preemption_from_string(config_get_string_value(config, "QUEUE_PREEMPTION"));
     suspension_timeout = config_get_int_value(config, "SUSPENSION_TIMEOUT");
@@ -534,6 +534,7 @@ t_tipo_estado get_estado(t_pcb* p){
 }
 
 int get_prioridad_actual_thread_safe(t_pcb* p){
+    if(p == NULL){return -1;};
     pthread_mutex_lock(&p->mutex);
     int n = p->prioridad_actual;
     pthread_mutex_unlock(&p->mutex);
@@ -542,6 +543,9 @@ int get_prioridad_actual_thread_safe(t_pcb* p){
 
 int get_pid_thread_safe(t_pcb* p){
     int ret = -1;
+    if(p == NULL){
+        return ret;
+    }
     pthread_mutex_lock(&p->mutex);
     ret = p->pid;
     pthread_mutex_unlock(&p->mutex);
@@ -614,7 +618,7 @@ void cambiar_prioridad(t_pcb* proceso, int prioridad){
         return;
     }
     if(list_size(queues_algorithms)>prioridad){
-        log_info(logger, "## <%d> Herencia de prioridad: Pasa de %d a %d", proceso->pid, proceso->prioridad_actual, prioridad);
+        log_info(logger, "## <%d> Cambio de prioridad: <%d> - <%d>", proceso->pid, proceso->prioridad_actual, prioridad);
         pthread_mutex_lock(&m_transicionar);
         pthread_mutex_lock(&proceso->mutex);
         proceso->prioridad_actual = prioridad;
@@ -858,6 +862,9 @@ void loguear_tamanio_listas_de_estado(){
 }
 
 void imprimir_estado_procesos(void){
+    if(log_level != LOG_LEVEL_DEBUG){
+        return;
+    }
     pthread_mutex_lock(&m_transicionar);
 
     char* msg = string_new();

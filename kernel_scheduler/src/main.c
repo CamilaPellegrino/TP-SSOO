@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) { // ejecucion con valgrind: valgrind --leak-ch
     // esperar clientes
     while(true){
         int *cliente_fd = esperar_cliente(kernel_scheduler_fd);
-        log_info(logger, "Me llego un cliente, %d", *cliente_fd);
+        log_debug(logger, "Me llego un cliente, %d", *cliente_fd);
 
         handshake_servidor(*cliente_fd, logger);
         

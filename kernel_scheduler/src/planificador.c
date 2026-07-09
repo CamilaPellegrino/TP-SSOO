@@ -31,6 +31,13 @@ void* planificador_corto_plazo(){
                 pthread_mutex_lock(&m_lista_cpus);
                 pthread_mutex_lock(&cpu_desalojable->mutex);
                 if(!cpu_desalojable->desalojando && cpu_desalojable->proceso != proceso){
+                    int pid_des = get_pid_thread_safe(cpu_desalojable->proceso);
+                    int prio_des = get_prioridad_actual_thread_safe(cpu_desalojable->proceso);
+
+                    int pid_nuevo = proceso->pid;
+                    int prio_nuevo = proceso->prioridad_actual;
+
+                    log_info(logger, "## (<%d>) Prioridad: <%d> - Desalojado por cola más prioritaria por el proceso <%d> con prioridad <%d>", pid_des, prio_des, pid_nuevo, prio_nuevo);
                     cpu_desalojable->desalojando = true;
                     enviar_operacion(cpu_desalojable->fd, SCH_CPU__PEDIDO_DESALOJO);
                     agregar_a_ready_al_frente(proceso);
