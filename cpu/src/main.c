@@ -19,6 +19,7 @@ bool get_pedir_segmentos();
 void set_enviar_contexto_y_desalojar(bool x);
 bool get_enviar_contexto_y_desalojar();
 
+void* atender_stick(void* arg);
 void conectarse_a_stick(char* ip, char* puerto, uint32_t tamanio);
 void recibir_sticks_de_km();
 void* ejecutar();
@@ -90,7 +91,7 @@ void *registro_a_bytes(especificacion_registro *reg);
 uint32_t leer_registro(especificacion_registro* reg);
 // void ejecutar_syscall(t_instruccion_decodificada *syscall, t_pcb* pcb);
 //////////////////////////
-
+int id_cpu;
 int main(int argc, char* argv[]){
     // ejemplo para ejecutar: ./bin/cpu ./cpu.config 0
     if(argc < 3){ 
@@ -99,7 +100,7 @@ int main(int argc, char* argv[]){
     }
 
     char *ruta_config = argv[1];
-    int id_cpu = atoi(argv[2]);
+    id_cpu = atoi(argv[2]);
 
     saludar("cpu");
     
@@ -112,7 +113,10 @@ int main(int argc, char* argv[]){
 
     // crear logger
     t_log_level log_level = log_level_from_string(config_get_string_value(config, "LOG_LEVEL"));
-    logger = iniciar_logger("cpu.log", "ProcesoCPU", log_level);
+    char ruta[32];
+    snprintf(ruta, sizeof(ruta), "cpu_%d.log", id_cpu);
+
+    logger = iniciar_logger(ruta, "ProcesoCPU", log_level);
 
     char*ip_sch = config_get_string_value(config, "IP_SCH");
     char*ip_km = config_get_string_value(config, "IP_KM");
@@ -166,7 +170,7 @@ int main(int argc, char* argv[]){
             pthread_mutex_unlock(&m_pid_pendiente);
             list_destroy_and_destroy_elements(data, free);
             
-        }
+        } 
         switch(cod_op){
             case SCH_CPU__NUEVO_STICK: {
                 log_debug(logger, "Conexion de modulo stick");
@@ -181,10 +185,7 @@ int main(int argc, char* argv[]){
                 exit_si_error_conexion(conexion_memory_stick, logger, "memory stick");
                 handshake_cliente(conexion_memory_stick,logger);
                 
-                // guardar datos del stick en lista_sticks
-                t_stick* stick = iniciar_stick(ip_stick, puerto_stick, *tamanio, conexion_memory_stick);
-                list_add(lista_sticks, stick);
-                
+                conectarse_a_stick(ip_stick, puerto_stick, *tamanio);
                 // liberar lista_del_paquete
                 list_destroy_and_destroy_elements(lista_del_paquete, free);
                 break;
@@ -433,13 +434,31 @@ void conectarse_a_stick(char* ip, char* puerto, uint32_t tamanio){
 
     handshake_cliente(conexion_memory_stick, logger);
 
-    log_debug(logger, "Conectado a stick -> ip: %s, puerto: %s", ip, puerto);
+    log_info(logger, "Conectado a stick -> ip: %s, puerto: %s", ip, puerto);
 
     // crear stick
     t_stick* stick = iniciar_stick(ip, puerto, tamanio, conexion_memory_stick);
-    enviar_operacion(conexion_memory_stick, CPU_STICK__CONEXION);
+    t_paquete *data = crear_paquete(CPU_STICK__CONEXION);
+    agregar_a_paquete(data, &id_cpu, sizeof(id_cpu));
+    enviar_paquete(data, conexion_memory_stick);
     // agregar a lista local
     list_add(lista_sticks, stick);
+
+    pthread_t p = crear_hilo_o_exit(atender_stick, stick, "atender_stick", logger);
+    pthread_detach(p);
+}
+
+void* atender_stick(void* arg){
+    t_stick* stick = (t_stick*)arg;
+    while(1){
+        op_code cod_op = recibir_operacion(stick->fd);
+        if(cod_op == -1){
+            log_debug(logger, "BSOD");
+            enviar_operacion(conexion_kernel_memory, CPU_KM__BSOD);
+            break;
+        }
+    }
+    return NULL;
 }
 
 void recibir_sticks_de_km(){ // + seg_max_size
@@ -451,7 +470,7 @@ void recibir_sticks_de_km(){ // + seg_max_size
     t_list* paquete = recibir_paquete(conexion_kernel_memory);
     seg_max_size_global = *(int*)list_get(paquete, 0);
     log_debug(logger, "seg_max_size_global: %d", seg_max_size_global);
-    /*int desplazamiento = 0;
+    int desplazamiento = 1;
     int cantidad;
     memcpy(&cantidad, list_get(paquete, desplazamiento++), sizeof(int));
     for(int i = 0; i < cantidad; i++){
@@ -464,7 +483,7 @@ void recibir_sticks_de_km(){ // + seg_max_size
 
         conectarse_a_stick(ip, puerto, tamanio);
     }
-    */
+    
     list_destroy_and_destroy_elements(paquete, free);
 }
 

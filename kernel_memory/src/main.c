@@ -102,11 +102,16 @@ void* atender_cpu(void* arg){
         op_code cod_op = recibir_operacion(cpu_fd);
         
         if(cod_op == -1){
-            log_warning(logger, "se desconecto CPU");
+            // log_warning(logger, "se desconecto CPU");
             break;
         }
         log_debug(logger, "LLEGO OP de CPU=%d", cod_op);
         switch(cod_op) {
+            case CPU_KM__BSOD:{
+                log_error(logger, "BSOD");
+                exit(EXIT_FAILURE);
+                break;
+            }
             case CPU_KM__PCONTEXTO:{
                 t_list *lista = recibir_paquete(cpu_fd);
                 atender_cpu_pcontexto(cpu, lista);
@@ -210,7 +215,7 @@ void atender_cpu_fetch(t_cpu* cpu, t_list* data){
 
     if(proceso != NULL){
         char* instruccion = list_get(proceso->instrucciones, pc);
-        log_info(logger, "## PID: <PID> - Obtener instrucción: <PC> - Instrucción: <%s>", instruccion);
+        log_info(logger, "## PID: <PID> - Obtener instrucción: <%d> - Instrucción: <%s>", pc, instruccion);
         t_paquete* paquete = crear_paquete(KM_CPU__INSTRUCCION);
         agregar_string_a_paquete(paquete, instruccion);
         pthread_mutex_unlock(&proceso->mutex);

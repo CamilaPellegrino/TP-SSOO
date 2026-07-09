@@ -25,11 +25,15 @@ int main(int argc, char* argv[]) {
     tamanio_stick = atoi(argv[2]);
     memoria_reservada = calloc(tamanio_stick, 1);
     memoria_principal = (char*) memoria_reservada; //Para ir avanzando de a 1 byte
-
-    logger = iniciar_logger("memory_stick.log", "ProcesoMemorySticks", LOG_LEVEL_INFO);
-    // imprimir_bytes(memoria_reservada, tamanio_stick);
-    // inciar config
     t_config* config = iniciar_config(ruta_config);
+
+    int id_stick = config_get_int_value(config, "STICK_ID");
+    char log_path[64];
+    snprintf(log_path, sizeof(log_path), "memory_stick_%d.log", id_stick);
+
+    logger = iniciar_logger(log_path, "ProcesoMemorySticks", LOG_LEVEL_INFO);
+
+    // imprimir_bytes(memoria_reservada, tamanio_stick);
 
     memory_delay = config_get_int_value(config, "MEMORY_DELAY");
 
@@ -159,7 +163,7 @@ void* atender_cliente(void *arg){
             int* cpu_id = list_get(lista_paquete, 0);
             log_info(logger, "## CPU <%d> Conectada", *cpu_id);
             
-            t_cliente* cliente_cpu = iniciar_cliente(cliente_fd, CLIENTE_CPU);
+            // t_cliente* cliente_cpu = iniciar_cliente(cliente_fd, CLIENTE_CPU);
             // atender_pedidos(cliente_cpu);
             break;
         }

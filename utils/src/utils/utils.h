@@ -17,6 +17,7 @@
 #include <pthread.h>
 typedef enum
 {   // ORIGEN_DESTINO__OPERACION
+	CPU_KM__BSOD,
 	// Conexiones
 	HANDSHAKE,
 	SCH_KM__CONEXION,

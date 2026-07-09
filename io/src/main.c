@@ -12,18 +12,23 @@ int main(int argc, char* argv[]) {
     }
 
     char *ruta_config = argv[1];
-    char* ip; 
     char * puerto_kernel_scheduler;
 
     //Setup inicial
-    t_log * logger = iniciar_logger("io.log", "ProcesoIO", LOG_LEVEL_INFO );
+    char* tipo_str = argv[2];
+    char log_path[64];
     
-    t_tipo_io tipo_io = tipo_str_a_enum(argv[2]);
+    t_tipo_io tipo_io = tipo_str_a_enum(tipo_str);
+    
+
+    
     if(tipo_io == INVALIDO){
-        log_error(logger, "Error: Tipo de IO desconocida. Opciones validas: SLEEP, STDIN, STDOUT");
+        printf("Error: Tipo de IO desconocida. Opciones validas: SLEEP, STDIN, STDOUT");
         exit(EXIT_FAILURE);
     }
-    t_config* config = iniciar_config(ruta_config);
+    snprintf(log_path, sizeof(log_path), "io_%s.log", tipo_str);
+    
+    t_log * logger = iniciar_logger(log_path, "ProcesoIO", LOG_LEVEL_INFO );t_config* config = iniciar_config(ruta_config);
     
     if(config == NULL){
         printf("No se pudo cargar el config\n");
@@ -31,7 +36,7 @@ int main(int argc, char* argv[]) {
     }
 
     //conexion a kernel scheduler
-    ip = config_get_string_value (config, "IP");
+    char* ip = config_get_string_value (config, "IP");
     puerto_kernel_scheduler = config_get_string_value (config, "PUERTO_KERNEL_SCHEDULER");
     
     int conexion_kernel_scheduler = crear_conexion(ip, puerto_kernel_scheduler);
@@ -100,7 +105,7 @@ int main(int argc, char* argv[]) {
 
             case STDOUT: {
                 char* texto = (char*)list_get(paquete_datos , 1);
-                log_info(logger, " ## PID: <%u> - <%s> " , pid , texto );
+                log_info(logger, " ## PID: %u - %s" , pid , texto );
                 printf("%s\n" , texto);
                 enviar_operacion(conexion_kernel_scheduler, IO_SCH__OK);
             break;

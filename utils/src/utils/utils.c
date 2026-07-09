@@ -366,16 +366,3 @@ void imprimir_bytes(void* data, int tamanio){
 
     // printf("\n");
 }
-
-// // Definimos un tipo de puntero a función que acepte dos argumentos
-// typedef void (*t_closure_con_arg)(void*, void*);
-
-// void list_iterate_con_argumento(t_list* lista, t_closure_con_arg closure, void* argumento_extra) {
-//     if (lista == NULL || closure == NULL) return;
-
-//     // Iteramos sobre todos los elementos de la lista
-//     for (int i = 0; i < list_size(lista); i++) {
-//         void* elemento = list_get(lista, i); // Obtenemos la CPU
-//         closure(elemento, argumento_extra);  // Llamamos a la función
-//     }
-// }
