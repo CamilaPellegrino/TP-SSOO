@@ -285,7 +285,6 @@ void recibir_pcb_actualizado(t_list* valores){
     memcpy(&pcb->si, list_get(valores, i++), sizeof(pcb->si));
     memcpy(&pcb->di, list_get(valores, i++), sizeof(pcb->di));
 
-    list_destroy_and_destroy_elements(valores, free);
     pthread_mutex_unlock(&proc->mutex);
     return;
 }

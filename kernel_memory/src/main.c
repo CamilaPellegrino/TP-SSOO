@@ -126,21 +126,25 @@ void* atender_cpu(void* arg){
                 recibir_pcb_actualizado(p);
                 enviar_operacion(cpu_fd, KM_CPU__PCB_GUARDADO);
                 log_debug(logger, "PCB actualizado");
+                list_destroy_and_destroy_elements(p, free);
                 break;
             }case CPU_KM__MOV_OUT:{
                 log_debug(logger, "CPU pide: MOV_OUT");
                 t_list* data = recibir_paquete(cpu_fd);
                 atender_cpu_mov_out(data, cpu_fd);
+                list_destroy_and_destroy_elements(data, free);
                 break;
             }case CPU_KM__MOV_IN:{
                 log_debug(logger, "CPU pide: MOV_IN");
                 t_list* data = recibir_paquete(cpu_fd);
                 atender_cpu_mov_in(data, cpu_fd);
+                list_destroy_and_destroy_elements(data, free);
                 break;
             }case CPU_KM__COPY_MEM:{
                 log_debug(logger, "CPU pide: COPY_MEM");
                 t_list* data = recibir_paquete(cpu_fd);
                 atender_cpu_copy_mem(data, cpu_fd);
+                list_destroy_and_destroy_elements(data, free);
                 break;
             }default:{
                 log_warning(logger,"atender_cpu: op desconocida, op=%d", cod_op);
@@ -235,6 +239,8 @@ void atender_cpu_copy_mem(t_list* data, int cpu_fd){
 
     sem_wait(&evt_copy_mem->s_fin);
     
+    liberar_evt(evt_copy_mem);
+
     esperar_ms(instruction_delay_ms);
 
     enviar_operacion(cpu_fd, KM_CPU__RESPUESTA);
@@ -245,18 +251,32 @@ void atender_cpu_mov_in(t_list* data, int cpu_fd){
     t_dir_fisica dir_fisica = *(t_dir_fisica*)list_get(data, i++);
     int tamanio = *(int*)list_get(data, i++);
     int pid = *(int*)list_get(data, i++);
+
     int base = calc_dir_fisica(pid, dir_fisica.id_segmento, dir_fisica.offset);
+
     t_evt* evt_read = iniciar_evt_read(pid, base, tamanio, cpu_fd);
     t_data_read* data_read = (t_data_read*)evt_read->data;
+
     agregar_evt_a_stick(evt_read);
 
     sem_wait(&evt_read->s_fin);
 
     esperar_ms(instruction_delay_ms);
 
+    void* datos_leidos = malloc(tamanio);
+    if (datos_leidos == NULL) {
+        liberar_evt(evt_read);
+        return;
+    }
+
+    memcpy(datos_leidos, data_read->datos_leidos, tamanio);
+
+    liberar_evt(evt_read);
     t_paquete* paquete = crear_paquete(KM_CPU__RESPUESTA);
-    agregar_a_paquete(paquete, data_read->datos_leidos, 1);
+    agregar_a_paquete(paquete, datos_leidos, tamanio);
     enviar_paquete_y_liberarlo(paquete, cpu_fd);
+
+    free(datos_leidos);
 }
 
 void atender_cpu_mov_out(t_list* data, int cpu_fd){
@@ -275,6 +295,8 @@ void atender_cpu_mov_out(t_list* data, int cpu_fd){
 
     sem_wait(&evt_write->s_fin);
     
+    liberar_evt(evt_write);
+
     esperar_ms(instruction_delay_ms);
 
     enviar_operacion(cpu_fd, KM_CPU__RESPUESTA);
@@ -349,6 +371,7 @@ void* atender_scheduler(void*){
                 log_debug(logger, "Exit de pid %d completo", pid);
                 enviar_operacion(sch_fd, KM_SCH__EXIT_OK);
                 list_destroy_and_destroy_elements(data, free);
+                free(proceso);
                 break;
             }
             case SCH_KM__SUSPENDER:{

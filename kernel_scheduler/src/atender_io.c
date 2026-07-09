@@ -61,6 +61,7 @@ void atender_io_stdout(t_io* io){
         }
         pthread_mutex_destroy(&evt->mutex);
         pthread_cond_destroy(&evt->cond);
+        free(datos_leidos);
         free(evt->data_evt);
         free(evt);
     }
