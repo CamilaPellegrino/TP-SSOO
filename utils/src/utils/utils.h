@@ -17,6 +17,7 @@
 #include <pthread.h>
 typedef enum
 {   // ORIGEN_DESTINO__OPERACION
+	CPU_KM__BSOD,
 	// Conexiones
 	HANDSHAKE,
 	SCH_KM__CONEXION,
@@ -36,6 +37,8 @@ typedef enum
 	KM_SCH__LECTURA,
 	KM_SCH__PEDIDO_COMPACTACION,
 	KM_SCH__COMPACTACION_COMPLETA,
+	KM_SCH__DESUSPENDIDO,
+	KM_SCH__SUSPENDIDO,
 	CPU_SCH__INIT_PROC,
 	CPU_SCH__SLEEP,
 	CPU_SCH__STDIN,
@@ -56,6 +59,7 @@ typedef enum
 	SCH_CPU__FIN_SYSCALL,
 	SCH_CPU__SYS_BLOQUEANTE,
 	SCH_CPU__COMPACTACION,
+	SCH_CPU__ERROR_SYSCALL,
 
 	KM_CPU__RESPUESTA,
 	KM_CPU__INSTRUCCION,
@@ -69,7 +73,7 @@ typedef enum
 	CPU_KM__PSEGMENTOS,
 	CPU_KM__ACTUALIZAR_PCB,
 	CPU_KM__FETCH,
-	SCH_KM__EXIT,
+	SCH_KM__EXIT, 
 	SCH_KM__INIT_PROC,
 	SCH_KM__MEM_ALLOC,
 	SCH_KM__MEM_FREE,
@@ -77,6 +81,8 @@ typedef enum
 	CPU_KM__MOV_IN,
 	CPU_KM__COPY_MEM,
 	SCH_KM__COMENZAR_COMPACTACION,
+	SCH_KM__SUSPENDER,
+	SCH_KM__INTENTAR_DESUSPENDER,
 	SWAP_KM__OK,
 	// mensajes con destino a IO
 	SCH_IO__SOLICITUD,
@@ -96,9 +102,19 @@ typedef enum
 
 typedef enum{
 	OK,
-	ERROR
+	ERROR,
+	SEG_FAULT,
+	RECURSO_NO_EXISTE,
+	RECURSO_YA_EXISTE,
+	INSTRUCCION_INVALIDA,
+	FIN_INVALIDO,
+	MEM_INSUFICIENTE
 } t_status_op;
 
+typedef struct{
+	int id_segmento;
+	int offset; 
+}t_dir_fisica;
 typedef struct
 {
 	int size;

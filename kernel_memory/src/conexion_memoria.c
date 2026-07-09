@@ -4,19 +4,33 @@ void* ejecutar_pedidos_lectura(t_list* pedidos, int tamanio_total);
 void ejecutar_pedidos_escritura(t_list* pedidos, void* bytes);
 typedef void (*t_handler)(t_evt*);
 
+t_list* lista_procesos_suspendidos;
+pthread_mutex_t m_lista_procesos_suspendidos;
+t_bitarray* bitarray;
+pthread_mutex_t m_bitarray;
+
 // STICKS
 void* atender_stick(void* arg){
-
+    lista_procesos_suspendidos = list_create();
+    pthread_mutex_init(&m_lista_procesos_suspendidos, NULL);
+    pthread_mutex_init(&m_bitarray, NULL);
+    int bytes = (cant_bloques + 7) / 8;
+    char* bitmap = calloc(bytes, sizeof(char));
+    bitarray = bitarray_create_with_mode(bitmap, bytes, LSB_FIRST);
+    imprimir_bitmap();
     t_handler handlers[] = {
         [SCH_LECTURA]    = atender_sch_lectura,
         [SCH_ESCRITURA]  = atender_sch_escritura,
-        [SCH_MOVER]      = atender_sch_mover
+        [SCH_MOVER]      = atender_sch_mover,
+        [SUSPENSION]     = atender_suspension,
+        [DESUSPENSION]   = atender_desuspension
     };
 
     t_list* lista_evt = lista_eventos_stick;
     while(1){
         sem_wait(&s_lista_eventos_stick);
         log_debug(logger, "Pedido a sticks");
+        imprimir_bitmap();
         
         pthread_mutex_lock(&m_lista_eventos_stick);
         if(list_is_empty(lista_evt)){
@@ -27,10 +41,9 @@ void* atender_stick(void* arg){
         t_evt* evt = list_remove(lista_evt, 0);
         pthread_mutex_unlock(&m_lista_eventos_stick);
 
-        int pid = evt->pid;
         handlers[evt->tipo](evt);
     };
-    log_info(logger, "cerrando hilo de stick");
+    log_debug(logger, "cerrando hilo de stick");
     return NULL;
 }
 
@@ -38,6 +51,136 @@ void desconexion_por_bsod(){
     log_warning(logger, "error, se desconecto stick");
     enviar_operacion(sch_fd, KM_SCH__BSOD);
     exit(EXIT_FAILURE);
+}
+
+void atender_suspension(t_evt* evt){
+    imprimir_bitmap();
+    int pid = evt->pid;
+    log_info(logger, "Suspendiendo proceso %d", pid);
+    
+    t_proceso* proceso = proceso_de_pid_thread_safe(pid);
+    pthread_mutex_lock(&m_lista_procesos);
+    list_remove_element(lista_procesos, proceso);
+    pthread_mutex_unlock(&m_lista_procesos);
+    t_list* segmentos = proceso->lista_segmentos;
+    
+    t_proceso_suspendido* proceso_suspendido = iniciar_proceso_suspendido(proceso);
+
+    for(int i = 0; i<list_size(segmentos);i++){
+        t_segmento* s = list_get(segmentos, i);
+        t_list* pedidos_lectura = pedidos_a_sticks_para_acceder_a(s->base, s->tamanio);
+        void* datos = ejecutar_pedidos_lectura(pedidos_lectura, s->tamanio);
+        list_destroy_and_destroy_elements(pedidos_lectura, free);
+        t_list* bloques = bloques_necesarios_para_escribir_en_swap(datos, s->tamanio);
+        if(bloques == NULL){
+            log_debug(logger, "Segmento %d (base=%u, tamaño=%d): no hay bloques libres", i, s->base, s->tamanio);
+        }else{
+            log_debug(logger, "Segmento %d (base=%u, tamaño=%d):", i, s->base, s->tamanio);
+            ejecutar_pedidos_escritura_en_swap(bloques);
+        }
+        t_segmento_suspendido* ss = iniciar_segmento_suspendido(s->id_segmento, bloques, s->tamanio);
+        list_add(proceso_suspendido->segmentos_suspendidos, ss);
+        free(datos);
+    }
+    log_debug(logger, "Por hacer el post");
+    sem_post(&evt->s_fin);
+    log_debug(logger, "Hice post, suspension finalizada");
+    destruir_segmentos_de_proceso(proceso);
+    log_debug(logger, "Ya destrui los segmentos");
+}
+
+void atender_desuspension(t_evt* evt){
+    int pid = evt->pid;
+    log_debug(logger, "Desuspendiendo proceso");
+    desuspender_proceso(pid);
+    sem_post(&evt->s_fin);
+}
+
+void desuspender_proceso(int pid){
+    t_proceso_suspendido* proc_susp = proceso_suspendido_de_pid_thread_safe(pid);
+
+    if(proc_susp == NULL){
+        log_error(logger, "Proceso <%d> no estaba suspendido", pid);
+        return;
+    }
+    t_proceso* proceso_desup = iniciar_proceso(proc_susp->pcb, proc_susp->lista_instrucciones);
+    if(proceso_desup == NULL){
+        log_error(logger, "procdesup es null");
+        exit(EXIT_FAILURE);
+    }
+
+    t_list* segmentos_suspendidos = proc_susp->segmentos_suspendidos;
+    for(int i = 0; i<list_size(segmentos_suspendidos); i++){
+        t_segmento_suspendido* ss = list_get(segmentos_suspendidos, i);
+        log_debug(logger, "desuspendiendo segmento de id %d", ss->id_segmento);
+        void* bytes = ejecutar_pedidos_lectura_en_swap(ss->bloques);
+        // reservar segmento en ram
+        imprimir_bytes(bytes, ss->tamanio);
+        log_debug(logger, "creando segmento para id %d, tamanio %d", ss->id_segmento, ss->tamanio);
+        t_segmento* s = crear_segmento(proceso_desup, ss->id_segmento, ss->tamanio);
+        log_debug(logger, "creo segmento");
+        
+        // escribir contenido en el segmento reservado
+        t_list* pedidos = pedidos_a_sticks_para_acceder_a(s->base, s->tamanio);
+        ejecutar_pedidos_escritura(pedidos, bytes);
+
+        free(bytes);
+        list_destroy_and_destroy_elements(pedidos, free);
+    }
+    pthread_mutex_lock(&m_lista_procesos_suspendidos);
+    list_remove_element(lista_procesos_suspendidos, proc_susp);
+    pthread_mutex_unlock(&m_lista_procesos_suspendidos);
+    destruir_segmentos_de_proceso_suspendido(proc_susp);
+    pthread_mutex_lock(&m_lista_procesos);
+    list_add(lista_procesos, proceso_desup);
+    pthread_mutex_unlock(&m_lista_procesos);
+}
+
+void liberar_data_escritura_bloque(void* d){
+    t_data_escritura_bloque* data = (t_data_escritura_bloque*) d;
+    free(data->contenido);
+    free(data);
+}
+
+void ejecutar_pedidos_escritura_en_swap(t_list* data){
+    for(int j = 0; j < list_size(data); j++){
+        t_data_escritura_bloque* bloque = list_get(data, j);
+        log_debug(logger, "    -> Bloque SWAP: %d", bloque->num_bloque);
+        log_debug(logger, "    -> contenido: %s", (char*)bloque->contenido);
+        log_debug(logger, "    -> tamanio: %d", bloque->tamanio);
+        t_paquete* paquete = crear_paquete(KM_SWAP__ESCRITURA);
+        agregar_a_paquete(paquete, &bloque->num_bloque, sizeof(bloque->num_bloque));
+        agregar_a_paquete(paquete, bloque->contenido, bloque->tamanio);
+        agregar_a_paquete(paquete, &bloque->tamanio, sizeof(bloque->tamanio));
+        enviar_paquete_y_liberarlo(paquete, conexion_swap);
+        recibir_operacion(conexion_swap);
+    }
+}
+
+void* ejecutar_pedidos_lectura_en_swap(t_list* data){
+    int tamanio_total = 0;
+    for (int i = 0; i < list_size(data); i++) {
+        t_data_escritura_bloque* bloque = list_get(data, i);
+        tamanio_total += bloque->tamanio;
+    }
+    void* buffer = malloc(tamanio_total);
+    int offset = 0;
+
+    for (int i = 0; i < list_size(data); i++) {
+        t_data_escritura_bloque* bloque = list_get(data, i);
+        t_paquete* paquete = crear_paquete(KM_SWAP__LECTURA);
+        agregar_a_paquete(paquete, &bloque->num_bloque, sizeof(bloque->num_bloque));
+        agregar_a_paquete(paquete, &bloque->tamanio, sizeof(bloque->tamanio));
+        enviar_paquete_y_liberarlo(paquete, conexion_swap);
+        recibir_operacion(conexion_swap);
+        t_list* data = recibir_paquete(conexion_swap);
+        void* contenido = list_get(data, 0);
+        memcpy((char*)buffer + offset, contenido, bloque->tamanio);
+        offset += bloque->tamanio;
+        list_destroy_and_destroy_elements(data, free);
+    }
+    imprimir_bytes(buffer, tamanio_total);
+    return buffer;
 }
 
 void atender_sch_escritura(t_evt* evt){
@@ -53,6 +196,8 @@ void atender_sch_escritura(t_evt* evt){
     t_list* pedidos = pedidos_a_sticks_para_acceder_a(base, tamanio);
 
     ejecutar_pedidos_escritura(pedidos, bytes);
+    
+    list_destroy_and_destroy_elements(pedidos, free);
 
     sem_post(&evt->s_fin);
 }
@@ -60,13 +205,15 @@ void atender_sch_escritura(t_evt* evt){
 void atender_sch_lectura(t_evt* evt){
     log_debug(logger, "Caso de SCH_lectura");
     t_data_read* data = (t_data_read*)evt->data;
-    int pid = evt->pid;
+    // int pid = evt->pid;
     int base = data->base;
     int tamanio = data->tamanio;
     t_list* pedidos = pedidos_a_sticks_para_acceder_a(base, tamanio);
 
     void* datos_leidos = ejecutar_pedidos_lectura(pedidos, tamanio);
-    printf("Datos: \n");
+
+    list_destroy_and_destroy_elements(pedidos, free);
+    
     imprimir_bytes(datos_leidos, tamanio);
     char* texto = (char*) datos_leidos;
     log_debug(logger, "Datos leidos: %s", texto);
@@ -76,7 +223,7 @@ void atender_sch_lectura(t_evt* evt){
 
 void atender_sch_mover(t_evt* evt){
     t_data_mover* data = (t_data_mover*)evt->data;
-    int pid = evt->pid;
+    // int pid = evt->pid;
     int tamanio_total = data->tamanio;
     log_debug(logger, "Caso de SCH_MOVER, base_leer:%d, tamanio:%d, base_escribir:%d", data->base_leer, tamanio_total, data->base_escribir);
     
@@ -163,7 +310,7 @@ t_list* pedidos_a_sticks_para_acceder_a(int base, int tamanio){
 
     int fin = base + tamanio;
     int inicio_stick_global = 0;
-    printf("\nPEDIDOS PARA ACCEDER A base=%d tam=%d\n", base, tamanio);
+    // printf("\nPEDIDOS PARA ACCEDER A base=%d tam=%d\n", base, tamanio);
 
     for(int i = 0; i < list_size(lista_sticks); i++){
         t_stick* stick = list_get(lista_sticks, i);
@@ -179,7 +326,7 @@ t_list* pedidos_a_sticks_para_acceder_a(int base, int tamanio){
             pedido->base_en_stick = inicio_interseccion - inicio_stick_global;
             pedido->tamanio = fin_interseccion - inicio_interseccion;
             list_add(pedidos, pedido);
-            printf("    Pedido %d -> Stick %d | base_en_stick=%d | tam=%d | rango_global=[%d,%d]\n", list_size(pedidos) - 1, i, pedido->base_en_stick, pedido->tamanio, inicio_interseccion, fin_interseccion - 1);
+            // printf("    Pedido %d -> Stick %d | base_en_stick=%d | tam=%d | rango_global=[%d,%d]\n", list_size(pedidos) - 1, i, pedido->base_en_stick, pedido->tamanio, inicio_interseccion, fin_interseccion - 1);
         }
 
         inicio_stick_global = fin_stick_global;
@@ -191,17 +338,218 @@ t_list* pedidos_a_sticks_para_acceder_a(int base, int tamanio){
 
     return pedidos;
 }
-// SWAP
 
-void atender_swap(int swap_fd){
-    while(1){
-        log_info(logger, "****Atendiendo al SWAP");
-        op_code cod_op = recibir_operacion(swap_fd);
-        if(cod_op == -1){
-            log_warning(logger, "error, se desconecto SWAP");
+t_list* bloques_necesarios_para_escribir_en_swap(void* contenido, int tamanio) {
+    int bloques_necesarios = (tamanio + tam_bloque - 1) / tam_bloque;
+    int tam_f = tamanio % tam_bloque;
+    t_list* bloques = list_create();
+    char* ptr = (char*)contenido;
+    pthread_mutex_lock(&m_bitarray);
+    if(!bloques_libres_suficientes(bloques_necesarios)){
+        log_error(logger, "Error: No hay suficientes bloques libres para suspender");
+        pthread_mutex_unlock(&m_bitarray);
+        list_destroy(bloques);
+        return NULL;
+    }
+    int cant_bl = 0;
+    for (int i = 0; i < cant_bloques && list_size(bloques) < bloques_necesarios; i++) {
+        if (!bitarray_test_bit(bitarray, i)) {
+            bitarray_set_bit(bitarray, i);
+            int tam = (cant_bl == bloques_necesarios - 1 && tam_f != 0) ? tam_f : tam_bloque;
+            t_data_escritura_bloque* data = iniciar_data_escritura_bloque(i, ptr, tam);
+            list_add(bloques, data);
+            ptr += tam;
+            cant_bl ++;
+        }
+    }
+    pthread_mutex_unlock(&m_bitarray);
+    return bloques;
+}
+
+int obtener_primer_bloque_libre() {
+    pthread_mutex_lock(&m_bitarray);
+    for (int i = 0; i < cant_bloques; i++) {
+        if (!bitarray_test_bit(bitarray, i)) {
+            return i;
+        }
+    }
+    pthread_mutex_unlock(&m_bitarray);
+    return -1;
+}
+
+int cant_bloques_libres(){
+    int n = 0;
+    pthread_mutex_lock(&m_bitarray);
+    for (int i = 0; i < cant_bloques; i++) {
+        if (!bitarray_test_bit(bitarray, i)) {
+            n++;
+        }
+    }
+    pthread_mutex_unlock(&m_bitarray);
+    return n;
+}
+
+bool bloques_libres_suficientes(int n) {
+    int libres = 0;
+    for (int i = 0; i < cant_bloques; i++) {
+        if (!bitarray_test_bit(bitarray, i)) {
+            libres++;
+            if (libres >= n)
+                return true;
+        }
+    }
+    return false;
+}
+
+
+t_data_escritura_bloque* iniciar_data_escritura_bloque(int num_bloque, void* contenido, int tamanio){
+    t_data_escritura_bloque* data = malloc(sizeof(t_data_escritura_bloque));
+    data->contenido = malloc(tamanio);
+    memcpy((char*)data->contenido, contenido, tamanio);
+    data->num_bloque = num_bloque;
+    data->tamanio = tamanio;
+    return data;
+}
+
+t_proceso_suspendido* iniciar_proceso_suspendido(t_proceso* proceso){
+    t_proceso_suspendido* p = malloc(sizeof(t_proceso_suspendido));
+    p->segmentos_suspendidos = list_create();
+    p->pcb = proceso->pcb;
+    p->lista_instrucciones = proceso->instrucciones;
+    pthread_mutex_lock(&m_lista_procesos_suspendidos);
+    list_add(lista_procesos_suspendidos, p);
+    pthread_mutex_unlock(&m_lista_procesos_suspendidos);
+    return p;
+}
+
+t_segmento_suspendido* iniciar_segmento_suspendido(int id_segmento, t_list*bloques, int tamanio){
+    t_segmento_suspendido* s = malloc(sizeof(t_segmento_suspendido));
+    s->id_segmento = id_segmento;
+    s->bloques = bloques;
+    s->tamanio = tamanio;
+    return s;
+}
+
+bool proceso_suspendido_thread_safe(int pid){
+    bool encontrado = false;
+
+    pthread_mutex_lock(&m_lista_procesos_suspendidos);
+
+    for (int i = 0; i < list_size(lista_procesos_suspendidos); i++) {
+        t_proceso_suspendido* proceso = list_get(lista_procesos_suspendidos, i);
+
+        if (proceso->pcb->pid == pid) {
+            encontrado = true;
             break;
         }
-        
     }
-    log_info(logger, "cerrando hilo de swap");
+    pthread_mutex_unlock(&m_lista_procesos_suspendidos);
+    return encontrado;
+}
+
+t_proceso_suspendido* proceso_suspendido_de_pid_thread_safe(int pid){
+    t_proceso_suspendido* proceso = NULL;
+    pthread_mutex_lock(&m_lista_procesos_suspendidos);
+    for (int i = 0; i < list_size(lista_procesos_suspendidos); i++) {
+        t_proceso_suspendido* actual = list_get(lista_procesos_suspendidos, i);
+
+        if (actual->pcb->pid == pid) {
+            proceso = actual;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&m_lista_procesos_suspendidos);
+    return proceso;
+}
+
+bool intentar_desuspender(int pid){
+    pthread_mutex_lock(&m_manejar_memoria);
+    if(puedo_desuspender_sin_compactar(pid)){
+        t_evt* evt_desup = iniciar_evt_suspender(pid);
+        evt_desup->tipo = DESUSPENSION;
+        agregar_evt_a_stick(evt_desup);
+        sem_wait(&evt_desup->s_fin);
+        pthread_mutex_unlock(&m_manejar_memoria);
+        liberar_evt(evt_desup);
+        return true;
+    }
+    pthread_mutex_unlock(&m_manejar_memoria);
+    return false;
+}
+bool puedo_desuspender_sin_compactar(int pid){
+    if (!proceso_suspendido_thread_safe(pid))
+        return false;
+
+    t_proceso_suspendido* proc = proceso_suspendido_de_pid_thread_safe(pid);
+    t_list* huecos_simulados = copiar_huecos(lista_huecos);
+    for (int i = 0; i < list_size(proc->segmentos_suspendidos); i++) {
+        t_segmento_suspendido* segmento = list_get(proc->segmentos_suspendidos, i);
+        t_hueco* hueco = ubicacion_de_proximo_segmento(huecos_simulados, segmento->tamanio);
+        if (hueco == NULL) {
+            destruir_huecos(huecos_simulados);
+            return false;
+        }
+        hueco->base += segmento->tamanio;
+        hueco->tamanio -= segmento->tamanio;
+
+        if (hueco->tamanio == 0) {
+            list_remove_element(huecos_simulados, hueco);
+            free(hueco);
+        }
+    }
+
+    destruir_huecos(huecos_simulados);
+    return true;
+}
+
+t_list* copiar_huecos(t_list* originales){
+    t_list* copia = list_create();
+
+    for (int i = 0; i < list_size(originales); i++) {
+        t_hueco* h = list_get(originales, i);
+
+        t_hueco* nuevo = malloc(sizeof(t_hueco));
+        nuevo->base = h->base;
+        nuevo->tamanio = h->tamanio;
+
+        list_add(copia, nuevo);
+    }
+    return copia;
+}
+
+// liberar
+
+void destruir_segmentos_de_proceso(t_proceso* p){
+    eliminar_segmentos(p);
+    list_destroy(p->lista_segmentos);
+    free(p);
+}
+void destruir_segmentos_de_proceso_suspendido(t_proceso_suspendido* p){
+    if (p == NULL){return;}
+    list_destroy_and_destroy_elements(p->segmentos_suspendidos, destruir_segmento);
+    free(p);
+}
+void destruir_segmento(void* data){
+    t_segmento_suspendido* segmento = (t_segmento_suspendido*) data;
+    list_destroy_and_destroy_elements(segmento->bloques, destruir_bloque);
+    free(segmento);
+}
+void destruir_bloque(void* data){
+    t_data_escritura_bloque* bloque = (t_data_escritura_bloque*) data;
+    pthread_mutex_lock(&m_bitarray);
+    bitarray_clean_bit(bitarray, bloque->num_bloque);
+    pthread_mutex_unlock(&m_bitarray);
+    free(bloque->contenido);
+    free(bloque);
+}
+
+void imprimir_bitmap(void) {
+    if(log_level != LOG_LEVEL_DEBUG){
+        return;
+    }
+    printf("Bitmap: ");
+    for (int i = 0; i < cant_bloques; i++) {
+        printf("%d", bitarray_test_bit(bitarray, i));
+    }
+    printf("\n");
 }

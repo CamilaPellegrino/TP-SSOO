@@ -19,9 +19,9 @@ typedef enum
 {
 	SCH_LECTURA,
 	SCH_ESCRITURA,
-	SCH_MOVER // ,
-	// SUSPENSION
-	// DESUSPENSION
+	SCH_MOVER,
+	SUSPENSION,
+	DESUSPENSION
 }t_tipo_evt;
 
 typedef struct
@@ -116,12 +116,12 @@ typedef enum {
 	WORST_FIT
 }t_fit;
 // variables globales
-
+extern t_log_level log_level;
 extern t_log *logger;
 extern t_list *lista_sticks;
-extern t_list *lista_cpus;
+// extern t_list *lista_cpus;
 extern int sch_fd; 
-
+extern int conexion_swap;
 // listas para cosas de segmentos
 extern t_list *lista_segmentos_global;
 extern t_list *lista_procesos;
@@ -129,11 +129,16 @@ extern t_list *lista_huecos;
 extern t_list *lista_eventos_stick; 
 
 // variables para cosas de segmentos
-extern t_fit algoritmo_fit;
 extern int tamanio_total_mem;
 extern int tamanio_total_libre;
 
+extern int tam_bloque;
+extern int cant_bloques;
 // De config
+extern int segment_max_size;
+extern int instruction_delay_ms;
+extern int compaction_delay_ms;
+extern t_fit algoritmo_fit;
 extern char* scripts_basepath;
 extern char* puerto;
 
@@ -159,10 +164,16 @@ t_io* iniciar_io(t_tipo_io tipo_io, int io_fd);
 t_evt* iniciar_evt_read(int pid, int base, int tamanio,  int fd);
 t_evt* iniciar_evt_write(int pid, int base, int tamanio, void* bytes, int fd);
 t_evt* iniciar_evt_mover(int pid, int base_leer, int tamanio, int base_escribir);
+t_evt* iniciar_evt_suspender(int pid);
+
+
 
 // ...
 t_proceso* proceso_de_pid(int pid);
-t_segmento* segmento_de_id(int id_segmento);
+
+t_proceso* proceso_de_pid_thread_safe(int pid);
+
+t_segmento* segmento_de_id(int id_segmento, int pid);
 t_stick* stick_por_id(int nro_stick);
 bool guardar_nuevo_proceso(int pid, int ppid, char* ruta_instrucciones);
 
@@ -175,16 +186,29 @@ void enviar_sticks_a_cpu(int cpu_fd);
 
 void recibir_pcb_actualizado(t_list* valores);
 void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p); 
+
+// bool puedo_desuspender_sin_compactar(int pid);
+// bool intentar_desuspender(int pid);
+
 // Manejo de rutas
+
 t_list* instrucciones_de_ruta(char* ruta);
 char* ruta_completa(char* base, char* nombre_archivo);
 
-// liberar
 
+t_fit allocation_strategy_str_to_enum(char* strategy_str);
+
+// liberar
+void destroy_cpu(t_cpu* cpu);
 void liberar_evt(t_evt* evt);
+void destruir_data_read(t_data_read* data);
+void destruir_data_write(t_data_write* data);
+void destruir_data_mover(t_data_mover* data);
+
 
 // Otros
-
+void esperar_ms(int ms);
+void imprimir_estado_mem_thread_safe();
 void imprimir_estado_mem();
 void imprimir_huecos();
 void imprimir_segmentos(); 

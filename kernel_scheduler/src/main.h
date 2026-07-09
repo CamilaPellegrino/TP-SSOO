@@ -18,14 +18,15 @@ t_lista_estado* estado_susp_ready;
 t_lista_estado* estado_exit;
 
 t_list* lista_cpus;
-t_list* lista_io;
 
+t_log_level log_level;
 t_log * logger;
 t_planificacion algoritmo;
 t_list* queues_algorithms;  
 int proximo_pid;
 int suspension_timeout;
 int quantum;
+bool queue_preemption;
 int procesos_en_ready;
 t_estado_sch estado_global;
 
@@ -63,8 +64,8 @@ int conexion_kernel_memory;
 void* atender_cliente(void *arg);
 void* atender_cpu(t_cpu* cpu);
 void atender_cpu_syscall_sleep(int tiempo_sleep, t_cpu* cpu);
-void atender_cpu_syscall_stdin(int tamanio, int base, t_cpu* cpu);
-void atender_cpu_syscall_stdout(int tamanio, int base, t_cpu* cpu);
+void atender_cpu_syscall_stdin(int tamanio, t_dir_fisica, t_cpu* cpu);
+void atender_cpu_syscall_stdout(int tamanio, t_dir_fisica, t_cpu* cpu);
 void atender_cpu_syscall_mutex_create(char* nombre_mutex, t_cpu* cpu);
 void atender_cpu_syscall_mutex_lock(char* nombre_mutex, t_cpu* cpu);
 void atender_cpu_syscall_mutex_unlock(char* nombre_mutex, t_cpu* cpu);

@@ -17,7 +17,7 @@ void inicializar_variables_globales(t_config* config);
 
 int main(int argc, char* argv[]) {
     if(argc < 2){ 
-        printf("Se esperaban mas parametros. Ejemplo: ./bin/swap ./swap.config");
+        printf("Se esperaban mas parametros. Ejemplo: ./bin/swap swap.config");
         exit(EXIT_FAILURE);
     }
     char *ruta_config = argv[1];
@@ -25,19 +25,26 @@ int main(int argc, char* argv[]) {
     
     t_config* config = iniciar_config(ruta_config);
     inicializar_variables_globales(config);
-    log_info(logger, "archivo= %d, bloque= %d", tam_archivo, tam_bloque);
+    log_debug(logger, "archivo= %d, bloque= %d", tam_archivo, tam_bloque);
     cant_bloques = tam_archivo/tam_bloque;
     archivo_swap = fopen(ruta, "w+b");
     if (archivo_swap == NULL) {
         printf("Error al abrir el archivo.\n");
         return 1;
     }
-
+    int fd = fileno(archivo_swap);
+    ftruncate(fd, cant_bloques * tam_bloque);
     //crear conexion con kernel memory
     int conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory); 
     handshake_cliente(conexion_kernel_memory, logger);
+    
+    log_info(logger, "## Conectado a Kernel Memory");
+
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
-    enviar_operacion(conexion_kernel_memory, SWAP_KM__CONEXION);
+    t_paquete* conexion = crear_paquete(SWAP_KM__CONEXION);
+    agregar_a_paquete(conexion, &tam_bloque, sizeof(tam_bloque));
+    agregar_a_paquete(conexion, &cant_bloques, sizeof(cant_bloques));
+    enviar_paquete(conexion, conexion_kernel_memory);
 
     while(1){
         op_code cod_op = recibir_operacion(conexion_kernel_memory);
@@ -58,8 +65,8 @@ int main(int argc, char* argv[]) {
                 log_warning(logger, "Operacion desconocida, cod_op: %d", cod_op);
             }
         }
-        fclose(archivo_swap);
     }
+    fclose(archivo_swap);
     return 0;
 }
 
@@ -68,34 +75,40 @@ void atender_pedido_escritura(int cliente_fd, t_list* data){
     int bloque = *(int*)list_get(data, 0);
     void* contenido = list_get(data, 1);
     int tamanio_cont = *(int*)list_get(data, 2);
-    if(bloque > cant_bloques){
+    if(bloque >= cant_bloques){
         log_error(logger, "Escribiendo fuera de memoria de SWAP");
         return;
     }
-    int desplazamiento = (bloque-1) * tam_bloque;
+    imprimir_bytes(contenido, tamanio_cont);
+    int desplazamiento = bloque * tam_bloque;
     fseek(archivo_swap, desplazamiento, SEEK_SET);
-    fwrite(&contenido, tamanio_cont, 1, archivo_swap);
-
-    log_info(logger, "## Escritura del bloque: <%d>", bloque);
-    enviar_mensaje("Escritura en el archivo.bin Exitosa", cliente_fd, SWAP_KM__OK);
+    fwrite(contenido, tamanio_cont, 1, archivo_swap);
+    // fflush(archivo_swap);
+    log_info(logger, "## Escritura del bloque: %d", bloque);
+    enviar_operacion(cliente_fd, SWAP_KM__OK);
 }
 
-void atender_pedido_lectura(int cliente_fd, t_list* data){
+void atender_pedido_lectura(int cliente_fd, t_list* data)
+{
     int bloque = *(int*)list_get(data, 0);
     int tamanio_cont = *(int*)list_get(data, 1);
-    void* leido;
-    if(bloque > cant_bloques){
+
+    if (bloque >= cant_bloques) {
         log_error(logger, "Leyendo fuera de memoria de SWAP");
         return;
     }
-    int desplazamiento = (bloque-1) * tam_bloque;
+    void* leido = malloc(tamanio_cont);
+    int desplazamiento = bloque * tam_bloque;
     fseek(archivo_swap, desplazamiento, SEEK_SET);
-    fread(&leido, tamanio_cont, 1, archivo_swap);
+    fread(leido, tamanio_cont, 1, archivo_swap);
 
-    log_info(logger, "## Lectura del bloque: <%d>", bloque);
+    log_info(logger, "## Lectura del bloque: %d", bloque);
+
     t_paquete* paquete_respuesta = crear_paquete(SWAP_KM__OK);
     agregar_a_paquete(paquete_respuesta, leido, tamanio_cont);
     enviar_paquete_y_liberarlo(paquete_respuesta, cliente_fd);
+
+    free(leido);
 }
 
 void inicializar_variables_globales(t_config* config){

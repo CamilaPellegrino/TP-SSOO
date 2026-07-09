@@ -1,8 +1,7 @@
 #include "manejar_segmentos.h"
 // privadas
-t_hueco* ubicacion_de_proximo_segmento(uint32_t tamanio); 
-t_hueco* best_fit(uint32_t tamanio);
-t_hueco* worst_fit(uint32_t tamanio);
+t_hueco* best_fit(t_list* huecos, uint32_t tamanio);
+t_hueco* worst_fit(t_list* huecos, uint32_t tamanio);
 void agregar_segmento_a_proceso(t_segmento* segmento, t_proceso* proceso); 
 bool achicar_hueco(t_hueco* hueco, uint32_t seg_tam);
 bool segmento_del_proceso(t_segmento* segmento, t_proceso* proceso);
@@ -15,7 +14,8 @@ bool segmento_adelante_de_dir(t_segmento* s, int dir);
 
 // no thread safe
 t_segmento* crear_segmento(t_proceso* proceso, uint32_t id_segmento, uint32_t tamanio){
-    t_hueco* hueco_disp = ubicacion_de_proximo_segmento(tamanio);
+    log_debug(logger, "creando seg");
+    t_hueco* hueco_disp = ubicacion_de_proximo_segmento(lista_huecos, tamanio);
     if(hueco_disp == NULL){
         if(tamanio_total_libre >= tamanio){
             log_debug(logger, "## Iniciando compactacion de memoria");
@@ -36,14 +36,16 @@ t_segmento* crear_segmento(t_proceso* proceso, uint32_t id_segmento, uint32_t ta
         free(segmento);
         return NULL;
     }
+    int pid = proceso->pcb->pid;
     segmento->base = base_hueco;
     segmento->id_segmento = id_segmento;
     segmento->tamanio = tamanio;
-    segmento->pid = proceso->pcb->pid;
+    segmento->pid = pid;
 
     agregar_segmento_a_proceso(segmento, proceso);
-    imprimir_estado_mem();
+    imprimir_estado_mem_thread_safe();
     tamanio_total_libre -= segmento->tamanio;
+    log_info(logger, "## PID: %d - Segmento Creado %d - Tamaño: %d", pid, id_segmento, tamanio);
     return segmento;
 }
 
@@ -79,7 +81,7 @@ bool hay_espacio_total(uint32_t tamanio){
 void agregar_espacio_mem(int bytes){
     crear_hueco(tamanio_total_mem, bytes);
     fusionar_huecos_contiguos();
-    imprimir_estado_mem();
+    imprimir_estado_mem_thread_safe();
 }
 
 bool existe_segmento_de_id_de_proc(int id, t_proceso* p){
@@ -95,10 +97,13 @@ bool existe_segmento_de_id_de_proc(int id, t_proceso* p){
 // thread safe
 t_segmento* crear_segmento_thread_safe(t_proceso* proceso, uint32_t id_segmento, uint32_t tamanio){
     pthread_mutex_lock(&m_manejar_memoria);
+    pthread_mutex_lock(&proceso->mutex);
     t_segmento* r = crear_segmento(proceso, id_segmento, tamanio);
+    pthread_mutex_unlock(&proceso->mutex);
     pthread_mutex_unlock(&m_manejar_memoria);
     return r;
 }
+
 
 bool eliminar_segmento_thread_safe(t_segmento* segmento, t_proceso* proceso){
     pthread_mutex_lock(&m_manejar_memoria);
@@ -112,6 +117,20 @@ bool hay_espacio_total_thread_safe(uint32_t tamanio){
     bool r = hay_espacio_total(tamanio);
     pthread_mutex_unlock(&m_manejar_memoria);
     return r;
+}
+
+bool suspender_thread_safe(int pid){
+    pthread_mutex_lock(&m_manejar_memoria);
+    t_evt* evt = iniciar_evt_suspender(pid);
+    log_debug(logger, "Evento creado");
+    agregar_evt_a_stick(evt);
+    log_debug(logger, "Evento agregado");
+    sem_wait(&evt->s_fin);
+    log_debug(logger, "termino suspension ya, pos desbloquear manejar memoria");
+    pthread_mutex_unlock(&m_manejar_memoria);
+    liberar_evt(evt);
+
+    return true;
 }
 
 bool compactar_memoria() {
@@ -168,6 +187,9 @@ bool compactar_memoria() {
     pthread_mutex_unlock(&m_lista_segmentos_global);
     pthread_mutex_unlock(&m_lista_huecos);
     pthread_mutex_unlock(&m_manejar_memoria);
+
+    esperar_ms(compaction_delay_ms);
+    
     return true;
 }
 
@@ -185,22 +207,22 @@ bool existe_segmento_de_id_de_proc_thread_safe(int id, t_proceso* p){
 }
 //privadas
 
-t_hueco* ubicacion_de_proximo_segmento(uint32_t tamanio){
+t_hueco* ubicacion_de_proximo_segmento(t_list* huecos, uint32_t tamanio){
     switch(algoritmo_fit){
         case BEST_FIT: {
-            return best_fit(tamanio);
+            return best_fit(huecos, tamanio);
         }case WORST_FIT: {
-            return worst_fit(tamanio);
+            return worst_fit(huecos, tamanio);
         }        
     }
     log_error(logger, "Error: Algoritmo de seleccion de huecos invalido, opciones validas: BEST_FIT, WORST_FIT");
     exit(EXIT_FAILURE);
 }
 
-t_hueco* best_fit(uint32_t tamanio){
+t_hueco* best_fit(t_list* huecos, uint32_t tamanio){
     t_hueco* hueco = NULL;
-    for(int i = 0; i < list_size(lista_huecos); i++){
-        t_hueco* hueco_actual = list_get(lista_huecos, i);
+    for(int i = 0; i < list_size(huecos); i++){
+        t_hueco* hueco_actual = list_get(huecos, i);
         if(hueco_actual->tamanio >= tamanio){
             if(hueco == NULL || hueco->tamanio > hueco_actual->tamanio) {
                 hueco = hueco_actual;
@@ -210,10 +232,10 @@ t_hueco* best_fit(uint32_t tamanio){
     return hueco;
 }
 
-t_hueco* worst_fit(uint32_t tamanio){
+t_hueco* worst_fit(t_list* huecos, uint32_t tamanio){
     t_hueco* hueco = NULL;
-    for(int i = 0; i < list_size(lista_huecos); i++){
-        t_hueco* hueco_actual = list_get(lista_huecos, i);
+    for(int i = 0; i < list_size(huecos); i++){
+        t_hueco* hueco_actual = list_get(huecos, i);
         if(hueco_actual->tamanio >= tamanio){
             if(hueco == NULL || hueco->tamanio < hueco_actual->tamanio) {
                 hueco = hueco_actual;
@@ -341,8 +363,13 @@ bool segmento_adelante_de_dir(t_segmento* s, int dir){
     return s->base > dir;
 }
 
-void eliminar_segmentos(t_proceso* p){
+void eliminar_segmentos_thread_safe(t_proceso* p){
     pthread_mutex_lock(&m_manejar_memoria);
+    eliminar_segmentos(p);
+    pthread_mutex_unlock(&m_manejar_memoria);
+}
+
+void eliminar_segmentos(t_proceso* p){
     pthread_mutex_lock(&p->mutex);
 
     while(!list_is_empty(p->lista_segmentos)){
@@ -351,15 +378,15 @@ void eliminar_segmentos(t_proceso* p){
     }
 
     pthread_mutex_unlock(&p->mutex);
-    pthread_mutex_unlock(&m_manejar_memoria);
 }
 
 void destruir_proceso(t_proceso* p){
+    pthread_mutex_lock(&p->mutex);
     free(p->pcb);
     list_destroy_and_destroy_elements(p->instrucciones, free);
-    eliminar_segmentos(p);
+    pthread_mutex_unlock(&p->mutex);
+    eliminar_segmentos_thread_safe(p);
     list_destroy(p->lista_segmentos);
-    pthread_mutex_destroy(&p->mutex);
 }
 
 void agregar_segmentos_al_paquete(t_list* segmentos, t_paquete* p){
@@ -372,4 +399,37 @@ void agregar_segmentos_al_paquete(t_list* segmentos, t_paquete* p){
         agregar_a_paquete(p, seg, sizeof(t_segmento));
     }
     pthread_mutex_unlock(&m_manejar_memoria);
+}
+
+
+int calc_dir_fisica(int pid, int id_segmento, int offset){
+    t_proceso* proceso = proceso_de_pid_thread_safe(pid);
+    t_segmento* seg = NULL;
+    pthread_mutex_lock(&proceso->mutex);
+    pthread_mutex_lock(&m_lista_segmentos_global);
+    for(int i = 0; i<list_size(proceso->lista_segmentos); i++){
+        t_segmento* s = list_get(proceso->lista_segmentos, i);
+        if(s->id_segmento == id_segmento){
+            seg = s;
+            break;
+        }
+    }
+    pthread_mutex_unlock(&proceso->mutex);
+    pthread_mutex_unlock(&m_lista_segmentos_global);
+    if(seg == NULL){
+        return -1;
+    }
+    return seg->base + offset;
+}
+
+void destruir_huecos(t_list* huecos){
+    if (huecos == NULL)
+        return;
+
+    while (!list_is_empty(huecos)) {
+        t_hueco* hueco = list_remove(huecos, 0);
+        free(hueco);
+    }
+
+    list_destroy(huecos);
 }

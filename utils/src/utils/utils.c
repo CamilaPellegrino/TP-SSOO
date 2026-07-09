@@ -323,7 +323,7 @@ t_log* iniciar_logger(char* ruta, char* process_name, t_log_level log_level)
 	t_log* nuevo_logger = log_create(ruta, process_name, 1, log_level);
 	if(nuevo_logger == NULL){
 		perror("error al iniciar el logger");
-		exit(EXIT_FAILURE); // termina el programa
+		exit(EXIT_FAILURE);
 	}
 	return nuevo_logger;
 }
@@ -331,7 +331,19 @@ t_log* iniciar_logger(char* ruta, char* process_name, t_log_level log_level)
 // otras
 
 char* status_op_a_string(t_status_op s){
-	return s == OK ? "OK" : "ERROR";
+	static char* status_strings[] = {
+		"OK",
+		"ERROR",
+		"SEG_FAULT",
+		"RECURSO_NO_EXISTE",
+		"RECURSO_YA_EXISTE",
+		"INSTRUCCION_INVALIDA",
+		"FIN_INVALIDO",
+		"MEM_INSUFICIENTE"
+	};
+    if (s < 0 || s >= MEM_INSUFICIENTE + 1)
+        return "UNKNOWN_STATUS";
+    return status_strings[s];
 }
 
 pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo, t_log* logger){
@@ -346,24 +358,11 @@ pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hil
 }
 
 void imprimir_bytes(void* data, int tamanio){
-    uint8_t* bytes = (uint8_t*) data;
-        printf("Bytes: ");
-        for(int j = 0; j < tamanio; j++) {
-            printf("%02X ", bytes[j]);
-        }
+    // uint8_t* bytes = (uint8_t*) data;
+    //     printf("Bytes: ");
+    //     for(int j = 0; j < tamanio; j++) {
+    //         printf("%02X ", bytes[j]);
+    //     }
 
-    printf("\n");
+    // printf("\n");
 }
-
-// // Definimos un tipo de puntero a función que acepte dos argumentos
-// typedef void (*t_closure_con_arg)(void*, void*);
-
-// void list_iterate_con_argumento(t_list* lista, t_closure_con_arg closure, void* argumento_extra) {
-//     if (lista == NULL || closure == NULL) return;
-
-//     // Iteramos sobre todos los elementos de la lista
-//     for (int i = 0; i < list_size(lista); i++) {
-//         void* elemento = list_get(lista, i); // Obtenemos la CPU
-//         closure(elemento, argumento_extra);  // Llamamos a la función
-//     }
-// }
