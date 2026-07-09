@@ -28,6 +28,7 @@ void atender_sch_mem_alloc(t_list* data);
 void atender_sch_mem_free(t_list* data);
 // variables globales
 
+t_log_level log_level;
 t_log *logger;
 t_list *lista_sticks;
 // t_list *lista_cpus;

@@ -116,7 +116,7 @@ typedef enum {
 	WORST_FIT
 }t_fit;
 // variables globales
-
+extern t_log_level log_level;
 extern t_log *logger;
 extern t_list *lista_sticks;
 // extern t_list *lista_cpus;

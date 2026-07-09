@@ -214,7 +214,6 @@ void atender_sch_lectura(t_evt* evt){
 
     list_destroy_and_destroy_elements(pedidos, free);
     
-    printf("Datos: \n");
     imprimir_bytes(datos_leidos, tamanio);
     char* texto = (char*) datos_leidos;
     log_debug(logger, "Datos leidos: %s", texto);
@@ -311,7 +310,7 @@ t_list* pedidos_a_sticks_para_acceder_a(int base, int tamanio){
 
     int fin = base + tamanio;
     int inicio_stick_global = 0;
-    printf("\nPEDIDOS PARA ACCEDER A base=%d tam=%d\n", base, tamanio);
+    // printf("\nPEDIDOS PARA ACCEDER A base=%d tam=%d\n", base, tamanio);
 
     for(int i = 0; i < list_size(lista_sticks); i++){
         t_stick* stick = list_get(lista_sticks, i);
@@ -327,7 +326,7 @@ t_list* pedidos_a_sticks_para_acceder_a(int base, int tamanio){
             pedido->base_en_stick = inicio_interseccion - inicio_stick_global;
             pedido->tamanio = fin_interseccion - inicio_interseccion;
             list_add(pedidos, pedido);
-            printf("    Pedido %d -> Stick %d | base_en_stick=%d | tam=%d | rango_global=[%d,%d]\n", list_size(pedidos) - 1, i, pedido->base_en_stick, pedido->tamanio, inicio_interseccion, fin_interseccion - 1);
+            // printf("    Pedido %d -> Stick %d | base_en_stick=%d | tam=%d | rango_global=[%d,%d]\n", list_size(pedidos) - 1, i, pedido->base_en_stick, pedido->tamanio, inicio_interseccion, fin_interseccion - 1);
         }
 
         inicio_stick_global = fin_stick_global;
@@ -545,6 +544,9 @@ void destruir_bloque(void* data){
 }
 
 void imprimir_bitmap(void) {
+    if(log_level != LOG_LEVEL_DEBUG){
+        return;
+    }
     printf("Bitmap: ");
     for (int i = 0; i < cant_bloques; i++) {
         printf("%d", bitarray_test_bit(bitarray, i));

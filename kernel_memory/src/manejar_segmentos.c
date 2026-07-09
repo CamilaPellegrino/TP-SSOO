@@ -36,14 +36,16 @@ t_segmento* crear_segmento(t_proceso* proceso, uint32_t id_segmento, uint32_t ta
         free(segmento);
         return NULL;
     }
+    int pid = proceso->pcb->pid;
     segmento->base = base_hueco;
     segmento->id_segmento = id_segmento;
     segmento->tamanio = tamanio;
-    segmento->pid = proceso->pcb->pid;
+    segmento->pid = pid;
 
     agregar_segmento_a_proceso(segmento, proceso);
     imprimir_estado_mem_thread_safe();
     tamanio_total_libre -= segmento->tamanio;
+    log_info(logger, "## PID: <%d> - Segmento Creado <%d> - Tamaño: <%d>", pid, id_segmento, tamanio);
     return segmento;
 }
 

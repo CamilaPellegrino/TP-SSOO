@@ -3,7 +3,7 @@
 void inicializar_variables_globales(t_config* config){
 	puerto = config_get_string_value (config, "PUERTO_KERNEL_MEMORY");
     scripts_basepath = config_get_string_value(config, "SCRIPTS_BASEPATH");
-    t_log_level log_level = log_level_from_string(config_get_string_value(config, "LOG_LEVEL"));
+    log_level = log_level_from_string(config_get_string_value(config, "LOG_LEVEL"));
     logger = iniciar_logger("kernel_memory.log", "ProcesoKernelMemory", log_level);
 
     lista_sticks           = list_create();
@@ -209,7 +209,7 @@ bool guardar_nuevo_proceso(int pid, int ppid, char* ruta){
     list_add(lista_procesos, proceso);
     pthread_mutex_unlock(&m_lista_procesos);
     pthread_mutex_lock(&proceso->mutex);
-    log_info(logger, "Nuevo proceso de PID <%d> guardado", pcb->pid);
+    log_info(logger, "## PID: <%d> - Proceso Creado", pid);
     pthread_mutex_unlock(&proceso->mutex);
     return true;
 }
@@ -446,6 +446,9 @@ void imprimir_estado_mem(){
 }
 
 void imprimir_huecos(){
+    if(log_level != LOG_LEVEL_DEBUG){
+        return;
+    }
     printf("HUECOS:\n");
     for(int i = 0; i < list_size(lista_huecos); i++){
         t_hueco* h = list_get(lista_huecos, i);
@@ -457,6 +460,9 @@ void imprimir_huecos(){
 }
 
 void imprimir_segmentos(){
+    if(log_level != LOG_LEVEL_DEBUG){
+        return;
+    }
     printf("SEGMENTOS:\n");
     for(int i = 0; i < list_size(lista_segmentos_global); i++){
         t_segmento* s = list_get(lista_segmentos_global, i);

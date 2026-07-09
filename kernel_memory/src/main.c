@@ -37,7 +37,7 @@ void* atender_cliente(void *arg){
         case SCH_KM__CONEXION: {
             char *msg = recibir_mensaje(cliente_fd);
             sch_fd = cliente_fd;
-            log_debug(logger, "Me llego el scheduler, mensaje recibido: %s", msg);
+            log_info(logger, "## Kernel Scheduler Conectado - FD del socket: <%d>", sch_fd);
             pthread_t thread_sch = crear_hilo_o_exit(atender_scheduler, NULL, "atender_scheduler", logger);
             pthread_detach(thread_sch);
             free(msg);
@@ -56,7 +56,7 @@ void* atender_cliente(void *arg){
             agregar_stick(nuevo_stick);
 
             enviar_nuevo_stick_a_scheduler(nuevo_stick, sch_fd);
-            log_info(logger, "## Memory Stick de %d bytes Conectada", nuevo_stick->tamanio);
+            log_info(logger, "## Memory Stick de <%d> bytes Conectada", nuevo_stick->tamanio);
           
             // pthread_t thread_stick = crear_hilo_o_exit(atender_stick, nuevo_stick, "atender_stick", logger);
             // pthread_detach(thread_stick);
@@ -209,8 +209,8 @@ void atender_cpu_fetch(t_cpu* cpu, t_list* data){
     pthread_mutex_unlock(&m_lista_procesos);
 
     if(proceso != NULL){
-        log_debug(logger, "FETCH recibido PID: %d PC: %u", pid, pc);
         char* instruccion = list_get(proceso->instrucciones, pc);
+        log_info(logger, "## PID: <PID> - Obtener instrucción: <PC> - Instrucción: <%s>", instruccion);
         t_paquete* paquete = crear_paquete(KM_CPU__INSTRUCCION);
         agregar_string_a_paquete(paquete, instruccion);
         pthread_mutex_unlock(&proceso->mutex);
@@ -239,6 +239,8 @@ void atender_cpu_copy_mem(t_list* data, int cpu_fd){
 
     sem_wait(&evt_copy_mem->s_fin);
     
+    log_info(logger, "## PID: <%d> - <COPY_MEM> - Dir. Física origen: <%d> - Dir. Física destino: <%d> - Tamaño: <%d>", pid, base_origen, base_destino, tamanio);
+
     liberar_evt(evt_copy_mem);
 
     esperar_ms(instruction_delay_ms);
@@ -260,6 +262,8 @@ void atender_cpu_mov_in(t_list* data, int cpu_fd){
     agregar_evt_a_stick(evt_read);
 
     sem_wait(&evt_read->s_fin);
+
+    log_info(logger, "## PID: <%d> - <Lectura> - Dir. Física: <%d> - Tamaño: <%d>", pid, base, tamanio);
 
     esperar_ms(instruction_delay_ms);
 
@@ -295,6 +299,8 @@ void atender_cpu_mov_out(t_list* data, int cpu_fd){
 
     sem_wait(&evt_write->s_fin);
     
+    log_info(logger, "## PID: <%d> - <Escritura> - Dir. Física: <%d> - Tamaño: <%d>", pid, base, tamanio);
+
     liberar_evt(evt_write);
 
     esperar_ms(instruction_delay_ms);
@@ -303,7 +309,6 @@ void atender_cpu_mov_out(t_list* data, int cpu_fd){
 }
 
 void* atender_scheduler(void*){
-    log_info(logger, "## Kernel Scheduler Conectado - FD del socket: %d", sch_fd);
     while(1){
         op_code cod_op = recibir_operacion(sch_fd);
         if(cod_op == -1){
@@ -422,6 +427,9 @@ void atender_sch_read(t_list* data){
     agregar_evt_a_stick(evt_read);
 
     sem_wait(&evt_read->s_fin);
+
+    log_info(logger, "## PID: <%d> - <Lectura> - Dir. Física: <%d> - Tamaño: <%d>", pid, dir_fisica_base, tamanio);
+
     t_data_read* d = (t_data_read*) evt_read->data;
     void* datos_leidos = d->datos_leidos;
 
@@ -462,6 +470,8 @@ void atender_sch_write(t_list* data){
     agregar_evt_a_stick(evt_write);
     sem_wait(&evt_write->s_fin);
 
+    log_info(logger, "## PID: <%d> - <Escritura> - Dir. Física: <%d> - Tamaño: <%d>", pid, base, tamanio);
+
     esperar_ms(instruction_delay_ms);
 
     liberar_evt(evt_write);
@@ -486,7 +496,6 @@ void atender_sch_init_proc(t_list* data){
     agregar_a_paquete(paquete_conf, &ppid, sizeof(int));
     agregar_a_paquete(paquete_conf, &ok, sizeof(bool));
     enviar_paquete_y_liberarlo(paquete_conf, sch_fd);
-
 }
 
 void atender_sch_mem_alloc(t_list* data){
