@@ -28,7 +28,8 @@ int main(int argc, char* argv[]) {
     }
     snprintf(log_path, sizeof(log_path), "io_%s.log", tipo_str);
     
-    t_log * logger = iniciar_logger(log_path, "ProcesoIO", LOG_LEVEL_INFO );t_config* config = iniciar_config(ruta_config);
+    t_log * logger = iniciar_logger(log_path, "ProcesoIO", LOG_LEVEL_INFO );
+    t_config* config = iniciar_config(ruta_config);
     
     if(config == NULL){
         printf("No se pudo cargar el config\n");
@@ -36,10 +37,10 @@ int main(int argc, char* argv[]) {
     }
 
     //conexion a kernel scheduler
-    char* ip = config_get_string_value (config, "IP");
+    char* ip_sch = config_get_string_value (config, "IP_SCH");
     puerto_kernel_scheduler = config_get_string_value (config, "PUERTO_KERNEL_SCHEDULER");
     
-    int conexion_kernel_scheduler = crear_conexion(ip, puerto_kernel_scheduler);
+    int conexion_kernel_scheduler = crear_conexion(ip_sch, puerto_kernel_scheduler);
 
     if(conexion_kernel_scheduler == -1){
         log_error(logger, "No se pudo conectar a kernel_scheduler");
@@ -47,7 +48,7 @@ int main(int argc, char* argv[]) {
     }
 
     //Conexion scheduler
-    log_info(logger ," ## Conectado a Kerneñ Scheduler");
+    log_info(logger ,"## Conectado a Kerneñ Scheduler");
 
     // handshake
     handshake_cliente(conexion_kernel_scheduler, logger);
@@ -70,19 +71,19 @@ int main(int argc, char* argv[]) {
         t_list* paquete_datos = recibir_paquete(conexion_kernel_scheduler);
         int  pid = *(int*) list_get(paquete_datos,0);
 
-        log_info(logger , " ## PID: %u - Inicio de IO" , pid);
+        log_info(logger , "## PID: %u - Inicio de IO" , pid);
 
         switch (tipo_io){
             case SLEEP: {
                 int tiempo = *(int*)list_get(paquete_datos , 1);
-                log_info(logger, " ## PID: %u - Haciendo sleep por %u milesegundos" , pid, tiempo);
+                log_info(logger, "## PID: %u - Haciendo sleep por %u milesegundos" , pid, tiempo);
                 usleep(tiempo*1000);
                 enviar_operacion(conexion_kernel_scheduler, IO_SCH__OK);
             break;
             }
             case STDIN: {
                 int tam = *(int*)list_get(paquete_datos , 1);
-                log_info(logger, " ## PID: %u - Ingrese %u caracteres: " , pid ,tam );
+                log_info(logger, "## PID: %u - Ingrese %u caracteres: " , pid ,tam );
 
                 char* leido  = readline(">");
                 char* buffer = calloc(1,tam);
@@ -105,7 +106,7 @@ int main(int argc, char* argv[]) {
 
             case STDOUT: {
                 char* texto = (char*)list_get(paquete_datos , 1);
-                log_info(logger, " ## PID: %u - %s" , pid , texto );
+                log_info(logger, "## PID: %u - %s" , pid , texto );
                 printf("%s\n" , texto);
                 enviar_operacion(conexion_kernel_scheduler, IO_SCH__OK);
             break;
