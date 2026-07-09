@@ -38,9 +38,9 @@ int main(int argc, char* argv[]) {
     memory_delay = config_get_int_value(config, "MEMORY_DELAY");
 
     // conectarse a kernel memory
-    char *ip = config_get_string_value(config, "IP");
+    char *ip_km = config_get_string_value(config, "IP_KM");
     char *puerto_kernel_memory = config_get_string_value(config, "PUERTO_KERNEL_MEMORY");
-    conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory);
+    conexion_kernel_memory = crear_conexion(ip_km, puerto_kernel_memory);
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");
     log_info(logger, "## Conectado a Kernel Memory");
     handshake_cliente(conexion_kernel_memory, logger);
@@ -54,10 +54,11 @@ int main(int argc, char* argv[]) {
     int memory_stick_fd = iniciar_servidor_o_exit(puerto, logger);
     
     // mandar info propia al kernel memory
+    char* ip_stick = config_get_string_value(config, "IP_STICK");
     t_paquete *paquete = crear_paquete(STICK_KM__CONEXION);
     agregar_a_paquete(paquete, &tamanio_stick, sizeof(tamanio_stick));
     agregar_string_a_paquete(paquete, puerto);
-    agregar_string_a_paquete(paquete, ip);
+    agregar_string_a_paquete(paquete, ip_stick);
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
     
     //atender_pedido_escritura(dir_fisica, &contenido);
