@@ -14,6 +14,9 @@ bool segmento_adelante_de_dir(t_segmento* s, int dir);
 
 // no thread safe
 t_segmento* crear_segmento(t_proceso* proceso, uint32_t id_segmento, uint32_t tamanio){
+    if(tamanio > segment_max_size){
+        return NULL;
+    }
     log_debug(logger, "creando seg");
     t_hueco* hueco_disp = ubicacion_de_proximo_segmento(lista_huecos, tamanio);
     if(hueco_disp == NULL){

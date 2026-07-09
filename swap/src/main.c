@@ -3,7 +3,7 @@
 #include "base_swap.h"
 
 char *puerto_kernel_memory;
-char* ip;
+char* ip_km;
 int tam_bloque;
 int tam_archivo;
 int cant_bloques;
@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
     int fd = fileno(archivo_swap);
     ftruncate(fd, cant_bloques * tam_bloque);
     //crear conexion con kernel memory
-    int conexion_kernel_memory = crear_conexion(ip, puerto_kernel_memory); 
+    int conexion_kernel_memory = crear_conexion(ip_km, puerto_kernel_memory); 
     handshake_cliente(conexion_kernel_memory, logger);
     
     log_info(logger, "## Conectado a Kernel Memory");
@@ -113,7 +113,7 @@ void atender_pedido_lectura(int cliente_fd, t_list* data)
 
 void inicializar_variables_globales(t_config* config){
     puerto_kernel_memory = config_get_string_value (config, "PUERTO_KERNEL_MEMORY");
-    ip = config_get_string_value (config, "IP");
+    ip_km = config_get_string_value (config, "IP_KM");
     tam_archivo = config_get_int_value(config, "SWAP_FILE_SIZE");
     tam_bloque = config_get_int_value(config, "BLOCK_SIZE");
     ruta = config_get_string_value (config, "SWAP_FILE_PATH");
