@@ -84,7 +84,7 @@ void atender_pedido_escritura(int cliente_fd, t_list* data){
     fseek(archivo_swap, desplazamiento, SEEK_SET);
     fwrite(contenido, tamanio_cont, 1, archivo_swap);
     // fflush(archivo_swap);
-    log_info(logger, "## Escritura del bloque: <%d>", bloque);
+    log_info(logger, "## Escritura del bloque: %d", bloque);
     enviar_operacion(cliente_fd, SWAP_KM__OK);
 }
 
@@ -102,7 +102,7 @@ void atender_pedido_lectura(int cliente_fd, t_list* data)
     fseek(archivo_swap, desplazamiento, SEEK_SET);
     fread(leido, tamanio_cont, 1, archivo_swap);
 
-    log_info(logger, "## Lectura del bloque: <%d>", bloque);
+    log_info(logger, "## Lectura del bloque: %d", bloque);
 
     t_paquete* paquete_respuesta = crear_paquete(SWAP_KM__OK);
     agregar_a_paquete(paquete_respuesta, leido, tamanio_cont);

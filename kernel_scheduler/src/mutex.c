@@ -32,7 +32,7 @@ void m_signal(t_mutex* mutex, t_pcb* proceso){
         return;
     }
 
-    log_info(logger, "## (<%d>) Libera el Mutex <%s>", proceso->pid, nombre_mutex);
+    log_info(logger, "## (%d) Libera el Mutex <%s>", proceso->pid, nombre_mutex);
     t_pcb* siguiente = prox_duenio_mutex(mutex->procesos_en_espera);
     if(siguiente == NULL){
         log_debug(logger, "Nadie esperando mutex %s", nombre_mutex);
@@ -51,7 +51,7 @@ void m_signal(t_mutex* mutex, t_pcb* proceso){
 
     recalcular_prioridad(proceso);
 
-    log_info(logger, "## (<%d>) Toma el Mutex <%s>", siguiente->pid, mutex->nombre);
+    log_info(logger, "## (%d) Toma el Mutex %s", siguiente->pid, mutex->nombre);
 
     pthread_mutex_unlock(&mutex->lock);
 }
@@ -60,12 +60,12 @@ bool m_wait(t_mutex* mutex, t_pcb* proceso){
     pthread_mutex_lock(&mutex->lock);
     if(mutex->duenio == NULL){
         mutex->duenio = proceso;
-        log_info(logger, "## (<%d>) Toma el Mutex <%s>", proceso->pid, mutex->nombre);
+        log_info(logger, "## (%d) Toma el Mutex %s", proceso->pid, mutex->nombre);
         pthread_mutex_unlock(&mutex->lock);
         return true;
     }
 
-    log_info(logger, "## (<%d>) Bloqueado por Mutex <%s>", proceso->pid, mutex->nombre);
+    log_info(logger, "## (%d) Bloqueado por Mutex %s", proceso->pid, mutex->nombre);
     proceso->mutex_esperado = mutex;
     
     // insertar_por_prioridad(mutex->procesos_en_espera, proceso);

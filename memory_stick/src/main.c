@@ -105,7 +105,7 @@ void* atender_pedidos(void* arg){
                 t_list* lista_paquete = recibir_paquete(cliente_fd);
                 int dir_fisica = *(int*)list_get(lista_paquete, 0);
                 int tamanio_cont = *(int*)list_get(lista_paquete, 1);
-                log_info(logger, "## Lectura de <%d> bytes", tamanio_cont);
+                log_info(logger, "## Lectura de %d bytes", tamanio_cont);
                 atender_pedido_lectura(dir_fisica, tamanio_cont, cliente_fd);
                 list_destroy_and_destroy_elements(lista_paquete, free);
                 break;
@@ -128,7 +128,7 @@ void atender_pedido_escritura(int dir_fisica, void* contenido, int tamanio, int 
     void* destino = memoria_principal + dir_fisica;
     memcpy(destino, contenido, tamanio);
     usleep(memory_delay * 1000);
-    log_info(logger, "## Escritura de <%d> bytes", tamanio);
+    log_info(logger, "## Escritura de %d bytes", tamanio);
     // imprimir_bytes(memoria_reservada, tamanio_stick);
     enviar_operacion(cliente_fd, STICK_X__OK);
     return;
@@ -142,7 +142,7 @@ void atender_pedido_lectura(int dir_fisica, int tamanio, int cliente_fd) {
     void* origen = memoria_principal + dir_fisica;
     // char* contenido_leido = malloc(tamanio +1); //El contenido que se ingresa siempre es un string (?
     // memcpy(contenido_leido, origen, tamanio);
-    log_info(logger, "## Lectura de <%d> bytes", tamanio);
+    log_info(logger, "## Lectura de %d bytes", tamanio);
     usleep(memory_delay * 1000);
     // imprimir_bytes(origen, tamanio);
     t_paquete* paquete_respuesta = crear_paquete(STICK_X__OK);
@@ -161,7 +161,7 @@ void* atender_cliente(void *arg){
         case CPU_STICK__CONEXION: {
             t_list* lista_paquete = recibir_paquete(cliente_fd);
             int* cpu_id = list_get(lista_paquete, 0);
-            log_info(logger, "## CPU <%d> Conectada", *cpu_id);
+            log_info(logger, "## CPU %d Conectada", *cpu_id);
             
             // t_cliente* cliente_cpu = iniciar_cliente(cliente_fd, CLIENTE_CPU);
             // atender_pedidos(cliente_cpu);

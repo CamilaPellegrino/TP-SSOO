@@ -37,7 +37,7 @@ void* planificador_corto_plazo(){
                     int pid_nuevo = proceso->pid;
                     int prio_nuevo = proceso->prioridad_actual;
 
-                    log_info(logger, "## (<%d>) Prioridad: <%d> - Desalojado por cola más prioritaria por el proceso <%d> con prioridad <%d>", pid_des, prio_des, pid_nuevo, prio_nuevo);
+                    log_info(logger, "## (%d) Prioridad: %d - Desalojado por cola más prioritaria por el proceso %d con prioridad %d", pid_des, prio_des, pid_nuevo, prio_nuevo);
                     cpu_desalojable->desalojando = true;
                     enviar_operacion(cpu_desalojable->fd, SCH_CPU__PEDIDO_DESALOJO);
                     agregar_a_ready_al_frente(proceso);
@@ -139,7 +139,7 @@ void* planificador_largo_plazo(){
 
 void manejar_proceso_exit(t_pcb* proceso){
     t_status_op status = get_status(proceso);
-    log_info(logger, "## (<%d>) - <EXIT>[%s]", proceso->pid, status_op_a_string(status));
+    log_info(logger, "## (%d) - <EXIT>[%s]", proceso->pid, status_op_a_string(status));
     exec_a_exit(proceso);
     loguear_tamanio_listas_de_estado();
     t_paquete* paquete_fin_proc = crear_paquete(SCH_KM__EXIT);
@@ -289,18 +289,18 @@ void* hilo_fin_quantum(void* arg){
     }
     int pid = get_pid_thread_safe(proceso);
 
-    log_debug(logger, "<%d> quantum vencido o proceso bloqueado antes del quantum", pid);
+    log_debug(logger, "%d quantum vencido o proceso bloqueado antes del quantum", pid);
 
     pthread_mutex_lock(&cpu->mutex);
     if(!data_cond->cond_val && proceso->estado == EJECUTANDO){
-        log_info(logger, "## (<%d>) - Desalojado por fin de quantum", pid);
+        log_info(logger, "## (%d) - Desalojado por fin de quantum", pid);
         cpu->desalojando = true;
         enviar_operacion(cpu->fd, SCH_CPU__PEDIDO_DESALOJO);
     }
     pthread_mutex_unlock(&cpu->mutex);
     data_cond->cond_val = false;
     pthread_mutex_unlock(&data_cond->mutex_cond);
-    log_debug(logger, "<%d> hilo_fin_quantum: finalizando", pid);
+    log_debug(logger, "%d hilo_fin_quantum: finalizando", pid);
 
     return NULL;
 }

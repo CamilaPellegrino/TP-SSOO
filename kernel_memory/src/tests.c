@@ -7,7 +7,5 @@
 #include "conexion_memoria.h"
 
 void testear(){
-    log_info(logger, "==== INICIANDO TESTS ====");
-    log_info(logger, "==== FIN TESTS ====");
     exit(EXIT_SUCCESS);
 }

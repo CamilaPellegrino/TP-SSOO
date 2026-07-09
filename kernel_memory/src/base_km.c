@@ -209,7 +209,7 @@ bool guardar_nuevo_proceso(int pid, int ppid, char* ruta){
     list_add(lista_procesos, proceso);
     pthread_mutex_unlock(&m_lista_procesos);
     pthread_mutex_lock(&proceso->mutex);
-    log_info(logger, "## PID: <%d> - Proceso Creado", pid);
+    log_info(logger, "## PID: %d - Proceso Creado", pid);
     pthread_mutex_unlock(&proceso->mutex);
     return true;
 }

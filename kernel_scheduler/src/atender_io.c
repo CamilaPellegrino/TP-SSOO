@@ -53,10 +53,10 @@ void atender_io_stdout(t_io* io){
         finalizar_evento(evt);
         
         if(proceso->estado == BLOQUEADO){
-            log_info(logger, "## (<%d>) finalizó IO y pasa a READY", proceso->pid);
+            log_info(logger, "## (%d) finalizó IO y pasa a READY", proceso->pid);
             blocked_a_ready(proceso);
         }else if(proceso->estado == SUSP_BLOQUEADO){
-            log_info(logger, "## (<%d>) finalizó IO y pasa a SUSP_READY", proceso->pid);
+            log_info(logger, "## (%d) finalizó IO y pasa a SUSP_READY", proceso->pid);
             susp_blocked_a_susp_ready(proceso);
         }
         pthread_mutex_destroy(&evt->mutex);
@@ -138,10 +138,10 @@ void atender_io_sleep(t_io* io){
         pthread_mutex_unlock(&evt->mutex);
         
         if(proceso->estado == BLOQUEADO){
-            log_info(logger, "## (<%d>) finalizó IO y pasa a READY", proceso->pid);
+            log_info(logger, "## (%d) finalizó IO y pasa a READY", proceso->pid);
             blocked_a_ready(proceso);
         }else if(proceso->estado == SUSP_BLOQUEADO){
-            log_info(logger, "## (<%d>) finalizó IO y pasa a SUSP_READY", proceso->pid);
+            log_info(logger, "## (%d) finalizó IO y pasa a SUSP_READY", proceso->pid);
             susp_blocked_a_susp_ready(proceso);
         }
         pthread_join(evt->hilo_timeout, NULL); //estoy espserando que termine para que el hilo_timeout no intente acceder a evt 

@@ -45,7 +45,7 @@ t_segmento* crear_segmento(t_proceso* proceso, uint32_t id_segmento, uint32_t ta
     agregar_segmento_a_proceso(segmento, proceso);
     imprimir_estado_mem_thread_safe();
     tamanio_total_libre -= segmento->tamanio;
-    log_info(logger, "## PID: <%d> - Segmento Creado <%d> - Tamaño: <%d>", pid, id_segmento, tamanio);
+    log_info(logger, "## PID: %d - Segmento Creado %d - Tamaño: %d", pid, id_segmento, tamanio);
     return segmento;
 }
 

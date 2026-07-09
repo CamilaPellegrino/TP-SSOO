@@ -330,7 +330,7 @@ void proceso_a_new(t_pcb* proceso){
     pthread_mutex_lock(&m_transicionar);
     pthread_mutex_lock(&proceso->mutex);
     agregar_proceso_a_lista(estado_new->sublista, proceso, NUEVO, &estado_new->mutex);
-    log_info(logger, "## (<%d>) Se crea el proceso - Estado: NEW", proceso->pid);
+    log_info(logger, "## (%d) Se crea el proceso - Estado: NEW", proceso->pid);
     pthread_mutex_unlock(&proceso->mutex);
     pthread_mutex_unlock(&m_transicionar);
 }
@@ -618,7 +618,7 @@ void cambiar_prioridad(t_pcb* proceso, int prioridad){
         return;
     }
     if(list_size(queues_algorithms)>prioridad){
-        log_info(logger, "## <%d> Cambio de prioridad: <%d> - <%d>", proceso->pid, proceso->prioridad_actual, prioridad);
+        log_info(logger, "## %d Cambio de prioridad: %d - %d", proceso->pid, proceso->prioridad_actual, prioridad);
         pthread_mutex_lock(&m_transicionar);
         pthread_mutex_lock(&proceso->mutex);
         proceso->prioridad_actual = prioridad;
@@ -845,7 +845,7 @@ void intentar_desuspender(){
 // logs
 
 void log_obligatorio_cambio_de_estado(int pid, char* estado_anterior, char* estado_actual){
-    log_info(logger, "## (<%d>) Pasa del estado <%s> al estado <%s>", pid, estado_anterior, estado_actual);
+    log_info(logger, "## (%d) Pasa del estado %s al estado %s", pid, estado_anterior, estado_actual);
 }
 
 void loguear_tamanio_listas_de_estado(){

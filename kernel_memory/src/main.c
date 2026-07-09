@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
     while(true){ 
         int *cliente_fd = esperar_cliente(kernel_memory_fd);
         
-        log_info(logger, "Me llego un cliente, %d", *cliente_fd);
+        log_debug(logger, "Me llego un cliente, %d", *cliente_fd);
         handshake_servidor(*cliente_fd, logger);
 
         atender_cliente(cliente_fd);
@@ -37,7 +37,7 @@ void* atender_cliente(void *arg){
         case SCH_KM__CONEXION: {
             char *msg = recibir_mensaje(cliente_fd);
             sch_fd = cliente_fd;
-            log_info(logger, "## Kernel Scheduler Conectado - FD del socket: <%d>", sch_fd);
+            log_info(logger, "## Kernel Scheduler Conectado - FD del socket: %d", sch_fd);
             pthread_t thread_sch = crear_hilo_o_exit(atender_scheduler, NULL, "atender_scheduler", logger);
             pthread_detach(thread_sch);
             free(msg);
@@ -56,7 +56,7 @@ void* atender_cliente(void *arg){
             agregar_stick(nuevo_stick);
 
             enviar_nuevo_stick_a_scheduler(nuevo_stick, sch_fd);
-            log_info(logger, "## Memory Stick de <%d> bytes Conectada", nuevo_stick->tamanio);
+            log_info(logger, "## Memory Stick de %d bytes Conectada", nuevo_stick->tamanio);
           
             // pthread_t thread_stick = crear_hilo_o_exit(atender_stick, nuevo_stick, "atender_stick", logger);
             // pthread_detach(thread_stick);
@@ -97,7 +97,7 @@ void* atender_cpu(void* arg){
     t_cpu* cpu = (t_cpu*)arg;
     int cpu_fd = cpu->fd;
     int cpu_id = cpu->id;
-    log_info(logger, "## CPU <%d> Conectada", cpu_id);
+    log_info(logger, "## CPU %d Conectada", cpu_id);
     while(1){
         op_code cod_op = recibir_operacion(cpu_fd);
         
@@ -215,13 +215,13 @@ void atender_cpu_fetch(t_cpu* cpu, t_list* data){
 
     if(proceso != NULL){
         char* instruccion = list_get(proceso->instrucciones, pc);
-        log_info(logger, "## PID: <PID> - Obtener instrucción: <%d> - Instrucción: <%s>", pc, instruccion);
+        log_info(logger, "## PID: %d - Obtener instrucción: %d - Instrucción: %s", pid, pc, instruccion);
         t_paquete* paquete = crear_paquete(KM_CPU__INSTRUCCION);
         agregar_string_a_paquete(paquete, instruccion);
         pthread_mutex_unlock(&proceso->mutex);
         enviar_paquete_y_liberarlo(paquete, cpu->fd);
     }else{
-        log_error(logger, "Atender_cpu de id <%d>, Error: pid <%d> no encontrado", cpu->id, pid);
+        log_error(logger, "Atender_cpu de id %d, Error: pid %d no encontrado", cpu->id, pid);
     }
 
     list_destroy_and_destroy_elements(data, free);
@@ -244,7 +244,7 @@ void atender_cpu_copy_mem(t_list* data, int cpu_fd){
 
     sem_wait(&evt_copy_mem->s_fin);
     
-    log_info(logger, "## PID: <%d> - <COPY_MEM> - Dir. Física origen: <%d> - Dir. Física destino: <%d> - Tamaño: <%d>", pid, base_origen, base_destino, tamanio);
+    log_info(logger, "## PID: %d - <COPY_MEM> - Dir. Física origen: %d - Dir. Física destino: %d - Tamaño: %d", pid, base_origen, base_destino, tamanio);
 
     liberar_evt(evt_copy_mem);
 
@@ -268,7 +268,7 @@ void atender_cpu_mov_in(t_list* data, int cpu_fd){
 
     sem_wait(&evt_read->s_fin);
 
-    log_info(logger, "## PID: <%d> - <Lectura> - Dir. Física: <%d> - Tamaño: <%d>", pid, base, tamanio);
+    log_info(logger, "## PID: %d - Lectura - Dir. Física: %d - Tamaño: %d", pid, base, tamanio);
 
     esperar_ms(instruction_delay_ms);
 
@@ -304,7 +304,7 @@ void atender_cpu_mov_out(t_list* data, int cpu_fd){
 
     sem_wait(&evt_write->s_fin);
     
-    log_info(logger, "## PID: <%d> - <Escritura> - Dir. Física: <%d> - Tamaño: <%d>", pid, base, tamanio);
+    log_info(logger, "## PID: %d - Escritura - Dir. Física: %d - Tamaño: %d", pid, base, tamanio);
 
     liberar_evt(evt_write);
 
@@ -415,7 +415,7 @@ void atender_sch_intentar_desuspender(t_list* data){
 
 void atender_sch_suspender(t_list* data){
     int pid = *(int*)list_get(data, 0);
-    log_info(logger, "## <%d> Suspendiendo proceso", pid);
+    log_info(logger, "## %d Suspendiendo proceso", pid);
     /*bool suspendido = */suspender_thread_safe(pid);
     enviar_operacion(sch_fd, KM_SCH__SUSPENDIDO);
 }
@@ -433,7 +433,7 @@ void atender_sch_read(t_list* data){
 
     sem_wait(&evt_read->s_fin);
 
-    log_info(logger, "## PID: <%d> - <Lectura> - Dir. Física: <%d> - Tamaño: <%d>", pid, dir_fisica_base, tamanio);
+    log_info(logger, "## PID: %d - Lectura - Dir. Física: %d - Tamaño: %d", pid, dir_fisica_base, tamanio);
 
     t_data_read* d = (t_data_read*) evt_read->data;
     void* datos_leidos = d->datos_leidos;
@@ -475,7 +475,7 @@ void atender_sch_write(t_list* data){
     agregar_evt_a_stick(evt_write);
     sem_wait(&evt_write->s_fin);
 
-    log_info(logger, "## PID: <%d> - <Escritura> - Dir. Física: <%d> - Tamaño: <%d>", pid, base, tamanio);
+    log_info(logger, "## PID: %d - Escritura - Dir. Física: %d - Tamaño: %d", pid, base, tamanio);
 
     esperar_ms(instruction_delay_ms);
 
@@ -514,7 +514,7 @@ void atender_sch_mem_alloc(t_list* data){
         log_debug(logger, "Proceso NULL");
         status = ERROR;
     }else{
-        log_info(logger, "## <%d> Atendiendo syscall MEM_ALLOC %d %d", pid, id_segmento, tamanio);
+        log_info(logger, "## %d Atendiendo syscall MEM_ALLOC %d %d", pid, id_segmento, tamanio);
         if(existe_segmento_de_id_de_proc_thread_safe(id_segmento, p)){
             status = RECURSO_YA_EXISTE;
         }else{
@@ -522,7 +522,7 @@ void atender_sch_mem_alloc(t_list* data){
             if(segmento == NULL){
                 status = MEM_INSUFICIENTE;
                 if(hay_espacio_total_thread_safe(tamanio)){
-                    log_info(logger, "## <%d> Se dispara compactación tras intentar MEM_ALLOC, tamanio libre: %d, tamanio a reservar: %d", pid, tamanio_total_libre, tamanio);
+                    log_info(logger, "## %d Se dispara compactación tras intentar MEM_ALLOC, tamanio libre: %d, tamanio a reservar: %d", pid, tamanio_total_libre, tamanio);
                     
                     esperar_ms(instruction_delay_ms);
 
@@ -554,7 +554,7 @@ void atender_sch_mem_free(t_list* data){
         log_debug(logger, "Proceso o segmento no encontrados");
         status = ERROR;
     }else{
-        log_info(logger, "## <%d> Atendiendo syscall MEM_FREE %d", pid, id_segmento);
+        log_info(logger, "## %d Atendiendo syscall MEM_FREE %d", pid, id_segmento);
         eliminar_segmento_thread_safe(segmento, p);
         imprimir_estado_mem_thread_safe();
     }

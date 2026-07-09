@@ -56,7 +56,7 @@ void desconexion_por_bsod(){
 void atender_suspension(t_evt* evt){
     imprimir_bitmap();
     int pid = evt->pid;
-    log_info(logger, "Suspendiendo proceso <%d>", pid);
+    log_info(logger, "Suspendiendo proceso %d", pid);
     
     t_proceso* proceso = proceso_de_pid_thread_safe(pid);
     pthread_mutex_lock(&m_lista_procesos);
