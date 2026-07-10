@@ -260,8 +260,8 @@ void recibir_pcb_actualizado(t_list* valores){
     int* pid = list_get(valores, i++);
     t_proceso* proc = proceso_de_pid_thread_safe(*pid);
     if(proc == NULL){
-        log_error(logger, "recibir_pcb_actualizado, Error: No se encontro proceso de pid %d", *pid);
-        list_destroy_and_destroy_elements(valores, free);
+        // log_error(logger, "recibir_pcb_actualizado, Error: No se encontro proceso de pid %d", *pid);
+        // list_destroy_and_destroy_elements(valores, free);
         return;
     }
     pthread_mutex_lock(&proc->mutex);
