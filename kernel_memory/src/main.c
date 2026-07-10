@@ -279,10 +279,14 @@ void atender_cpu_mov_in(t_list* data, int cpu_fd){
     }
 
     memcpy(datos_leidos, data_read->datos_leidos, tamanio);
-
+    
+    uint32_t valor;
+    memcpy(&valor, data_read->datos_leidos, sizeof(valor));
+    
+    log_info(logger, "valor:  %d", valor);
     liberar_evt(evt_read);
     t_paquete* paquete = crear_paquete(KM_CPU__RESPUESTA);
-    agregar_a_paquete(paquete, datos_leidos, tamanio);
+    agregar_a_paquete(paquete, &valor, sizeof(uint32_t));
     enviar_paquete_y_liberarlo(paquete, cpu_fd);
 
     free(datos_leidos);

@@ -996,7 +996,7 @@ void ejecutar_mov_in(t_instruccion_decodificada* instr, t_pcb* pcb){
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
     /*op_code cod_op = */recibir_operacion(conexion_kernel_memory);
     t_list* data = recibir_paquete(conexion_kernel_memory);
-    uint8_t valor = *(uint8_t*)list_get(data, 0);
+    uint32_t valor = *(uint32_t*)list_get(data, 0);
     log_info(logger, "PID: %d - Acción: LEER - Dirección Física: %d - Valor: %d", pcb->pid, dir_fisica_stick, valor);
     escribir_registro(r_datos, valor);
 }
@@ -1014,8 +1014,11 @@ void ejecutar_mov_out(t_instruccion_decodificada* instr, t_pcb* pcb){
         return;
     }
     t_dir_fisica dir_fisica = iniciar_dir_fisica(id_segmento, offset);
-
-    log_info(logger, "PID: <%d> - Acción: <ESCRIBIR> - Dirección Física: %d - Valor: %s", pcb->pid, dir_fisica_stick, (char*)datos);
+    if(r_datos->tamanio == sizeof(uint8_t)){
+        log_info(logger, "PID: <%d> - Acción: <ESCRIBIR> - Dirección Física: %d - Valor: %d", pcb->pid, dir_fisica_stick, *(uint8_t*)r_datos->ptro_reg);
+    }else if(r_datos->tamanio == sizeof(uint32_t)){
+        log_info(logger, "PID: <%d> - Acción: <ESCRIBIR> - Dirección Física: %d - Valor: %d", pcb->pid, dir_fisica_stick, *(uint32_t*)r_datos->ptro_reg);
+    }
     t_paquete* paquete =  crear_paquete(CPU_KM__MOV_OUT);
     agregar_a_paquete(paquete, &dir_fisica, sizeof(dir_fisica));
     agregar_a_paquete(paquete, &tamanio, sizeof(tamanio));
