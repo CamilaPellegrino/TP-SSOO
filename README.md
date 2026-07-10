@@ -71,7 +71,7 @@ script [so-deploy] de la cátedra:
 ```bash
 git clone https://github.com/sisoputnfrba/so-deploy.git
 cd so-deploy
-./deploy.sh -r=release -p=utils -p=kernel_scheduler -p=kernel_memory -p=cpu -p=memory_stick -p=swap -p=io "tp-{año}-{cuatri}-{grupo}"
+./deploy.sh -r=release -p=utils -p=kernel_scheduler -p=kernel_memory -p=cpu -p=memory_stick -p=swap -p=io "tp-2026-1c-RedBugBusters"
 ```
 
 El mismo se encargará de instalar las Commons, clonar el repositorio del grupo
