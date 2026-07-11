@@ -766,9 +766,7 @@ bool hay_cpus_ejecutando(){
     pthread_mutex_lock(&m_lista_cpus);
     for(int i = 0; i < list_size(lista_cpus); i++){
         t_cpu* cpu = list_get(lista_cpus, i);
-        pthread_mutex_lock(&cpu->mutex);
-        if(cpu->proceso != NULL){
-            pthread_mutex_unlock(&cpu->mutex);
+        if(get_proceso_de_cpu_thread_safe(cpu) != NULL){
             pthread_mutex_unlock(&m_lista_cpus);
             return true;
         }
