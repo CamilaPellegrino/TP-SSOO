@@ -1,7 +1,18 @@
 # tp-scaffold
 
-Esta es una plantilla de proyecto diseñada para generar un TP de Sistemas
-Operativos de la UTN FRBA.
+Repositorio correspondiente al Trabajo Práctico de **Sistemas Operativos** de la UTN FRBA.
+
+## 📋 Consigna
+
+La consigna completa del trabajo se encuentra disponible en el siguiente documento:
+
+🔗 https://docs.google.com/document/d/1T0CglFoVRDHWXKHvNNXl62RryVkhWG9rmGyb7NDilCc/edit?tab=t.0
+
+## ✅ Códigos de prueba
+
+Para facilitar las pruebas y validación de la implementación, se puede utilizar el siguiente repositorio con códigos de prueba:
+
+🔗 https://github.com/sisoputnfrba/plug-n-pray-pruebas/
 
 ## Dependencias
 
