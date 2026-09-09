@@ -1,6 +1,6 @@
-# tp-scaffold
+# Trabajo Práctico - Sistemas Operativos
 
-Repositorio correspondiente al Trabajo Práctico de **Sistemas Operativos** de la UTN FRBA.
+Repositorio correspondiente al Trabajo Práctico de Sistemas Operativos (SSOO) de la Universidad Tecnológica Nacional – Facultad Regional Buenos Aires (UTN FRBA).
 
 ## 📋 Consigna
 
@@ -25,6 +25,7 @@ cd so-commons-library
 make debug
 make install
 ```
+> Nota: dependiendo de la configuración de permisos de la máquina, puede ser necesario utilizar sudo durante la instalación.
 
 ## Compilación y ejecución
 
@@ -40,6 +41,19 @@ cd kernel
 make
 ./bin/kernel
 ```
+
+## 🧩 Módulos
+
+El proyecto está compuesto por los siguientes módulos:
+
+* **`kernel scheduler`** — Módulo principal encargado de gestionar la planificación de los Procesos.
+* **`kernel memory`** — Módulo encargado de gestionar la asignación de memoria a lo largo de los diferentes Memory Sticks y del SWAP.
+* **`cpu`** — Módulo encargado de la ejecución de instrucciones y simulación los pasos del ciclo de instrucción de una CPU real simplificada.
+* **`memory_stick`** — Módulo encargado representar un espacio de direcciones de memoria, simulando los diferentes chips de memoria de una computadora.
+* **`swap`** — Módulo encargado de almacenar la información de los procesos que sean suspendidos por el kernel.*
+* **`io`** — Módulo encargado de simular las operaciones de entrada y salida.
+
+Cada módulo posee su propio código fuente, configuración, Makefile y ejecutable.
 
 ## Importar desde Visual Studio Code
 
