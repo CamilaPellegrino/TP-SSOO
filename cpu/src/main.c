@@ -176,6 +176,8 @@ void transicion_desde_wait_sys(op_code cod_op){
         case SCH_CPU__SYS_BLOQUEANTE:
             v_pedido_de_desalojo = true;
             pthread_cond_signal(&cond_ejecutar);
+            transicionar(LIBRE);
+            break;
         case SCH_CPU__ERROR_SYSCALL: {
             transicionar(LIBRE);
             break;
@@ -316,7 +318,7 @@ void conectarse_a_stick(char* ip, char* puerto, uint32_t tamanio){
     t_stick* stick = iniciar_stick(ip, puerto, tamanio, conexion_memory_stick);
     t_paquete *data = crear_paquete(CPU_STICK__CONEXION);
     agregar_a_paquete(data, &id_cpu, sizeof(id_cpu));
-    enviar_paquete(data, conexion_memory_stick);
+    enviar_paquete_y_liberarlo(data, conexion_memory_stick);
     // agregar a lista local
     list_add(lista_sticks, stick);
 

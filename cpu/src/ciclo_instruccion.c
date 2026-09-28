@@ -382,11 +382,11 @@ void ejecutar_mov_in(t_instruccion_decodificada* instr, t_pcb* pcb){
     uint32_t valor = *(uint32_t*)list_get(data, 0);
     log_info(logger, "PID: %d - Acción: LEER - Dirección Física: %d - Valor: %d", pcb->pid, dir_fisica_stick, valor);
     escribir_registro(r_datos, valor);
+    list_destroy_and_destroy_elements(data, free);
 }
 
 void ejecutar_mov_out(t_instruccion_decodificada* instr, t_pcb* pcb){
     especificacion_registro* r_datos = list_get(instr->registros, 0);
-    void* datos = registro_a_bytes(r_datos);
     uint32_t dir_logica = pcb->registros.di;
     int id_segmento = calc_id_segmento(dir_logica);
     int offset = calc_offset(dir_logica);
@@ -394,6 +394,11 @@ void ejecutar_mov_out(t_instruccion_decodificada* instr, t_pcb* pcb){
     int dir_fisica_stick = mmu(pcb, tamanio, id_segmento, offset);
     if(dir_fisica_stick == -1){
         manejar_seg_fault(pcb);
+        return;
+    }
+    void* datos = registro_a_bytes(r_datos);
+    if(datos == NULL){
+        log_error(logger, "No se pudo reservar memoria para MOV_OUT");
         return;
     }
     t_dir_fisica dir_fisica = iniciar_dir_fisica(id_segmento, offset);
@@ -409,6 +414,7 @@ void ejecutar_mov_out(t_instruccion_decodificada* instr, t_pcb* pcb){
     agregar_a_paquete(paquete, &pcb->pid, sizeof(pcb->pid));
     enviar_paquete_y_liberarlo(paquete, conexion_kernel_memory);
     recibir_operacion(conexion_kernel_memory);
+    free(datos);
 }
 
 // syscalls: 

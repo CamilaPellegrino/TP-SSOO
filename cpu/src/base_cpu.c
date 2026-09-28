@@ -12,6 +12,10 @@ t_stick* iniciar_stick(char* ip, char* puerto, int tamanio, int cliente_fd){
 }
 
 void destruir_stick(t_stick* stick){
+    if (stick == NULL)
+        return;
+    free(stick->ip);
+    free(stick->puerto);
 	free(stick);
 }
 
