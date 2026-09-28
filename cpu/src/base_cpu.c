@@ -281,3 +281,39 @@ void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p){
     agregar_a_paquete(p, &pcb->registros.di, sizeof(pcb->registros.di));
 
 }
+
+
+// ===================== Conexion con sticks =====================
+void conectarse_a_stick(char* ip, char* puerto, uint32_t tamanio){
+    // conectar a memory stick
+    int conexion_memory_stick = crear_conexion(ip, puerto);
+    exit_si_error_conexion(conexion_memory_stick, logger, "memory stick");
+
+    handshake_cliente(conexion_memory_stick, logger);
+
+    log_info(logger, "Conectado a stick -> ip: %s, puerto: %s", ip, puerto);
+
+    // crear stick
+    t_stick* stick = iniciar_stick(ip, puerto, tamanio, conexion_memory_stick);
+    t_paquete *data = crear_paquete(CPU_STICK__CONEXION);
+    agregar_a_paquete(data, &id_cpu, sizeof(id_cpu));
+    enviar_paquete_y_liberarlo(data, conexion_memory_stick);
+    // agregar a lista local
+    list_add(lista_sticks, stick);
+
+    pthread_t p = crear_hilo_o_exit(atender_stick, stick, "atender_stick", logger);
+    pthread_detach(p);
+}
+
+void* atender_stick(void* arg){
+    t_stick* stick = (t_stick*)arg;
+    while(1){
+        op_code cod_op = recibir_operacion(stick->fd);
+        if(cod_op == -1){
+            log_debug(logger, "BSOD");
+            enviar_operacion(conexion_kernel_memory, CPU_KM__BSOD);
+            break;
+        }
+    }
+    return NULL;
+}

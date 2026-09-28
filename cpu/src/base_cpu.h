@@ -164,4 +164,8 @@ void transicionar_thread_safe(t_estado_cpu estado);
 void enviar_pcb_actualizado_a_km(t_pcb* pcb);
 void agregar_pcb_al_paquete(t_pcb* pcb, t_paquete* p);
 
+// Conectarse a sticks
+void* atender_stick(void* arg);
+void conectarse_a_stick(char* ip, char* puerto, uint32_t tamanio);
+
 #endif

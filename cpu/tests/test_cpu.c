@@ -1,3 +1,10 @@
+/* 
+ * Tests de modulo cpu
+ * Compilacion (desde cpu/tests): make -C .. test
+ * Archivo compilado en cpu/bin
+*/
+
+
 #include "../src/main.h"
 #include <assert.h>
 #include <sys/socket.h>
