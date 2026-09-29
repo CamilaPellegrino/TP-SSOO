@@ -4,7 +4,7 @@
 #include <utils/hello.h>
 #include <utils/utils.h>
 #include <semaphore.h>
-#include "ciclo_instruccion.h"
+#include "ciclo_instruccion/ciclo_instruccion.h"
 #include "maquina_estados_cpu.h"
 #include "base_cpu.h"
 

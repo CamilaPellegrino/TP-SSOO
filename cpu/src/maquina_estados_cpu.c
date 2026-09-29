@@ -1,5 +1,5 @@
 #include "maquina_estados_cpu.h"
-typedef void (*t_transicionador)(int);
+typedef void (*t_transicionador)(op_code);
 
 void atender_scheduler(void){
 	while(1){
