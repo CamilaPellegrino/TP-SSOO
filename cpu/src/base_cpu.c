@@ -172,7 +172,7 @@ int mmu(t_pcb* pcb, uint32_t tamanio, uint32_t num_seg, uint32_t desp) {
 
     if (seg == NULL ||
         desp > seg->tamanio ||
-        desp + tamanio > seg->tamanio) {
+        tamanio > seg->tamanio - desp) {
         return -1;
     }
 
