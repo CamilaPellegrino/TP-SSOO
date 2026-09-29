@@ -243,68 +243,134 @@ void decode(char *instruccion, t_pcb *pcb, t_instruccion_decodificada *instrucci
     string_array_destroy(partes);
 }
 
-bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
-    switch (instruccion->tipo){
-        case I_NOOP:
-            break;
-        case I_SET: //Asigna al registro el valor pasado como parámetro. SET ax 5
-            ejecutar_set(instruccion, pcb);
-            break;
-        case I_SUM:
-            ejecutar_sum(instruccion, pcb);
-            break;
-        case I_SUB:
-            ejecutar_sub(instruccion, pcb);
-            break;
-        case I_JNZ:
-            ejecutar_jnz(instruccion, pcb);
-            break;
-        case I_COPY_MEM:
-            ejecutar_copy_mem(instruccion, pcb);
-            break;
-        case I_MOV_OUT:{
-            ejecutar_mov_out(instruccion, pcb);
-            break;
-        }
-        case I_MOV_IN:{
-            ejecutar_mov_in(instruccion, pcb);
-            break;
-        }
-        case I_SLEEP:
-            ejecutar_sleep(instruccion);
-            return true;
-        case I_MUTEX_CREATE:
-            ejecutar_m_create(instruccion);
-            break;
-        case I_MUTEX_LOCK:
-            ejecutar_m_lock(instruccion);
-            break;
-        case I_MUTEX_UNLOCK:
-            ejecutar_m_unlock(instruccion);
-            break;
-        case I_STDIN:
-            ejecutar_stdin(instruccion, pcb);
-            return true;
-        case I_STDOUT:
-            ejecutar_stdout(instruccion, pcb);
-            return true;
-        case I_EXIT:
-            ejecutar_exit(instruccion, pcb);
-            break;
-        case I_INIT_PROC:
-            ejecutar_init_proc(instruccion);
-            break;
-        case I_MEM_ALLOC:
-            ejecutar_mem_alloc(instruccion);
-            break;
-        case I_MEM_FREE:
-            ejecutar_mem_free(instruccion);
-            break;
-        default:
-            log_warning(logger, "Instruccion no implementada, tipo %d", instruccion->tipo);
-            break;
-    }
+typedef bool (*t_ejecutador)(t_instruccion_decodificada *instruccion, t_pcb *pcb);
+
+static bool ejecutar_noop(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    (void)instruccion; (void)pcb;
     return false;
+}
+
+static bool ejecutar_set_callback(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    ejecutar_set(instruccion, pcb);
+    return false;
+}
+
+static bool ejecutar_sum_callback(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    ejecutar_sum(instruccion, pcb);
+    return false;
+}
+
+static bool ejecutar_sub_callback(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    ejecutar_sub(instruccion, pcb);
+    return false;
+}
+
+static bool ejecutar_jnz_callback(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    ejecutar_jnz(instruccion, pcb);
+    return false;
+}
+
+static bool ejecutar_copy_mem_callback(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    ejecutar_copy_mem(instruccion, pcb);
+    return false;
+}
+
+static bool ejecutar_mov_in_callback(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    ejecutar_mov_in(instruccion, pcb);
+    return false;
+}
+
+static bool ejecutar_mov_out_callback(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    ejecutar_mov_out(instruccion, pcb);
+    return false;
+}
+
+static bool ejecutar_mutex_create_callback(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    (void)pcb;
+    ejecutar_m_create(instruccion);
+    return false;
+}
+
+static bool ejecutar_mutex_lock_callback(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    (void)pcb;
+    ejecutar_m_lock(instruccion);
+    return false;
+}
+
+static bool ejecutar_mutex_unlock_callback(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    (void)pcb;
+    ejecutar_m_unlock(instruccion);
+    return false;
+}
+
+static bool ejecutar_mem_alloc_callback(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    (void)pcb;
+    ejecutar_mem_alloc(instruccion);
+    return false;
+}
+
+static bool ejecutar_mem_free_callback(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    (void)pcb;
+    ejecutar_mem_free(instruccion);
+    return false;
+}
+
+static bool ejecutar_sleep_callback(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    (void)pcb;
+    ejecutar_sleep(instruccion);
+    return true;
+}
+
+static bool ejecutar_stdout_callback(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    ejecutar_stdout(instruccion, pcb);
+    return true;
+}
+
+static bool ejecutar_stdin_callback(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    ejecutar_stdin(instruccion, pcb);
+    return true;
+}
+
+static bool ejecutar_init_proc_callback(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    (void)pcb;
+    ejecutar_init_proc(instruccion);
+    return false;
+}
+
+static bool ejecutar_exit_callback(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    ejecutar_exit(instruccion, pcb);
+    return false;
+}
+
+bool execute(t_instruccion_decodificada *instruccion, t_pcb *pcb){
+    static t_ejecutador ejecutadores[] = {
+        [I_NOOP]         = ejecutar_noop,
+        [I_SET]          = ejecutar_set_callback,
+        [I_SUM]          = ejecutar_sum_callback,
+        [I_SUB]          = ejecutar_sub_callback,
+        [I_JNZ]          = ejecutar_jnz_callback,
+        [I_COPY_MEM]     = ejecutar_copy_mem_callback,
+        [I_MOV_IN]       = ejecutar_mov_in_callback,
+        [I_MOV_OUT]      = ejecutar_mov_out_callback,
+        [I_MUTEX_CREATE] = ejecutar_mutex_create_callback,
+        [I_MUTEX_LOCK]   = ejecutar_mutex_lock_callback,
+        [I_MUTEX_UNLOCK] = ejecutar_mutex_unlock_callback,
+        [I_MEM_ALLOC]    = ejecutar_mem_alloc_callback,
+        [I_MEM_FREE]     = ejecutar_mem_free_callback,
+        [I_SLEEP]        = ejecutar_sleep_callback,
+        [I_STDOUT]       = ejecutar_stdout_callback,
+        [I_STDIN]        = ejecutar_stdin_callback,
+        [I_INIT_PROC]    = ejecutar_init_proc_callback,
+        [I_EXIT]         = ejecutar_exit_callback
+    };
+
+    if(instruccion == NULL || (unsigned)instruccion->tipo >=
+       sizeof(ejecutadores) / sizeof(ejecutadores[0]) ||
+       ejecutadores[instruccion->tipo] == NULL){
+        log_warning(logger, "Instruccion no implementada");
+        return false;
+    }
+    return ejecutadores[instruccion->tipo](instruccion, pcb);
 }
 
 
