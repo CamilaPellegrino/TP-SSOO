@@ -1,4 +1,5 @@
 #include "maquina_estados_cpu.h"
+typedef void (*t_transicionador)(int);
 
 void atender_scheduler(void){
 	while(1){
@@ -40,27 +41,16 @@ void atender_scheduler(void){
 }
 
 void procesar_evento(op_code cod_op){
+	static t_transicionador transicionador[] = {
+		[EXEC]                           = transicion_desde_exec,
+		[WAIT_SYS]                       = transicion_desde_wait_sys,
+		[WAIT_SYS_Y_PROX_DESALOJO]       = transicion_desde_wait_sys_y_prox_desalojo,
+		[LIBRE]                          = transicion_desde_libre,
+		[WAIT_MEM_ALLOC]                 = transicion_desde_wait_mem_alloc,
+		[WAIT_MEM_ALLOC_Y_PROX_DESALOJO] = transicion_desde_wait_mem_alloc_y_prox_desalojo
+	};
 	pthread_mutex_lock(&m_estado_cpu);
-	switch(estado_cpu){
-		case EXEC:
-			transicion_desde_exec(cod_op);
-			break;
-		case WAIT_SYS:
-			transicion_desde_wait_sys(cod_op);
-			break;
-		case WAIT_SYS_Y_PROX_DESALOJO:
-			transicion_desde_wait_sys_y_prox_desalojo(cod_op);
-			break;
-		case LIBRE:
-			transicion_desde_libre(cod_op);
-			break;
-		case WAIT_MEM_ALLOC:
-			transicion_desde_wait_mem_alloc(cod_op);
-			break;
-		case WAIT_MEM_ALLOC_Y_PROX_DESALOJO:
-			transicion_desde_wait_mem_alloc_y_prox_desalojo(cod_op);
-			break;
-	}
+	transicionador[estado_cpu](cod_op);
 	pthread_mutex_unlock(&m_estado_cpu);
 }
 

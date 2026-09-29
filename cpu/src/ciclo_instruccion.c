@@ -68,164 +68,179 @@ char* fetch(t_pcb *pcb){
     return instruccion;
 }
 
-void decode(char *instruccion, t_pcb *pcb,  t_instruccion_decodificada * instruccion_decodificada){
+typedef void (*t_decodificador)(char **partes, t_pcb *pcb,
+                                t_instruccion_decodificada *instruccion);
 
-    instruccion_decodificada->registros =  list_create();
-    
+typedef struct {
+    char *nombre;
+    t_decodificador decodificar;
+} t_decodificador_instruccion;
+
+static void decode_set(char **partes, t_pcb *pcb, t_instruccion_decodificada *instruccion){
+    instruccion->tipo = I_SET;
+    list_add(instruccion->registros, obtener_registro(partes[1], pcb));
+    int *numero = malloc(sizeof(int));
+    *numero = (int)strtol(partes[2], NULL, 10);
+    list_add(instruccion->registros, numero);
+}
+
+static void decode_noop(char **partes, t_pcb *pcb, t_instruccion_decodificada *instruccion){
+    (void)partes; (void)pcb;
+    instruccion->tipo = I_NOOP;
+}
+
+static void decode_sum(char **partes, t_pcb *pcb, t_instruccion_decodificada *instruccion){
+    instruccion->tipo = I_SUM;
+    list_add(instruccion->registros, obtener_registro(partes[1], pcb));
+    list_add(instruccion->registros, obtener_registro(partes[2], pcb));
+}
+
+static void decode_sub(char **partes, t_pcb *pcb, t_instruccion_decodificada *instruccion){
+    instruccion->tipo = I_SUB;
+    list_add(instruccion->registros, obtener_registro(partes[1], pcb));
+    list_add(instruccion->registros, obtener_registro(partes[2], pcb));
+}
+
+static void decode_jnz(char **partes, t_pcb *pcb, t_instruccion_decodificada *instruccion){
+    instruccion->tipo = I_JNZ;
+    list_add(instruccion->registros, obtener_registro(partes[1], pcb));
+    int *numero = malloc(sizeof(int));
+    *numero = (int)strtol(partes[2], NULL, 10);
+    list_add(instruccion->registros, numero);
+}
+
+static void decode_mov_out(char **partes, t_pcb *pcb, t_instruccion_decodificada *instruccion){
+    instruccion->tipo = I_MOV_OUT;
+    list_add(instruccion->registros, obtener_registro(partes[1], pcb));
+}
+
+static void decode_mov_in(char **partes, t_pcb *pcb, t_instruccion_decodificada *instruccion){
+    instruccion->tipo = I_MOV_IN;
+    list_add(instruccion->registros, obtener_registro(partes[1], pcb));
+} 
+  
+static void decode_exit(char **partes, t_pcb *pcb, t_instruccion_decodificada *instruccion){
+    (void)partes; (void)pcb;
+    iniciar_instr_exit(instruccion, OK);
+}
+
+static void decode_sleep(char **partes, t_pcb *pcb, t_instruccion_decodificada *instruccion){
+    (void)pcb;
+    instruccion->tipo = I_SLEEP;
+    int *numero = malloc(sizeof(int));
+    *numero = (int)strtol(partes[1], NULL, 10);
+    list_add(instruccion->registros, numero);
+}
+
+static void decode_stdin(char **partes, t_pcb *pcb, t_instruccion_decodificada *instruccion){
+    instruccion->tipo = I_STDIN;
+    list_add(instruccion->registros, obtener_registro(partes[1], pcb));
+    list_add(instruccion->registros, obtener_registro(partes[2], pcb));
+}
+
+static void decode_stdout(char **partes, t_pcb *pcb, t_instruccion_decodificada *instruccion){
+    instruccion->tipo = I_STDOUT;
+    list_add(instruccion->registros, obtener_registro(partes[1], pcb));
+    list_add(instruccion->registros, obtener_registro(partes[2], pcb));
+}
+
+static void decode_mutex_lock(char **partes, t_pcb *pcb, t_instruccion_decodificada *instruccion){
+    (void)pcb;
+    instruccion->tipo = I_MUTEX_LOCK;
+    list_add(instruccion->registros, strdup(partes[1]));
+}
+
+static void decode_mutex_unlock(char **partes, t_pcb *pcb, t_instruccion_decodificada *instruccion){
+    (void)pcb;
+    instruccion->tipo = I_MUTEX_UNLOCK;
+    list_add(instruccion->registros, strdup(partes[1]));
+}
+
+static void decode_mutex_create(char **partes, t_pcb *pcb, t_instruccion_decodificada *instruccion){
+    (void)pcb;
+    instruccion->tipo = I_MUTEX_CREATE;
+    list_add(instruccion->registros, strdup(partes[1]));
+}
+
+static void decode_init_proc(char **partes, t_pcb *pcb, t_instruccion_decodificada *instruccion){
+    (void)pcb;
+    instruccion->tipo = I_INIT_PROC;
+    list_add(instruccion->registros, strdup(partes[1]));
+    int *prioridad = malloc(sizeof(int));
+    *prioridad = (int)strtol(partes[2], NULL, 10);
+    list_add(instruccion->registros, prioridad);
+}
+
+static void decode_mem_alloc(char **partes, t_pcb *pcb, t_instruccion_decodificada *instruccion){
+    (void)pcb;
+    instruccion->tipo = I_MEM_ALLOC;
+    int *id_segmento = malloc(sizeof(int));
+    *id_segmento = (int)strtol(partes[1], NULL, 10);
+    int *tamanio = malloc(sizeof(int));
+    *tamanio = (int)strtol(partes[2], NULL, 10);
+    list_add(instruccion->registros, id_segmento);
+    list_add(instruccion->registros, tamanio);
+}
+
+static void decode_mem_free(char **partes, t_pcb *pcb, t_instruccion_decodificada *instruccion){
+    (void)pcb;
+    instruccion->tipo = I_MEM_FREE;
+    int *id_segmento = malloc(sizeof(int));
+    *id_segmento = (int)strtol(partes[1], NULL, 10);
+    list_add(instruccion->registros, id_segmento);
+}
+
+static void decode_copy_mem(char **partes, t_pcb *pcb, t_instruccion_decodificada *instruccion){
+    instruccion->tipo = I_COPY_MEM;
+    list_add(instruccion->registros, obtener_registro(partes[1], pcb));
+}
+
+void decode(char *instruccion, t_pcb *pcb, t_instruccion_decodificada *instruccion_decodificada){
+    static t_decodificador_instruccion decodificadores[] = {
+        {"SET", decode_set},
+        {"NOOP", decode_noop},
+        {"SUM", decode_sum},
+        {"SUB", decode_sub},
+        {"JNZ", decode_jnz},
+        {"MOV_OUT", decode_mov_out},
+        {"MOV_IN", decode_mov_in},
+        {"EXIT", decode_exit},
+        {"SLEEP", decode_sleep},
+        {"STDIN", decode_stdin},
+        {"STDOUT", decode_stdout},
+        {"MUTEX_LOCK", decode_mutex_lock},
+        {"MUTEX_UNLOCK", decode_mutex_unlock},
+        {"MUTEX_CREATE", decode_mutex_create},
+        {"INIT_PROC", decode_init_proc},
+        {"MEM_ALLOC", decode_mem_alloc},
+        {"MEM_FREE", decode_mem_free},
+        {"COPY_MEM", decode_copy_mem}
+    };
+    instruccion_decodificada->registros = list_create();
+
     if(instruccion == NULL){
         log_error(logger, "Instruccion NULL");
-        return;
-    }
-    char ** partes = string_split(instruccion, " ");
-    if(string_equals_ignore_case(partes[0], "SET")){
-        instruccion_decodificada->tipo = I_SET;
-        especificacion_registro *parametro_aux;
-        parametro_aux = obtener_registro(partes[1], pcb);
-        list_add(instruccion_decodificada->registros, parametro_aux);
-        int* numero = malloc(sizeof(int));
-        *numero = (int)strtol((partes[2]), NULL, 10);
-        list_add(instruccion_decodificada->registros, numero);
-        string_array_destroy(partes);
-        return;
-    }
-    else if(string_equals_ignore_case(partes[0], "NOOP")){
-        instruccion_decodificada->tipo = I_NOOP;
-        string_array_destroy(partes);
-        return;
-    }
-
-    else if(string_equals_ignore_case(partes[0], "SUM")){
-        especificacion_registro *destino, *origen;
-        instruccion_decodificada->tipo = I_SUM;
-        destino = obtener_registro(partes[1],pcb);
-        list_add(instruccion_decodificada->registros, destino);
-        origen = obtener_registro(partes[2],pcb);
-        list_add(instruccion_decodificada->registros, origen);
-        string_array_destroy(partes);
-        return;
-    }
-
-    else if(string_equals_ignore_case(partes[0], "SUB")){
-        especificacion_registro *destino, *origen;
-        instruccion_decodificada->tipo = I_SUB;
-        destino = obtener_registro(partes[1], pcb);
-        list_add(instruccion_decodificada->registros, destino);
-        origen= obtener_registro(partes[2], pcb);
-        list_add(instruccion_decodificada->registros, origen);
-        string_array_destroy(partes);
-        return;
-    }
-    else if(string_equals_ignore_case(partes[0], "JNZ")){
-        instruccion_decodificada->tipo = I_JNZ;
-        especificacion_registro *parametro_aux;
-        parametro_aux = obtener_registro(partes[1], pcb);
-        list_add(instruccion_decodificada->registros, parametro_aux);
-        int* numero = malloc(sizeof(int));
-        *numero = (int)strtol((partes[2]), NULL, 10);
-        list_add(instruccion_decodificada->registros, numero);
-        string_array_destroy(partes);
-        return;
-    }
-    else if(string_equals_ignore_case(partes[0], "MOV_OUT")){
-        instruccion_decodificada->tipo = I_MOV_OUT;
-        especificacion_registro* parametro_aux = obtener_registro(partes[1], pcb);
-        list_add(instruccion_decodificada->registros, parametro_aux);
-        string_array_destroy(partes);
-        return;
-    }
-    else if(string_equals_ignore_case(partes[0], "MOV_IN")){
-        instruccion_decodificada->tipo = I_MOV_IN;
-        especificacion_registro* parametro_aux = obtener_registro(partes[1], pcb);
-        list_add(instruccion_decodificada->registros, parametro_aux);
-        string_array_destroy(partes);
-        return;
-    }
-    else if(string_equals_ignore_case(partes[0], "EXIT")){
-        iniciar_instr_exit(instruccion_decodificada, OK);
-        string_array_destroy(partes);
-        return;
-    }
-    else if(string_equals_ignore_case(partes[0], "SLEEP")){
-        instruccion_decodificada->tipo = I_SLEEP;
-        int* numero = malloc(sizeof(int));
-        *numero = (int)strtol((partes[1]), NULL, 10);
-        list_add(instruccion_decodificada->registros, numero); // tiempo_sleep
-        string_array_destroy(partes);
-        return;
-    }    
-    else if(string_equals_ignore_case(partes[0], "STDIN")){
-        instruccion_decodificada->tipo = I_STDIN;
-        especificacion_registro* param1 = obtener_registro(partes[1], pcb);
-        especificacion_registro* param2 = obtener_registro(partes[2], pcb);
-        list_add(instruccion_decodificada->registros, param1); // dir logica
-        list_add(instruccion_decodificada->registros, param2); // tamanio
-        string_array_destroy(partes);
-        return;
-    }    
-    else if(string_equals_ignore_case(partes[0], "STDOUT")){
-        instruccion_decodificada->tipo = I_STDOUT;
-        especificacion_registro* param1 = obtener_registro(partes[1], pcb);
-        especificacion_registro* param2 = obtener_registro(partes[2], pcb);
-        list_add(instruccion_decodificada->registros, param1); // dir logica
-        list_add(instruccion_decodificada->registros, param2); // tamanio
-        string_array_destroy(partes);
-        return;
-    }
-    else if(string_equals_ignore_case(partes[0], "MUTEX_LOCK")){
-        instruccion_decodificada->tipo = I_MUTEX_LOCK;
-        char* nombre_mutex = strdup(partes[1]);
-        list_add(instruccion_decodificada->registros, nombre_mutex); // nombre
-        string_array_destroy(partes);
-        return;
-    }
-    else if(string_equals_ignore_case(partes[0], "MUTEX_UNLOCK")){
-        instruccion_decodificada->tipo = I_MUTEX_UNLOCK;
-        char* nombre_mutex = strdup(partes[1]);
-        list_add(instruccion_decodificada->registros, nombre_mutex); // nombre
-        string_array_destroy(partes);
-        return;
-    }
-    else if(string_equals_ignore_case(partes[0], "MUTEX_CREATE")){
-        instruccion_decodificada->tipo = I_MUTEX_CREATE;
-        char* nombre_mutex = strdup(partes[1]);
-        list_add(instruccion_decodificada->registros, nombre_mutex); // nombre
-        string_array_destroy(partes);
-        return;
-    }
-    else if(string_equals_ignore_case(partes[0], "INIT_PROC")){
-        instruccion_decodificada->tipo = I_INIT_PROC;
-        char* ruta_instr = strdup(partes[1]);
-        int* prioridad = malloc(sizeof(int));
-        *prioridad = (int)strtol(partes[2], NULL, 10);
-        list_add(instruccion_decodificada->registros, ruta_instr);
-        list_add(instruccion_decodificada->registros, prioridad);
-    }
-    else if(string_equals_ignore_case(partes[0], "MEM_ALLOC")){
-        instruccion_decodificada->tipo = I_MEM_ALLOC;
-        int* id_segmento = malloc(sizeof(int));
-        *id_segmento = (int)strtol(partes[1], NULL, 10);
-        int* tamanio = malloc(sizeof(int));
-        *tamanio = (int)strtol(partes[2], NULL, 10);
-        list_add(instruccion_decodificada->registros, id_segmento);
-        list_add(instruccion_decodificada->registros, tamanio);
-    }
-    else if(string_equals_ignore_case(partes[0], "MEM_FREE")){
-        instruccion_decodificada->tipo = I_MEM_FREE;
-        int* id_segmento = malloc(sizeof(int));
-        *id_segmento = (int)strtol(partes[1], NULL, 10);
-        list_add(instruccion_decodificada->registros, id_segmento);
-    }
-    else if(string_equals_ignore_case(partes[0], "COPY_MEM")){
-        instruccion_decodificada->tipo = I_COPY_MEM;
-        especificacion_registro* reg_tam = obtener_registro(partes[1], pcb);
-        list_add(instruccion_decodificada->registros, reg_tam);
-        string_array_destroy(partes);
-        return;
-    }else{
         iniciar_instr_exit(instruccion_decodificada, INSTRUCCION_INVALIDA);
+        return;
     }
+
+    char **partes = string_split(instruccion, " ");
+    if(partes == NULL || partes[0] == NULL){
+        iniciar_instr_exit(instruccion_decodificada, INSTRUCCION_INVALIDA);
+        string_array_destroy(partes);
+        return;
+    }
+
+    for(size_t i = 0; i < sizeof(decodificadores) / sizeof(decodificadores[0]); i++){
+        if(string_equals_ignore_case(partes[0], decodificadores[i].nombre)){
+            decodificadores[i].decodificar(partes, pcb, instruccion_decodificada);
+            string_array_destroy(partes);
+            return;
+        }
+    }
+
+    iniciar_instr_exit(instruccion_decodificada, INSTRUCCION_INVALIDA);
     string_array_destroy(partes);
-    return;
 }
 
 bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
@@ -255,7 +270,6 @@ bool execute(t_instruccion_decodificada * instruccion, t_pcb *pcb){
             ejecutar_mov_in(instruccion, pcb);
             break;
         }
-///////////////////////////syscalls//////////////////
         case I_SLEEP:
             ejecutar_sleep(instruccion);
             return true;

@@ -44,6 +44,8 @@ void destruir_instruccion(t_instruccion_decodificada*i){
 
 
 especificacion_registro* obtener_registro(char* registro_crudo, t_pcb *pcb){
+    if(registro_crudo == NULL || pcb == NULL)
+        return NULL;
     especificacion_registro *registro = malloc(sizeof(especificacion_registro));
     if(string_equals_ignore_case(registro_crudo, "AX")){
         registro->ptro_reg = &(pcb->registros.ax);
