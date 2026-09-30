@@ -3,20 +3,13 @@
 #include <utils/hello.h>
 #include <stdbool.h>
 #include "base_sch.h"
+#include "maquina_estados.h"
 #include "planificador.h"
 #include "atender_io.h"
 #include "mutex.h"
 #include "test.h"
 
-// variables globales 
-t_lista_estado* estado_new;
-t_lista_estado* estado_ready;
-t_lista_estado* estado_blocked;
-t_lista_estado* estado_exec;
-t_lista_estado* estado_susp_blocked;
-t_lista_estado* estado_susp_ready;
-t_lista_estado* estado_exit;
-
+// variables globales
 t_list* lista_cpus;
 
 t_log_level log_level;
@@ -27,7 +20,6 @@ int proximo_pid;
 int suspension_timeout;
 int quantum;
 bool queue_preemption;
-int procesos_en_ready;
 t_estado_sch estado_global;
 
 // listas de cosas de syscalls
@@ -50,9 +42,7 @@ pthread_mutex_t m_lista_evt_stdin;
 pthread_mutex_t m_lista_evt_stdout;
 pthread_mutex_t m_lista_cpus;
 pthread_mutex_t m_lista_mutex;
-pthread_mutex_t m_transicionar;
 pthread_mutex_t m_proximo_pid;
-pthread_mutex_t m_procesos_en_ready;
 pthread_mutex_t m_estado_global;
 // sockets
 int conexion_kernel_memory;

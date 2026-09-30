@@ -7,12 +7,12 @@ void* planificador_corto_plazo(){
     while(1){
         log_debug(logger, "esperando");
         sem_wait(&s_intentar_planificar);
-        pthread_mutex_lock(&m_transicionar);
+        bloquear_maquina_estados();
         log_debug(logger, "planificador_corto_plazo: despertado");
         t_pcb* proceso = proximo_proceso();
         if(proceso == NULL){
             log_debug(logger, "planificador_corto_plazo: no hay procesos en ready");
-            pthread_mutex_unlock(&m_transicionar);
+            desbloquear_maquina_estados();
             continue;
         }
         pthread_mutex_lock(&m_lista_cpus);
@@ -21,7 +21,7 @@ void* planificador_corto_plazo(){
             pthread_mutex_unlock(&m_lista_cpus);
             log_debug(logger, "planificador_corto_plazo: asignando cpu %d a proceso %d", cpu->id, proceso->pid);
             asignar_proceso(proceso, cpu);
-            pthread_mutex_unlock(&m_transicionar);
+            desbloquear_maquina_estados();
             continue;
         }
         pthread_mutex_unlock(&m_lista_cpus);
@@ -43,7 +43,7 @@ void* planificador_corto_plazo(){
                     agregar_a_ready_al_frente(proceso);
                     pthread_mutex_unlock(&cpu_desalojable->mutex);
                     pthread_mutex_unlock(&m_lista_cpus);
-                    pthread_mutex_unlock(&m_transicionar);
+                    desbloquear_maquina_estados();
                     continue;
                 }
                 pthread_mutex_unlock(&cpu_desalojable->mutex);
@@ -51,7 +51,7 @@ void* planificador_corto_plazo(){
             }
         }
         agregar_a_ready_al_frente(proceso);
-        pthread_mutex_unlock(&m_transicionar);
+        desbloquear_maquina_estados();
         continue;
     }
     return NULL;
@@ -113,8 +113,7 @@ void asignar_proceso(t_pcb* proceso, t_cpu* cpu){
     enviar_paquete_y_liberarlo(paquete_asignar_proceso, cpu_fd);         
     log_debug(logger, "planificador_corto_plazo: Envie pid %d a cpu de fd %d", pid, cpu_fd); 
 
-    agregar_proceso_a_lista(estado_exec->sublista, proceso, EJECUTANDO, &estado_exec->mutex);
-    log_obligatorio_cambio_de_estado(proceso->pid, "READY", "EXEC");
+    registrar_proceso_exec(proceso);
     if(algoritmo_de_proceso(proceso) == RR){
         log_debug(logger, "creando hilo_fin_quantum para proc %d", pid);
         crear_hilo_o_exit(hilo_fin_quantum, cpu, "hilo_fin_quantum", logger);
@@ -125,14 +124,11 @@ void* planificador_largo_plazo(){
     while(1){
         sem_wait(&s_nuevo_proceso_new);
         log_debug(logger, "planificador_largo_plazo: ejecutando");
-        pthread_mutex_lock(&estado_new->mutex);
-        if(list_is_empty(estado_new->sublista)){
-            pthread_mutex_unlock(&estado_new->mutex);
+        t_pcb* proceso_new = proceso_new_siguiente();
+        if(proceso_new == NULL){
             log_warning(logger, "planificador_largo_plazo: no habia nada en new (raro que esto pase)");
             continue;
         }
-        pthread_mutex_unlock(&estado_new->mutex);
-        t_pcb* proceso_new = list_get(estado_new->sublista, 0);
         new_a_ready(proceso_new);
     }
 }
@@ -148,9 +144,6 @@ void manejar_proceso_exit(t_pcb* proceso){
 }
 
 t_pcb* proximo_proceso(){
-    if(estado_ready->sublista == NULL){
-        return NULL;
-    }
     t_pcb* pcb = NULL;
     switch(algoritmo){
         case CMN: {
@@ -169,73 +162,11 @@ t_pcb* proximo_proceso(){
 }
 
 t_pcb* planificar_CMN(){
-    pthread_mutex_lock(&estado_ready->mutex);
-    int size = list_size(estado_ready->sublista);
-    for(int i = 0; i < size; i++){
-        t_sublista_ready* actual = list_get(estado_ready->sublista, i);
-        pthread_mutex_lock(&actual->mutex);
-        if(!list_is_empty(actual->sublista)){
-            t_pcb* proceso = list_remove(actual->sublista, 0);
-            pthread_mutex_lock(&m_procesos_en_ready);
-            procesos_en_ready--;
-            pthread_mutex_unlock(&m_procesos_en_ready);        
-            pthread_mutex_unlock(&actual->mutex);
-            pthread_mutex_unlock(&estado_ready->mutex);
-            return proceso;
-        }
-        pthread_mutex_unlock(&actual->mutex);
-    }
-    pthread_mutex_unlock(&estado_ready->mutex);
-
-    return NULL;
-}
-
-void agregar_a_ready_al_frente(t_pcb* proceso){
-    if(proceso == NULL){
-        return;
-    }
-    switch(algoritmo){
-        case FIFO:
-        case RR: {
-            pthread_mutex_lock(&estado_ready->mutex);
-            list_add_in_index(estado_ready->sublista, 0, proceso);
-            pthread_mutex_unlock(&estado_ready->mutex);
-            break;
-        }
-        case CMN: {
-            t_sublista_ready* sublista = sublista_ready_de_prioridad(proceso->prioridad_actual);
-            pthread_mutex_lock(&estado_ready->mutex);
-            pthread_mutex_lock(&sublista->mutex);
-
-            list_add_in_index(sublista->sublista, 0, proceso);
-
-            pthread_mutex_unlock(&sublista->mutex);
-            pthread_mutex_unlock(&estado_ready->mutex);
-            break;
-        }
-        default:
-            log_error(logger, "Algoritmo desconocido");
-            exit(EXIT_FAILURE);
-    }
-    pthread_mutex_lock(&m_procesos_en_ready);
-    procesos_en_ready++;
-    pthread_mutex_unlock(&m_procesos_en_ready);
+    return desencolar_ready_cmn();
 }
 
 t_pcb* planificar_RR_y_FIFO(){
-    pthread_mutex_lock(&estado_ready->mutex);
-
-    if(list_is_empty(estado_ready->sublista)){
-        pthread_mutex_unlock(&estado_ready->mutex);
-        return NULL;
-    }
-    t_pcb* proceso = list_remove(estado_ready->sublista, 0);
-
-    pthread_mutex_unlock(&estado_ready->mutex);
-    pthread_mutex_lock(&m_procesos_en_ready);
-    procesos_en_ready--;
-    pthread_mutex_unlock(&m_procesos_en_ready);
-    return proceso;
+    return desencolar_ready_fifo_rr();
 }
 
 void* hilo_timeout(void* arg){

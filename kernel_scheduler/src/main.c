@@ -405,9 +405,7 @@ void* atender_km(void*){
                 cambiar_estado_global(PLANIF_ACTIVA);
                 
                 intentar_desuspender();
-                pthread_mutex_lock(&m_procesos_en_ready);
-                int size_ready = procesos_en_ready;
-                pthread_mutex_unlock(&m_procesos_en_ready);
+                int size_ready = cantidad_procesos_ready();
                 log_debug(logger, "Lei cant de procesos en ready: %d", size_ready);
                 imprimir_estado_procesos();
                 for(int i = 0; i<size_ready; i++){
@@ -447,7 +445,7 @@ void* atender_km(void*){
                 t_status_op status = *(t_status_op*)list_get(data, 1);
                 t_cpu* cpu = cpu_de_pid(pid);
                 if(cpu == NULL){
-                    t_pcb* proceso = proceso_de_lista(pid, estado_exec);
+                    t_pcb* proceso = proceso_de_estado(pid, EJECUTANDO);
                     exec_a_ready_cond_signal(proceso);
                     break;
                 }
@@ -470,7 +468,7 @@ void* atender_km(void*){
                 t_status_op status = *(t_status_op*)list_get(data, 1);
                 t_cpu* cpu = cpu_de_pid(pid);
                 if(cpu == NULL){
-                    t_pcb* proceso = proceso_de_lista(pid, estado_exec);
+                    t_pcb* proceso = proceso_de_estado(pid, EJECUTANDO);
                     exec_a_ready_cond_signal(proceso);
                     break;
                 }
@@ -491,7 +489,7 @@ void* atender_km(void*){
 
                 list_destroy_and_destroy_elements(data, free);
                 
-                t_pcb* proceso = proceso_de_lista(pid, estado_blocked);
+                t_pcb* proceso = proceso_de_estado(pid, BLOQUEADO);
 
                 t_evt* evt = iniciar_evt_std_out(datos_leidos, proceso);
                 
@@ -544,7 +542,7 @@ void* atender_km(void*){
                 t_list* data = recibir_paquete(conexion_kernel_memory);
                 int pid = *(int*)list_get(data, 0);
                 log_info(logger, "## %d Proceso desuspendido", pid);
-                t_pcb* proceso = proceso_de_lista(pid, estado_susp_ready);
+                t_pcb* proceso = proceso_de_estado(pid, SUSP_LISTO);
                 susp_ready_a_ready(proceso);
                 list_destroy_and_destroy_elements(data, free);
                 break;

@@ -2,6 +2,7 @@
 #define MUTEX_H_
 
 #include "base_sch.h"
+#include "maquina_estados.h"
 
 // tipo de semaforo mutex que uso para simular semaforos de los procesos
 

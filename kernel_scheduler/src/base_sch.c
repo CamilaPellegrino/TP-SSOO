@@ -1,5 +1,5 @@
 #include "base_sch.h"
-void inicializar_lista_ready();
+#include "maquina_estados.h"
 t_planificacion algoritmo_str_a_enum(char *algoritmo_str);
 
 // inicializar  
@@ -24,32 +24,19 @@ void inicializar_variables_globales(t_config* config){
     sem_init(&s_evt_stdout, 0, 0);
 
     // inicializar mutexes
-    pthread_mutex_init(&m_procesos_en_ready, NULL);
-
     pthread_mutex_init(&m_lista_evt_sleep, NULL);
     pthread_mutex_init(&m_lista_evt_stdin, NULL);
     pthread_mutex_init(&m_lista_evt_stdout, NULL);
 
     pthread_mutex_init(&m_lista_mutex, NULL);
     pthread_mutex_init(&m_lista_cpus, NULL);
-    pthread_mutex_init(&m_transicionar, NULL);
     pthread_mutex_init(&m_estado_global, NULL);
-
-    inicializar_lista_ready();
-    estado_new = inicializar_lista_estado("NEW", NULL, true, NUEVO);
-    estado_exec = inicializar_lista_estado("EXEC", NULL, true, EJECUTANDO);
-    estado_blocked = inicializar_lista_estado("BLOCKED", NULL, true, BLOQUEADO);
-    estado_susp_blocked = inicializar_lista_estado("SUSP_BLOCKED", NULL, true, SUSP_BLOQUEADO);
-    estado_susp_ready = inicializar_lista_estado("SUSP_READY", NULL, true, SUSP_LISTO);
-    estado_exit = inicializar_lista_estado("EXIT", NULL, true, FINALIZADO);
+    inicializar_maquina_estados();
 
     //otras cosas
     pthread_mutex_lock(&m_proximo_pid);
     proximo_pid = 0;
     pthread_mutex_unlock(&m_proximo_pid);
-    pthread_mutex_lock(&m_procesos_en_ready);
-    procesos_en_ready = 0;
-    pthread_mutex_unlock(&m_procesos_en_ready);
     pthread_mutex_lock(&m_estado_global);
     estado_global = PLANIF_ACTIVA;
     pthread_mutex_unlock(&m_estado_global);
@@ -81,35 +68,6 @@ t_list* queues_algorithms_a_t_list(char** queues_algorithms_str){
         list_add(ret, algoritmo);
     }
     return ret;
-}
-
-void inicializar_lista_ready(){
-    estado_ready = malloc(sizeof(t_lista_estado));
-    estado_ready->nombre = "lista_ready";
-    estado_ready->sublista = list_create();
-    estado_ready->tipo = LISTO;
-    if(algoritmo == CMN){
-        for(int i = 0; i<list_size(queues_algorithms); i++){
-            t_list* lista = list_create();
-            t_sublista_ready* s = malloc(sizeof(t_sublista_ready));
-            s->sublista = lista;
-            pthread_mutex_init(&s->mutex, NULL);
-            list_add(estado_ready->sublista, s);
-        }
-    }
-    pthread_mutex_init(&estado_ready->mutex, NULL);
-}
-
-t_lista_estado* inicializar_lista_estado(char* nombre, t_list* lista, bool init_m, t_tipo_estado tipo){
-    t_lista_estado* e = malloc(sizeof(t_lista_estado));
-    e->nombre = nombre;
-    e->sublista = lista == NULL ? list_create() : lista;
-    e->tipo = tipo;
-    if(!init_m){
-        return e;
-    }
-    pthread_mutex_init(&e->mutex, NULL);
-    return e;
 }
 
 t_cpu* iniciar_cpu(int id, int fd){
@@ -206,221 +164,11 @@ t_evt* iniciar_evt_mutex_lock(t_pcb* proceso){
 // funciones para destroy
 void destroy_pcb(t_pcb* pcb){ free(pcb); }
 
-// mover entre estados
-void generica_transicion_de_estados(t_pcb* proceso, t_lista_estado* l_remove, t_lista_estado* l_add){
-    pthread_mutex_lock(&m_transicionar);
-    pthread_mutex_lock(&proceso->mutex);
-
-    bool eliminado = eliminar_proceso_de_lista(l_remove->sublista, proceso, l_remove->nombre, &l_remove->mutex);
-    if(eliminado){
-        agregar_proceso_a_lista(l_add->sublista, proceso, l_add->tipo, &l_add->mutex);
-        log_obligatorio_cambio_de_estado(proceso->pid, l_remove->nombre, l_add->nombre);
-    }
-    pthread_mutex_unlock(&proceso->mutex);
-    pthread_mutex_unlock(&m_transicionar);
-}
-
-void blocked_a_susp_blocked(t_pcb* proceso){
-    generica_transicion_de_estados(proceso, estado_blocked, estado_susp_blocked);
-}
-
-void susp_blocked_a_susp_ready(t_pcb* proceso){
-    generica_transicion_de_estados(proceso, estado_susp_blocked, estado_susp_ready);
-    intentar_desuspender();
-}
-
-void susp_ready_a_ready(t_pcb* proceso){
-    pthread_mutex_lock(&m_transicionar);
-    pthread_mutex_lock(&proceso->mutex);
-    bool eliminado = eliminar_proceso_de_lista(estado_susp_ready->sublista, proceso, "estado_susp_ready->sublista", &estado_susp_ready->mutex);
-
-    if(eliminado){
-        agregar_a_ready(proceso);
-        log_obligatorio_cambio_de_estado(proceso->pid, "SUSP_READY", "READY");
-    }
-    pthread_mutex_unlock(&proceso->mutex);
-    pthread_mutex_unlock(&m_transicionar);
-}
-
-void ready_a_exec(t_pcb* proceso){
-    pthread_mutex_lock(&m_transicionar);
-    pthread_mutex_lock(&proceso->mutex);
-    bool eliminado = eliminar_de_ready(proceso);
-    if(eliminado){
-        agregar_proceso_a_lista(estado_exec->sublista, proceso, EJECUTANDO, &estado_exec->mutex);
-        log_obligatorio_cambio_de_estado(proceso->pid, "READY", "EXEC");
-    }
-    pthread_mutex_unlock(&proceso->mutex);
-    pthread_mutex_unlock(&m_transicionar);
-}
-
-void blocked_a_ready(t_pcb* proceso){
-    pthread_mutex_lock(&m_transicionar);
-    pthread_mutex_lock(&proceso->mutex);
-    bool eliminado = eliminar_proceso_de_lista(estado_blocked->sublista, proceso, "lista_blocked", &estado_blocked->mutex);
-
-    if(eliminado){
-        agregar_a_ready(proceso);
-        log_obligatorio_cambio_de_estado(proceso->pid, "BLOCKED", "READY");
-    }
-    pthread_mutex_unlock(&proceso->mutex);
-    pthread_mutex_unlock(&m_transicionar);
-}
-
-void exec_a_blocked(t_pcb* proceso){
-    generica_transicion_de_estados(proceso, estado_exec, estado_blocked);
-}
-
-void exec_a_blocked_cond_signal(t_pcb* proceso){
-    log_debug(logger, "<%d> Exec a blocked cond signal", get_pid_thread_safe(proceso));
-    if(algoritmo_de_proceso(proceso) != RR){
-        exec_a_blocked(proceso);
-        return;
-    }
-    pthread_mutex_lock(&proceso->data_cond.mutex_cond);
-    
-    exec_a_blocked(proceso);
-    proceso->data_cond.cond_val = true;
-    pthread_cond_signal(&proceso->data_cond.cond);
-
-    pthread_mutex_unlock(&proceso->data_cond.mutex_cond);
-}
-
-void exec_a_ready(t_pcb* proceso){
-    pthread_mutex_lock(&m_transicionar);
-    pthread_mutex_lock(&proceso->mutex);
-    bool eliminado = eliminar_proceso_de_lista(estado_exec->sublista, proceso, "lista_exec", &estado_exec->mutex);
-    if(eliminado){
-        agregar_a_ready(proceso);
-        log_obligatorio_cambio_de_estado(proceso->pid, "EXEC", "READY");
-    }
-    pthread_mutex_unlock(&proceso->mutex);
-    pthread_mutex_unlock(&m_transicionar);
-}
-
-void exec_a_ready_cond_signal(t_pcb* proceso){
-    log_debug(logger, "<%d> Exec a ready cond signal", get_pid_thread_safe(proceso));
-    exec_a_ready(proceso);
-    pthread_mutex_lock(&proceso->data_cond.mutex_cond);
-
-    proceso->data_cond.cond_val = true;
-    pthread_cond_signal(&proceso->data_cond.cond);
-
-    pthread_mutex_unlock(&proceso->data_cond.mutex_cond);
-}
-
-void new_a_ready(t_pcb* proceso){
-    pthread_mutex_lock(&m_transicionar);
-    pthread_mutex_lock(&proceso->mutex);
-    bool eliminado = eliminar_proceso_de_lista(estado_new->sublista, proceso, "lista_new", &estado_new->mutex);
-
-    if(eliminado){
-        agregar_a_ready(proceso);
-        log_obligatorio_cambio_de_estado(proceso->pid, "NEW", "READY");
-    }
-    pthread_mutex_unlock(&proceso->mutex);
-    pthread_mutex_unlock(&m_transicionar);
-}
-
-void exec_a_exit(t_pcb* proceso){
-    generica_transicion_de_estados(proceso, estado_exec, estado_exit);
-}
-
-void proceso_a_new(t_pcb* proceso){
-    pthread_mutex_lock(&m_transicionar);
-    pthread_mutex_lock(&proceso->mutex);
-    agregar_proceso_a_lista(estado_new->sublista, proceso, NUEVO, &estado_new->mutex);
-    log_info(logger, "## (%d) Se crea el proceso - Estado: NEW", proceso->pid);
-    pthread_mutex_unlock(&proceso->mutex);
-    pthread_mutex_unlock(&m_transicionar);
-}
-
-void agregar_a_ready_thread_safe(t_pcb* proceso){
-    pthread_mutex_lock(&proceso->mutex);
-    agregar_a_ready(proceso);
-    pthread_mutex_unlock(&proceso->mutex);
-}
-
-void eliminar_de_ready_thread_safe(t_pcb* proceso){
-    pthread_mutex_lock(&proceso->mutex);
-    eliminar_de_ready(proceso);
-    pthread_mutex_unlock(&proceso->mutex);
-}
-
-void agregar_a_ready(t_pcb* proceso){
-    if(algoritmo == CMN){
-        agregar_a_ready_CMN(proceso);
-    }else{
-        agregar_proceso_a_lista(estado_ready->sublista, proceso, LISTO, &estado_ready->mutex);
-    }    
-    pthread_mutex_lock(&m_procesos_en_ready);
-    procesos_en_ready++;
-    pthread_mutex_unlock(&m_procesos_en_ready);
-    
-    intentar_planificar();
-    log_debug(logger, "Hice sem_post de s_nuevo_proceso_ready");
-}
-
-void agregar_a_ready_CMN(t_pcb* proceso){
-    if(proceso == NULL){
-        log_error(logger, "proceso NULL en agregar_a_ready_CMN");
-        return;
-    }
-    t_sublista_ready* cola_prioridad = sublista_ready_de_prioridad(proceso->prioridad_actual);
-    agregar_proceso_a_lista(cola_prioridad->sublista, proceso, LISTO, &cola_prioridad->mutex);
-}
-
-bool eliminar_de_ready(t_pcb* proceso){
-    bool eliminado;
-    if(algoritmo == CMN){
-        eliminado = eliminar_de_ready_CMN(proceso);
-    }else{
-        eliminado = eliminar_proceso_de_lista(estado_ready->sublista, proceso, "lista_ready", &estado_ready->mutex);
-    }
-    if(eliminado){
-        pthread_mutex_lock(&m_procesos_en_ready);
-        procesos_en_ready--;
-        pthread_mutex_unlock(&m_procesos_en_ready);
-    }
-
-    return eliminado;
-}
-
-bool eliminar_de_ready_CMN(t_pcb* proceso){
-    t_sublista_ready* cola = sublista_ready_de_prioridad(proceso->prioridad_actual);
-    return eliminar_proceso_de_lista(cola->sublista, proceso, "cola de prioridad de ready", &cola->mutex);
-}
-
-bool eliminar_proceso_de_lista(t_list* lista, t_pcb* proceso, char* nombre_lista, pthread_mutex_t* m){
-    if (proceso == NULL) {
-        log_error(logger, "proceso NULL en eliminar_proceso_de_lista");
-        return false;
-    }
-    pthread_mutex_lock(m);
-    bool removido = list_remove_element(lista, proceso);
-    pthread_mutex_unlock(m);
-    if(!removido){
-        log_error(logger, "El proceso PID %d no estaba en %s", proceso->pid, nombre_lista);
-    }
-    return removido;
-}
-
 void suspender_proceso(t_pcb* proceso){
     int pid = get_pid_thread_safe(proceso);
     t_paquete* p = crear_paquete(SCH_KM__SUSPENDER);
     agregar_a_paquete(p, &pid, sizeof(pid));
     enviar_paquete_y_liberarlo(p, conexion_kernel_memory);
-}
-
-void agregar_proceso_a_lista(t_list* lista, t_pcb* proceso, t_tipo_estado nuevo_estado, pthread_mutex_t* m){
-    if (proceso == NULL) {
-        log_error(logger, "proceso NULL en agregar_proceso_a_lista");
-        return;
-    }
-    pthread_mutex_lock(m);
-    proceso->estado = nuevo_estado;
-    list_add(lista, proceso);
-    pthread_mutex_unlock(m);
 }
 
 t_pcb* nuevo_proc(int prioridad, int ppid, char* instrucciones){
@@ -438,93 +186,7 @@ t_pcb* nuevo_proc(int prioridad, int ppid, char* instrucciones){
     return pcb;
 }
 
-// para desbloquear procesos
-
-void desbloquear_proceso(t_pcb* proceso){
-    log_debug(logger, "desbloquear_proceso: ejecutando");
-
-    pthread_mutex_lock(&proceso->mutex);
-    t_tipo_estado estado = proceso->estado;
-    pthread_mutex_unlock(&proceso->mutex);
-        if(estado == SUSP_BLOQUEADO){
-        // si esta en susp_blocked: mover a susp_ready
-        susp_blocked_a_susp_ready(proceso);
-        
-    }else if(estado == BLOQUEADO){
-        // si esta en blocked: mover a ready
-        blocked_a_ready(proceso);
-    }
-}
-
 // obtener por clave y getters
-
-t_pcb* proceso_de_lista(int pid, t_lista_estado*estado){
-    pthread_mutex_lock(&estado->mutex);
-    t_list* list = estado->sublista;
-    for(int i = 0; i < list_size(list); i++){
-        t_pcb* proceso = list_get(list, i);
-        if(proceso->pid == pid){
-            pthread_mutex_unlock(&estado->mutex);
-            return proceso;
-        }
-    }
-    pthread_mutex_unlock(&estado->mutex);
-    return NULL;
-}
-
-t_pcb* get_proceso_de_pid_thread_safe(int pid){
-    t_tipo_estado estados[] = {
-        NUEVO,
-        LISTO,
-        BLOQUEADO,
-        SUSP_BLOQUEADO,
-        SUSP_LISTO,
-        FINALIZADO
-    };
-
-    for (int e = 0; e < sizeof(estados) / sizeof(estados[0]); e++) {
-        t_list* lista = lista_from_enum(estados[e]);
-        pthread_mutex_lock(&m_transicionar);
-
-        for (int i = 0; i < list_size(lista); i++) {
-            t_pcb* pcb = list_get(lista, i);
-
-            if (pcb->pid == pid) {
-                pthread_mutex_unlock(&m_transicionar);
-                return pcb;
-            }
-        }
-        pthread_mutex_unlock(&m_transicionar);
-    }
-    return NULL;
-}
-
-t_list* lista_from_enum(t_tipo_estado e){
-    switch (e) {
-        case NUEVO:
-            return estado_new->sublista;
-
-        case LISTO:
-            return estado_ready->sublista;
-
-        case BLOQUEADO:
-            return estado_blocked->sublista;
-
-        case SUSP_BLOQUEADO:
-            return estado_susp_blocked->sublista;
-
-        case SUSP_LISTO:
-            return estado_susp_ready->sublista;
-
-        case FINALIZADO:
-            return estado_exit->sublista;
-
-        case EJECUTANDO:
-            return estado_exec->sublista;
-        default:
-            return NULL;
-    }
-}
 
 t_tipo_estado get_estado(t_pcb* p){
     pthread_mutex_lock(&p->mutex);
@@ -565,17 +227,6 @@ int get_pid_de_proceso_de_cpu_thread_safe(t_cpu* cpu){
     return get_pid_thread_safe(p);
 }
 
-t_sublista_ready* sublista_ready_de_prioridad(int prioridad){
-    pthread_mutex_lock(&estado_ready->mutex);
-    t_sublista_ready* cola_prioridad = list_get(estado_ready->sublista, prioridad);
-    pthread_mutex_unlock(&estado_ready->mutex);
-    if(cola_prioridad == NULL){
-        log_error(logger, "error al obtener la cola de prioridad %d", prioridad);
-        exit(EXIT_FAILURE); 
-    }
-    return cola_prioridad;
-}
-
 t_cpu* cpu_de_pid(int pid){
     pthread_mutex_lock(&m_lista_cpus);
     for(int i = 0; i < list_size(lista_cpus); i++){
@@ -612,30 +263,6 @@ t_status_op get_status(t_pcb* proceso){
 
 // funciones para modificar y setters
 
-void cambiar_prioridad(t_pcb* proceso, int prioridad){
-    if(algoritmo != CMN){
-        log_debug(logger, "Algoritmo no es CMN, no aplica el cambio de prioridad");
-        return;
-    }
-    if(list_size(queues_algorithms)>prioridad){
-        log_info(logger, "## %d Cambio de prioridad: %d - %d", proceso->pid, proceso->prioridad_actual, prioridad);
-        pthread_mutex_lock(&m_transicionar);
-        pthread_mutex_lock(&proceso->mutex);
-        proceso->prioridad_actual = prioridad;
-        if(proceso->estado == LISTO){
-            bool eliminado = eliminar_de_ready(proceso);
-            if(eliminado){
-                agregar_a_ready(proceso);
-            }
-        }
-        pthread_mutex_unlock(&proceso->mutex);
-        pthread_mutex_unlock(&m_transicionar);
-    }else{
-        log_error(logger, "Error: Intento de pasar al proceso <%d> a una prioridad invalida (%d)", proceso->pid, prioridad);
-        exit(EXIT_FAILURE);
-    }
-}
-
 void set_status(t_pcb* pcb, t_status_op status){
     if(status != OK){
         pthread_mutex_lock(&pcb->mutex);
@@ -671,22 +298,6 @@ void liberar_cpu(t_cpu* cpu){
     cpu->proceso = NULL;
     intentar_planificar();
     pthread_mutex_unlock(&cpu->mutex);
-}
-
-void liberar_pcb_de_exit(int pid){
-    pthread_mutex_lock(&estado_exit->mutex);
-    for(int i = 0; i < list_size(estado_exit->sublista); i++){
-        t_pcb* proceso = list_get(estado_exit->sublista, i);
-        if(proceso->pid == pid){
-            log_debug(logger, "libereando proc encontrado depid = %d", pid);
-            list_remove(estado_exit->sublista, i);
-            destroy_pcb(proceso);
-            pthread_mutex_unlock(&estado_exit->mutex);
-            return;
-        }
-    }
-    pthread_mutex_unlock(&estado_exit->mutex);
-    log_error(logger, "No se encontro el proceso PID <%d> en lista_exit", pid);
 }
 
 void liberar_evt(t_evt* evt, void (*free_data)(void*)){
@@ -814,106 +425,8 @@ bool queue_preemption_from_string(char* str){
     return strcmp(str, "TRUE") == 0;
 }
 
-static bool mayor_prioridad(void* a, void* b) {
-    t_pcb* pcb_a = a;
-    t_pcb* pcb_b = b;
-    return get_prioridad_actual_thread_safe(pcb_a) < get_prioridad_actual_thread_safe(pcb_b);
-}
-
-t_list* obtener_pcbs_ordenados_por_prioridad(t_list* procesos) {
-    t_list* copia = list_duplicate(procesos);
-    list_sort(copia, mayor_prioridad);
-
-    return copia;
-}
-
-void intentar_desuspender(){
-    pthread_mutex_lock(&m_transicionar);
-    pthread_mutex_lock(&estado_susp_ready->mutex);
-    log_debug(logger, "intentando desuspender procesos");
-    t_list* pcbs_ordenados = obtener_pcbs_ordenados_por_prioridad(estado_susp_ready->sublista);
-    for(int i = 0; i<list_size(pcbs_ordenados); i++){
-        int pid = get_pid_thread_safe((t_pcb*)list_get(pcbs_ordenados, i));
-        t_paquete* data = crear_paquete(SCH_KM__INTENTAR_DESUSPENDER);
-        agregar_a_paquete(data, &pid, sizeof(pid));
-        enviar_paquete_y_liberarlo(data, conexion_kernel_memory);
-    }
-    pthread_mutex_unlock(&estado_susp_ready->mutex);
-    pthread_mutex_unlock(&m_transicionar);
-    list_destroy(pcbs_ordenados);
-}
-
 // logs
 
 void log_obligatorio_cambio_de_estado(int pid, char* estado_anterior, char* estado_actual){
     log_info(logger, "## (%d) Pasa del estado %s al estado %s", pid, estado_anterior, estado_actual);
-}
-
-void loguear_tamanio_listas_de_estado(){
-    // log_debug(logger, "new: %d, ready: %d, exec: %d, blocked: %d, susp_blocked: %d, susp_ready: %d, exit: %d"
-    //                 , list_size(estado_new->sublista)
-    //                 , procesos_en_ready
-    //                 , list_size(estado_exec->sublista)
-    //                 , list_size(estado_blocked->sublista)
-    //                 , list_size(estado_susp_blocked->sublista)
-    //                 , list_size(estado_susp_ready->sublista)
-    //                 , list_size(estado_exit->sublista));
-    imprimir_estado_procesos();
-
-}
-
-void imprimir_estado_procesos(void){
-    if(log_level != LOG_LEVEL_DEBUG){
-        return;
-    }
-    pthread_mutex_lock(&m_transicionar);
-
-    char* msg = string_new();
-
-    string_append(&msg, "NEW=[");
-    for (int i = 0; i < list_size(estado_new->sublista); i++) {
-        if (i) string_append(&msg, ",");
-        t_pcb* p = list_get(estado_new->sublista, i);
-        string_append_with_format(&msg, "%d", p->pid);
-    }
-    string_append(&msg, "] ");
-
-    string_append(&msg, "READY=[");
-    if (algoritmo == CMN) {
-        bool primero = true;
-        for (int i = 0; i < list_size(estado_ready->sublista); i++) {
-            t_sublista_ready* sub = list_get(estado_ready->sublista, i);
-            for (int j = 0; j < list_size(sub->sublista); j++) {
-                if (!primero) string_append(&msg, ",");
-                t_pcb* p = list_get(sub->sublista, j);
-                string_append_with_format(&msg, "%d", p->pid);
-                primero = false;
-            }
-        }
-    } else {
-        for (int i = 0; i < list_size(estado_ready->sublista); i++) {
-            if (i) string_append(&msg, ",");
-            t_pcb* p = list_get(estado_ready->sublista, i);
-            string_append_with_format(&msg, "%d", p->pid);
-        }
-    }
-    string_append(&msg, "] ");
-
-    t_lista_estado* estados[] = {estado_exec, estado_blocked, estado_susp_blocked, estado_susp_ready, estado_exit};
-    const char* nombres[] = {"EXEC", "BLOCKED", "SUSP_BLOCKED", "SUSP_READY", "EXIT"};
-
-    for (int e = 0; e < 5; e++) {
-        string_append_with_format(&msg, "%s=[", nombres[e]);
-        for (int i = 0; i < list_size(estados[e]->sublista); i++) {
-            if (i) string_append(&msg, ",");
-            t_pcb* p = list_get(estados[e]->sublista, i);
-            string_append_with_format(&msg, "%d", p->pid);
-        }
-        string_append(&msg, "] ");
-    }
-
-    log_info(logger, "%s", msg);
-
-    free(msg);
-    pthread_mutex_unlock(&m_transicionar);
 }

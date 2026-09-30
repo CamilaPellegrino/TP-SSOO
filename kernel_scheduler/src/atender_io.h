@@ -2,6 +2,7 @@
 #define ATENDER_IO_H_
 
 #include "base_sch.h"
+#include "maquina_estados.h"
 
 void* atender_io(t_io* io);
 void atender_sys(t_io* io, t_paquete* paquete_envio, char* sys_name);
