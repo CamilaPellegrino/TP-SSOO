@@ -50,10 +50,42 @@ El proyecto está compuesto por los siguientes módulos:
 * **`kernel memory`** — Módulo encargado de gestionar la asignación de memoria a lo largo de los diferentes Memory Sticks y del SWAP.
 * **`cpu`** — Módulo encargado de la ejecución de instrucciones y simulación los pasos del ciclo de instrucción de una CPU real simplificada.
 * **`memory_stick`** — Módulo encargado representar un espacio de direcciones de memoria, simulando los diferentes chips de memoria de una computadora.
-* **`swap`** — Módulo encargado de almacenar la información de los procesos que sean suspendidos por el kernel.*
+* **`swap`** — Módulo encargado de almacenar la información de los procesos que sean suspendidos por el kernel.
 * **`io`** — Módulo encargado de simular las operaciones de entrada y salida.
 
 Cada módulo posee su propio código fuente, configuración, Makefile y ejecutable.
+
+## Instrucciones soportadas
+
+Los archivos de proceso contienen instrucciones con los siguientes nombres y
+parámetros. Los nombres de las instrucciones y los registros no distinguen
+mayúsculas de minúsculas.
+
+Los registros disponibles son `AX`, `BX`, `CX` y `DX` (8 bits), y `EAX`,
+`EBX`, `ECX`, `EDX`, `SI`, `DI` y `PC` (32 bits). En las operaciones que
+reciben un registro como destino, el resultado se ajusta al tamaño de ese
+registro.
+
+| Instrucción | Parámetros | Qué hace |
+| --- | --- | --- |
+| `NOOP` | Ninguno | No realiza ninguna operación. |
+| `SET registro valor` | `registro`: registro destino. `valor`: número entero decimal. | Guarda el valor en el registro. |
+| `SUM destino origen` | `destino`, `origen`: registros. | Suma ambos valores y guarda el resultado en `destino`. |
+| `SUB destino origen` | `destino`, `origen`: registros. | Resta `origen` a `destino` y guarda el resultado en `destino`. |
+| `JNZ registro pc` | `registro`: registro a comprobar. `pc`: índice de instrucción de destino. | Si el registro no es cero, continúa desde ese PC (salto absoluto). |
+| `MOV_IN registro` | `registro`: registro donde guardar lo leído. | Lee desde la dirección lógica indicada por `SI`; la cantidad de bytes leídos corresponde al tamaño del registro. |
+| `MOV_OUT registro` | `registro`: registro cuyo contenido se escribe. | Escribe en la dirección lógica indicada por `DI`; la cantidad de bytes escritos corresponde al tamaño del registro. |
+| `COPY_MEM registro_tamanio` | `registro_tamanio`: registro que contiene la cantidad de bytes. | Copia memoria desde la dirección lógica de `SI` hacia la de `DI`. |
+| `SLEEP milisegundos` | `milisegundos`: duración de la espera. | Bloquea el proceso durante el tiempo indicado. |
+| `STDIN registro_direccion registro_tamanio` | `registro_direccion`: registro con la dirección lógica de destino. `registro_tamanio`: registro con la cantidad de bytes a leer. | Solicita datos al dispositivo de entrada y los escribe en memoria. |
+| `STDOUT registro_direccion registro_tamanio` | `registro_direccion`: registro con la dirección lógica de origen. `registro_tamanio`: registro con la cantidad de bytes a mostrar. | Lee memoria y envía los datos al dispositivo de salida. |
+| `MUTEX_CREATE nombre` | `nombre`: identificador del mutex. | Crea un mutex con ese nombre. |
+| `MUTEX_LOCK nombre` | `nombre`: identificador del mutex. | Solicita bloquear el mutex; el proceso espera si ya está ocupado. |
+| `MUTEX_UNLOCK nombre` | `nombre`: identificador del mutex. | Libera el mutex. |
+| `INIT_PROC ruta prioridad` | `ruta`: archivo del nuevo proceso. `prioridad`: prioridad asignada. | Solicita la creación de un proceso a partir del archivo indicado. |
+| `MEM_ALLOC id_segmento tamanio` | `id_segmento`: identificador numérico del segmento. `tamanio`: cantidad de bytes solicitada. | Solicita reservar un segmento de memoria. |
+| `MEM_FREE id_segmento` | `id_segmento`: identificador numérico del segmento. | Solicita liberar el segmento. |
+| `EXIT` | Ninguno | Finaliza el proceso con estado de salida normal. |
 
 ## Importar desde Visual Studio Code
 
