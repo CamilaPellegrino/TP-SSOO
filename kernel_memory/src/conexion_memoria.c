@@ -370,6 +370,7 @@ int obtener_primer_bloque_libre() {
     pthread_mutex_lock(&m_bitarray);
     for (int i = 0; i < cant_bloques; i++) {
         if (!bitarray_test_bit(bitarray, i)) {
+            pthread_mutex_unlock(&m_bitarray);
             return i;
         }
     }

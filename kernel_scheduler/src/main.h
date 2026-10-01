@@ -7,7 +7,6 @@
 #include "planificador.h"
 #include "atender_io.h"
 #include "mutex.h"
-#include "test.h"
 
 // variables globales
 t_list* lista_cpus;

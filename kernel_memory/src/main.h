@@ -6,7 +6,6 @@
 #include "base_km.h"
 #include "manejar_segmentos.h"
 #include "conexion_memoria.h"
-#include "tests.h"
 
 void* atender_cliente(void *arg);
 void* atender_cpu(void* cpu);

@@ -20,8 +20,6 @@ int main(int argc, char* argv[]) { // ejecucion con valgrind: valgrind --leak-ch
 
     inicializar_variables_globales(config); // tambien inicializa el logger con el log_level de la config
  
-    // testear(); // descomentar esto si solo queres testear y defini el test en test.c
-
     // conectar a kernel memory
     conexion_kernel_memory = crear_conexion(ip_km, puerto_kernel_memory);
     exit_si_error_conexion(conexion_kernel_memory, logger, "kernel_memory");

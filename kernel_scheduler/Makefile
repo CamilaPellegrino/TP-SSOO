@@ -71,6 +71,7 @@ release: $(OUT)
 .PHONY: test
 test: CFLAGS = $(CDEBUG)
 test: $(TEST)
+	./$(TEST)
 
 .PHONY: clean
 clean:
@@ -81,7 +82,7 @@ $(OUT): $(OBJS) | $(dir $(OUT))
 	$(call compile_out)
 
 $(TEST): $(TEST_OBJS) $(DEPS) | $(dir $(TEST))
-	$(CC) $(CFLAGS) -o "$@" $^ $(IDIRS:%=-I%) $(LIBDIRS:%=-L%) $(RUNDIRS:%=-Wl,-rpath,%) $(LIBS:%=-l%) -lcspecs
+	$(CC) $(CFLAGS) -o "$@" $^ $(IDIRS:%=-I%) $(LIBDIRS:%=-L%) $(RUNDIRS:%=-Wl,-rpath,%) $(LIBS:%=-l%)
 
 obj/%.o: src/%.c $(SRCS_H) $(DEPS) | $(dir $(OBJS))
 	$(call compile_objs)

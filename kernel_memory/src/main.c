@@ -10,8 +10,6 @@ int main(int argc, char* argv[]) {
     t_config* config = iniciar_config(ruta_config);
     inicializar_variables_globales(config);
 
-    // testear(); // Descomentar para ejecutar TESTS
-
     int kernel_memory_fd = iniciar_servidor_o_exit(puerto, logger);
 
     // pthread_t thread_stick = crear_hilo_o_exit(atender_stick, NULL, "atender_stick", logger);
