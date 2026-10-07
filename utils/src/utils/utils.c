@@ -330,6 +330,15 @@ t_log* iniciar_logger(char* ruta, char* process_name, t_log_level log_level)
 
 // otras
 
+int verificar_test(bool condicion, const char* descripcion){
+	if(condicion){
+		fprintf(stderr, "[OK]: %s\n", descripcion);
+		return 0;
+	}
+	fprintf(stderr, "[FALLO]: %s\n", descripcion);
+	return 1;
+}
+
 char* status_op_a_string(t_status_op s){
 	static char* status_strings[] = {
 		"OK",

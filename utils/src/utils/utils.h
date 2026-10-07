@@ -5,6 +5,7 @@
 #include<stdlib.h>
 #include<signal.h>
 #include<unistd.h>
+#include<stdbool.h>
 #include<sys/socket.h>
 #include<netdb.h>
 #include<string.h>
@@ -193,6 +194,7 @@ t_log* iniciar_logger_log_level_string(char*, char*, char*);
 
 // otras
 char* status_op_a_string(t_status_op s);
+int verificar_test(bool condicion, const char* descripcion);
 pthread_t crear_hilo_o_exit(void* (*funcion)(void*), void* arg, char* nombre_hilo, t_log* logger);
 void imprimir_bytes(void* data, int tamanio);
 

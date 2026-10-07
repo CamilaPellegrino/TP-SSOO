@@ -17,13 +17,7 @@
 static int cantidad_fallos = 0;
 
 static void verificar(bool condicion, const char *descripcion){
-    if(!condicion){
-        fprintf(stderr, "[FALLO]: %s\n", descripcion);
-        cantidad_fallos++;
-    }else{
-        fprintf(stderr, "[OK]: %s\n", descripcion);
-
-    }
+    cantidad_fallos += verificar_test(condicion, descripcion);
 }
 
 typedef struct {

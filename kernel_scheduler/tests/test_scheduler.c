@@ -13,12 +13,7 @@
 static int cantidad_fallos = 0;
 
 static void verificar(bool condicion, const char* descripcion){
-	if(condicion){
-		fprintf(stderr, "[OK]: %s\n", descripcion);
-	}else{
-		fprintf(stderr, "[FALLO]: %s\n", descripcion);
-		cantidad_fallos++;
-	}
+	cantidad_fallos += verificar_test(condicion, descripcion);
 }
 
 static void destruir_pcb_sync(t_pcb* proceso){
