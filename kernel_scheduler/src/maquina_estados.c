@@ -457,11 +457,7 @@ void loguear_tamanio_listas_de_estado(void){
 	imprimir_estado_procesos();
 }
 
-void imprimir_estado_procesos(void){
-	if(log_level != LOG_LEVEL_DEBUG){
-		return;
-	}
-	pthread_mutex_lock(&m_transicionar);
+char* estado_procesos(void){
 	char* mensaje = string_new();
 	string_append(&mensaje, "NEW=[");
 	for(int i = 0; i < list_size(estado_new->sublista); i++){
@@ -474,12 +470,14 @@ void imprimir_estado_procesos(void){
 		bool primero = true;
 		for(int i = 0; i < list_size(estado_ready->sublista); i++){
 			t_sublista_ready* sublista = list_get(estado_ready->sublista, i);
+			string_append_with_format(&mensaje, "P%d=[", i);
 			for(int j = 0; j < list_size(sublista->sublista); j++){
 				if(!primero) string_append(&mensaje, ",");
 				t_pcb* proceso = list_get(sublista->sublista, j);
 				string_append_with_format(&mensaje, "%d", proceso->pid);
 				primero = false;
 			}
+			string_append(&mensaje, "]");
 		}
 	}else{
 		for(int i = 0; i < list_size(estado_ready->sublista); i++){
@@ -500,26 +498,40 @@ void imprimir_estado_procesos(void){
 		}
 		string_append(&mensaje, "] ");
 	}
+	return mensaje;
+}
+
+void imprimir_estado_procesos(void){
+	if(log_level != LOG_LEVEL_DEBUG){
+		return;
+	}
+	pthread_mutex_lock(&m_transicionar);
+	char* mensaje = estado_procesos();
 	log_info(logger, "%s", mensaje);
 	free(mensaje);
 	pthread_mutex_unlock(&m_transicionar);
 }
 
-void cambiar_prioridad(t_pcb* proceso, int prioridad){
+bool cambiar_prioridad(t_pcb* proceso, int prioridad){
 	if(algoritmo != CMN){
 		log_debug(logger, "Algoritmo no es CMN, no aplica el cambio de prioridad");
-		return;
+		return false;
 	}
 	if(list_size(queues_algorithms) > prioridad){
-		log_info(logger, "## %d Cambio de prioridad: %d - %d", proceso->pid, proceso->prioridad_actual, prioridad);
 		pthread_mutex_lock(&m_transicionar);
 		pthread_mutex_lock(&proceso->mutex);
-		proceso->prioridad_actual = prioridad;
 		if(proceso->estado == LISTO){
 			bool eliminado = eliminar_de_ready(proceso);
 			if(eliminado){
+				proceso->prioridad_actual = prioridad;
 				agregar_a_ready(proceso);
+				log_info(logger, "## %d Cambio de prioridad: %d - %d", proceso->pid, proceso->prioridad_actual, prioridad);
+			}else{
+				log_warning(logger, "No se pudo eliminar el proceso <%d> de READY para cambiar su prioridad", proceso->pid);
 			}
+		}else{
+			proceso->prioridad_actual = prioridad;
+			log_info(logger, "## %d Cambio de prioridad: %d - %d", proceso->pid, proceso->prioridad_actual, prioridad);
 		}
 		pthread_mutex_unlock(&proceso->mutex);
 		pthread_mutex_unlock(&m_transicionar);
@@ -527,4 +539,5 @@ void cambiar_prioridad(t_pcb* proceso, int prioridad){
 		log_error(logger, "Error: Intento de pasar al proceso <%d> a una prioridad invalida (%d)", proceso->pid, prioridad);
 		exit(EXIT_FAILURE);
 	}
+	return true;
 }

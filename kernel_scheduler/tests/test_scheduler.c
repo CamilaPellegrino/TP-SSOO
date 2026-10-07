@@ -31,6 +31,23 @@ static t_pcb* crear_pcb(int pid, int prioridad){
 	return iniciar_pcb(pid, 0, prioridad, NUEVO);
 }
 
+static const char* nombre_estado_test(t_tipo_estado estado){
+	switch(estado){
+		case NUEVO: return "NEW";
+		case LISTO: return "READY";
+		case EJECUTANDO: return "EXEC";
+		case BLOQUEADO: return "BLOCKED";
+		case SUSP_BLOQUEADO: return "SUSP_BLOCKED";
+		case SUSP_LISTO: return "SUSP_READY";
+		case FINALIZADO: return "EXIT";
+		default: return "DESCONOCIDO";
+	}
+}
+
+void imprimir_estado_procesos_test(){
+	fprintf(stderr, "%s\n", estado_procesos());
+}
+
 static void* esperar_evento_finalizado(void* arg){
 	t_evt* evento = arg;
 	pthread_mutex_lock(&evento->mutex);
@@ -318,13 +335,18 @@ static void test_colas_cmn_y_prioridad(void){
 	t_pcb* prioridad_media = crear_pcb(12, 1);
 	proceso_a_new(prioridad_baja);
 	proceso_a_new(prioridad_media);
+	t_pcb* procesos[] = {prioridad_baja, prioridad_media};
+	
 	new_a_ready(prioridad_baja);
 	new_a_ready(prioridad_media);
+
 	cambiar_prioridad(prioridad_baja, 0);
+
 	verificar(get_prioridad_actual_thread_safe(prioridad_baja) == 0,
 	          "actualiza la prioridad actual bajo CMN");
 
 	t_pcb* primero = desencolar_ready_cmn();
+
 	verificar(primero == prioridad_baja, "READY prioriza la cola de mayor prioridad");
 	if(primero != NULL){
 		registrar_proceso_exec(primero);
@@ -457,7 +479,8 @@ static void test_reinsercion_al_frente(void){
 }
 
 int main(void){
-	logger = log_create("/tmp/kernel_scheduler_tests.log", "kernel_scheduler_tests", false, LOG_LEVEL_ERROR);
+	log_level = LOG_LEVEL_ERROR; // LOG_LEVEL_TRACE para ver todo los logs, LOG_LEVEL_ERROR para ver solo errores.
+	logger = log_create("/tmp/kernel_scheduler_tests.log", "kernel_scheduler_tests", true, log_level);
 	printf("Running kernel_scheduler tests...\n");
 	if(logger == NULL){
 		return EXIT_FAILURE;
@@ -494,7 +517,7 @@ int main(void){
 	test_reinsercion_al_frente();
 	test_mutexes_locales();
 	test_aritmetica_de_timeout();
-
+	
 	sem_destroy(&s_intentar_planificar);
 	pthread_mutex_destroy(&m_lista_cpus);
 	pthread_mutex_destroy(&m_lista_mutex);
@@ -507,6 +530,8 @@ int main(void){
 	if(cantidad_fallos > 0){
 		fprintf(stderr, "%d pruebas fallaron\n", cantidad_fallos);
 		return EXIT_FAILURE;
+	}else{
+		fprintf(stderr, "Todas las pruebas pasaron\n");
 	}
 	return EXIT_SUCCESS;
 }
