@@ -189,6 +189,7 @@ void iniciar_instr_exit(t_instruccion_decodificada* instr, t_status_op s){
     instr->tipo = I_EXIT;
     t_status_op* status = malloc(sizeof(t_status_op)); 
     *status = s;
+    list_clean(instr->registros);
     list_add(instr->registros, status);
 }
 
